@@ -1,83 +1,65 @@
 # HANDOFF
 
-最終更新: 2026-11-14 18:45 JST / 更新者: Claude Code セッション。**この文書の 2〜9 章は Phase 0 完了時点の内容で古い(モード名 TRAIN / REPLAN も旧称)。決定事項と未決定事項の最新は `PROJECT_STATE.md`、経緯は `WORKLOG.md` を見ること。**
+最終更新: 2026-11-14 22:30 JST / 更新者: Claude Code セッション。決定事項と未決定事項の正本は `PROJECT_STATE.md`、経緯は `WORKLOG.md`、UI の判断は `UI_DECISIONS.md`。
 
 ## 1. プロジェクト概要
 
-NASA Space Apps Challenge 2026「Interplanetary Survival Guide: Martian Map」向けの **Mission Lens**。1 回の Marswalk を、計画の理解・確認(PLAN)から現地での活動(FIELD)まで、同じミッション情報・同じ座標でつなぐ探査支援アプリケーション。主となる形は Quest 3 の MR / VR の空間 UI。コンセプト、提供価値、判断基準、今回の中心と将来構想の区別は `PROJECT_STATE.md` の冒頭にある(2026-11-14 18:45 に企画セッションの再整理を反映)。締切は東京会場の審査が 2026-11-15 14:00 JST(途中可)、本家フォームが同日 23:59。提出物の型は `docs/SUBMISSION.md`。1 人開発。
+NASA Space Apps Challenge 2026「Interplanetary Survival Guide: Martian Map」向けの **Mission Lens**。1 回の Marswalk を、計画の理解・確認(PLAN)から現地での活動(FIELD)まで、同じミッション情報・同じ座標でつなぐ探査支援アプリケーション。主となる形は Quest 3 の MR / VR の空間 UI で、本体は Unity(`unity/`)。コンセプト、提供価値、判断基準、今回の中心と将来構想の区別は `PROJECT_STATE.md` の冒頭にある。締切は東京会場の審査が 2026-11-15 14:00 JST(途中可)、本家フォームが同日 23:59。提出物の型は `docs/SUBMISSION.md`。1 人開発。
 
 ## 2. 直近で完了した作業
 
-Phase 0(データ実現性の検証)。公式課題の確認、Jezero と Gale の比較、Jezero の実データ取得と加工、表示実験 1 本。
+Unity 版を、開始から終了まで通るアプリとして作り込んだ(2026-11-14 21:30〜22:30)。タイトル、オープニング、PLAN、先の地点の下見、FIELD、終了と振り返り、やり直し。演出・操作の反応・音・ヘッドセット向けの保険を足した。APK を作り直した。内容は `PROJECT_STATE.md` の「実装済み」、判断と理由は `UI_DECISIONS.md` の 23〜38。
 
 ## 3. 現時点で動くもの
 
-- `tools/` のデータ加工スクリプト 3 本(再実行可、取得物は `data_cache/` にキャッシュ)。
-- `experiments/phase0/index.html`: Jezero デルタ前縁の 3D 地形、レイヤー切り替え(光学・傾斜・陰影・熱赤外)、Perseverance の経路と試料採取地点、Wildcat Ridge の地上視点パノラマ。
-- 本開発のアプリはまだ無い(技術スタック未確定。`web/` か `unity/` に作る)。
+- **Unity 版**(`unity/Assets/MissionLens/`): Editor の Play で、デスクトップ用のカメラとマウスで全体を操作できる(ドラッグで見回し、クリックで選択、Space で手首パネル、Enter で開始)。Quest 向けの APK は `unity/Builds/MissionLens.apk`。
+- **空間 UI の擬似版**(`experiments/spatial/index.html`、Three.js): Unity 版の前段。内容は 19:15 時点のもので、Unity 版で足したもの(タイトル、下見と実行の区別、振り返りなど)は入っていない。
+- データ加工(`tools/`、再実行可)と加工済みデータ(`assets/data/`)。
 
 ## 4. 重要な設計判断と理由
 
-- **推奨地域は Jezero デルタ前縁。** 調査地点が構造化データで手に入り、軌道と地上のデータの重なりを数値で確認でき、地上視点を再構成できたため。
-- **Web + Three.js、データは事前加工して静的に同梱。** Phase 0 の表示が短時間で動いた。デモが会場ネットワークに依存しない。
-- **地上視点は NASA の公式モザイクではなく自前の再構成。** 公式モザイクは公開されていなかった(HTTP 403)。生画像に付属するカメラモデルと姿勢から再投影している。画面上で「再構成」と明示する。
+- **人は動かず、地形を人のまわりに置く。** XR では人の向きも位置も変えられない。机上の模型が広がって現地になり、着く向きは地形のほうを回して合わせる。
+- **シーンには何も置かず、実行時にデータから組み立てる**(`MLApp`)。Editor を CLI で操作して作るので、状態がコードとデータだけにあるほうが確かめやすい。
+- **表示は UGUI で描くだけ、指し示しは自前**(光線と面の交点からボタンを引く、`MLPanel`)。マウス・手・コントローラー・視線を同じ経路で扱え、デスクトップで確かめたものがそのままヘッドセットで動く。
+- **PLAN の「Stand at」は下見、FIELD は Marswalk の現在地から。** 理由は `UI_DECISIONS.md` の 24。
+- **観測でないものは観測に見せない。** 空の補完、画像の無い部分のグリッド、模型の側壁、霞、音はこちらで作ったもので、画面か文書にそう書く。
 
 ## 5. 検証済みの事実と未検証事項
 
-**検証済み**
-- HiRISE DTM(1 m)とローバーの標高が AOI 内 129 点で一致(差の平均 0.06 m、標準偏差 0.13 m)。
-- Navcam 生画像 28 枚(sol 502)から北基準パノラマを再構成でき、DTM から計算した稜線が画像と一致。
-- 地図座標から投影した Skinner Ridge のマーカーが、画像内の該当する露頭に載る。
-- Three.js で地形・レイヤー・地上視点を 1 ページに統合できる(ヘッドレス Chrome のスクリーンショット 4 枚で確認)。
+**検証済み**(データ): HiRISE DTM とローバーの標高の一致(129 点、差の平均 0.06 m)。公式パノラマ 4 枚の方位(稜線との残差 0.2〜0.3°)。詳細は `SHARED_CONDITIONS.md`。
 
-**未検証**
-- 人の手でのマウス操作、切り替えアニメーション、描画速度。
-- CRISM(分光)、USGS 地質図 SIM 3464、MEDA の集計表示。
-- Wildcat Ridge 以外の地点のパノラマ、Mastcam-Z の再投影。
-- WebXR / Quest 3。
-- Gale 側の DTM 数値取得とパノラマ再構成(比較は資料と API 応答の確認まで)。
+**検証済み**(Unity 版、Editor のデスクトップ用カメラで): タイトルから全 13 作業、終了、振り返り、やり直しまでの通し。下見の地点間の移動。記録と取り消し。レイヤー、高さ 2 倍、1 : 25 と実寸の地形。実際のポインター経路でのホバーとクリック。視線での選択と視野周辺の暗転(確認用フラグで)。コンソールのエラー 0。Android ビルドの成功。
 
-**構想段階**
-- 仮想 Marswalk の中身(地点・ルート・作業手順)、TRAIN → FIELD の遷移演出、REPLAN。
+**未検証**: Quest 実機のすべて(パススルー、手・コントローラー・視線の指し示し、手の輪郭線、振動、手首パネル、帯の追従、机の位置と高さ、描画速度、酔いやすさ、音量)。音が耳でどう聞こえるか。人の手での操作感。
 
 ## 6. NASA データの利用状況
 
 | データ | ミッション / 機器 | 用途 | 区分 |
 |---|---|---|---|
-| カラー正射画像 25 cm | MRO / HiRISE(+CTX) | 地図の下地、3D 地形のテクスチャ | 実観測 |
-| DTM 1 m | MRO / HiRISE(MOLA 基準、USGS 作成) | 3D 地形、傾斜、稜線、見通し判定 | 実観測(傾斜以降は自前の計算) |
-| THEMIS 昼夜 IR 100 m | Mars Odyssey | 熱レイヤー(地域文脈) | 実観測 |
-| 経路・ウェイポイント・試料採取地点 | Mars 2020 | 地点とルートの根拠 | 実観測 / NASA の記録 |
-| Navcam 生画像(sol 502) | Mars 2020 | 地上視点パノラマ | 自前の再構成 |
-| MEDA(sol 502) | Mars 2020 | 現地の気象(取得のみ、未表示) | 実観測 |
-
-公式 Resources との対応: Mars Trek(THEMIS タイルと地域カタログの取得元)、Perseverance Raw Images(Navcam)を使用。USGS 地質図と Curiosity ルートは未使用、Worldview は対象外(地球)。
+| カラー正射画像 25 cm | MRO / HiRISE | 机上の模型と地形の中の表示 | 実観測 |
+| DTM 1 m(2 m 格子で使用) | MRO / HiRISE(USGS 作成) | 地形、傾斜、等高線、見通し、ルート、記録の位置 | 実観測(傾斜以降はこちらの計算) |
+| MTRDR ブラウズ製品 PHY | MRO / CRISM(FRT00005C5E) | 分光レイヤーと、地点ごとの相対的な強さ | 実観測(位置合わせと順位はこちら) |
+| 360° パノラマ 4 枚 | Mars 2020 / Mastcam-Z | 4 地点の実画像 | 実観測(方位の割り当てはこちら) |
+| 経路・ウェイポイント・試料記録 | Mars 2020 | 地点とルートの根拠、科学目標の根拠 | NASA の記録 |
+| MEDA(sol 502) | Mars 2020 | 地点 C の気圧と気温 | 実観測 |
+| Navcam 生画像 | Mars 2020 | パノラマの位置合わせの橋渡し(表示には使わない) | こちらの再構成 |
 
 ## 7. 現在の課題・リスク
 
-- 残り時間が約 25 時間。地図・地上視点・ミッション進行を 1 本につなぐ本実装がまだ無い。
-- 熱データは 81 m/px で局所判断には粗い。「3 種類以上のデータ」を局所スケールで満たすには、光学・地形・現地気象・地点の岩種記録の組み合わせが現実的。
-- パノラマに明暗の継ぎ目と未撮影部分がある。地点数も現状 1。
-- 傾斜の分類閾値は仮の値(NASA の EVA 基準ではない)。
-- Jezero には地表の放射線計測が無い。
+- 実機で一度も動かしていない。会場で初めて動かすのは避けたい。
+- 手の指し示しが効かない場合の保険は入れたが(視線での選択)、それも実機では未確認。
+- 本家フォームの文面とデモ(スライド 7 枚以内または動画 30 秒以内)がまだ無い。
+- 既知の問題の一覧は `PROJECT_STATE.md`。
 
 ## 8. 次に実施すべき作業(優先順)
 
-1. 地域・技術スタック・地上視点の方針をユーザーと確定。
-2. Phase 1: 仮想 Marswalk を 1 本定義(データファイルとして独立させる)。
-3. Phase 2: 「1 地点の TRAIN → FIELD 往復」プロトタイプ。
-4. 2 地点目のパノラマ作成可否の確認。
-5. MEDA を集計して「現地の状況」として表示。
+1. Quest 実機での確認と、その結果による修正。
+2. 本家フォームの文面(英語)とデモ。
+3. 余裕があれば、`UI_DECISIONS.md` の検討中の項目。
 
 ## 9. ユーザーに相談したい判断事項
 
-1. 対象地域を Jezero デルタ前縁で確定してよいか。
-2. 本開発を Web + Three.js で進めるか、Unity にするか(推奨は Web + Three.js)。
-3. 地上視点にローバーの車体が写る再構成パノラマを使ってよいか(宇宙飛行士の視点そのものではない)。
-4. 放射線は「Gale の RAD 実測を参考値として示す」か「扱わない」か。
-5. 分光データ(CRISM)を入れるか。
-6. 了承前に作った Phase 1 分(Marswalk 定義案、パノラマ 3 地点、徒歩ルート)を採用するか。
-7. デモの形式。
+`PROJECT_STATE.md` の「未決定」を参照。1 つずつ確認する。追加: FIELD で実際の火星の音(Perseverance のマイクの録音)を使うか(`UI_DECISIONS.md` の 36)。
 
 ## 10. 再現・起動・確認方法
 
@@ -127,10 +109,16 @@ $U command script eval --project-path "$P" --result-only -- --code 'return Missi
 $U command script eval --project-path "$P" --result-only -- --code 'return MissionLens.EditorTools.MLBuild.PrepareText() + MissionLens.EditorTools.MLBuild.CreateScene();'
 $U command editor set_auto_tick --project-path "$P" && $U command editor.playmode start --project-path "$P"                    # Play(デスクトップ用のカメラで動く)
 $U command script eval --project-path "$P" --result-only -- --code 'return MissionLens.MLApp.I.State();'                      # 状態を読む
-$U command script eval --project-path "$P" --result-only -- --code 'return MissionLens.MLApp.I.Press("Stand at");'            # 画面上のボタンを押す(前方一致)
+$U command script eval --project-path "$P" --result-only -- --code 'return MissionLens.MLApp.I.Press("Begin");'               # 画面上のボタンを押す(完全一致、無ければ前方一致)
+# 主なボタンのキー: Begin briefing / Marswalk(Begin・Resume Marswalk)/ Stand at / pin:A / task:3 / Slope / Spectral / Height / Preview 1 /
+#   HudAction(帯の「いま必要な 1 操作」)/ Panel / HudTable / check:0 / Complete task / Undo mark / Review at the table / Start over / Restart
+$U command script eval --project-path "$P" --result-only -- --code 'return MissionLens.MLApp.I.PressAt(0.6f, 0.45f);'         # 画面のその位置を指して候補を記録(記録できる作業のとき)
+$U command script eval --project-path "$P" --result-only -- --code 'MissionLens.MLApp.I.Aim(0.36f, 0.345f, true); return 1;'  # マウスの代わりにその位置を指す(true でクリック)。Aim(-1,-1) で戻す
+$U command script eval --project-path "$P" --result-only -- --code 'MissionLens.MLApp.I.LookAt(60, -38); return 1;'            # デスクトップ用カメラの向き(方位, 仰角)
+# ヘッドセットでしか出ないものをデスクトップで見るフラグ: MLApp.I.debugGaze(視線で選ぶ)、MLApp.I.debugVignette(視野周辺の暗転)
 $U command capture game_view --project-path "$P" --result-only -- --source camera --output-path <絶対パス.png> --width 1600 --height 1000
 $U command editor.playmode stop --project-path "$P"
-$U command build run --project-path "$P" --result-only -- --target Android --output-path Builds/MissionLens.apk --confirm true  # Quest 向け。build status で完了を待つ(約 4.5 分)
+$U command build run --project-path "$P" --result-only -- --target Android --output-path Builds/MissionLens.apk --confirm true  # Quest 向け。build status で完了を待つ(初回約 4.5 分、2 回目以降は 1〜2 分)
 ADB=/Applications/Unity/Hub/Editor/6000.3.6f1/PlaybackEngines/AndroidPlayer/SDK/platform-tools/adb
 $ADB install -r unity/Builds/MissionLens.apk && $ADB shell am start -n com.missionlens.eva01/com.unity3d.player.UnityPlayerGameActivity
 $ADB exec-out screencap -p > shot.png ; $ADB logcat -d -s Unity | tail -50      # ヘッドセットの画面とログ
