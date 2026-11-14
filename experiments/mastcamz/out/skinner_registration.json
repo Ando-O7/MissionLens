@@ -1,0 +1,15 @@
+{
+ "size": [
+  30000,
+  8917
+ ],
+ "px_per_deg": 83.33333333333333,
+ "az_col0_deg": 202.9423552751541,
+ "el_row0_deg": 24.886158853769302,
+ "el_bottom_deg": -82.0767317712307,
+ "inliers": 64,
+ "matches": 466,
+ "h_drift_pct": -0.06618396288574863,
+ "v_drift_pct": -1.1192430975390264,
+ "registered_against": "skinner_ridge_sol477"
+}

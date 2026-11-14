@@ -101,6 +101,7 @@ Mission Lens
 | MRO HiRISE colour basemap of Jezero (Mars 2020 mission map tiles) | https://mars.nasa.gov/maps/location/?mission=M20 | 使用中(地図の下地) |
 | MRO HiRISE digital terrain model of Jezero, 1 m (USGS Astrogeology, Mars 2020 TRN products) | https://planetarymaps.usgs.gov/mosaic/mars2020_trn/HiRISE/JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40.tif | 使用中(地形・傾斜) |
 | NASA Mars Trek (Mars Odyssey THEMIS infrared mosaics) | https://trek.nasa.gov/mars/ | 使用中(熱レイヤー、地域文脈) |
+| Mastcam-Z 360° panorama collection (Mars 2020 Mastcam-Z team) | https://mastcamz.asu.edu/mastcam-zs-360-panorama-collection/ | 1 枚で検証済み。採否は未定 |
 | Mars 2020 MEDA environmental data (PDS Atmospheres Node) | https://atmos.nmsu.edu/PDS/data/PDS4/Mars2020/mars2020_meda/ | sol 502 を集計済み。アプリには未組み込み |
 
 ## 8. Space Agency Partner & Other Data
