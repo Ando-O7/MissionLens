@@ -125,3 +125,16 @@
 - 環境確認: Unity Editor 6000.3.6f1 がある。ビルドモジュールは Android と iOS。WebGL モジュールは無い。バッチモードでの実行は未確認。
 - Phase 1 の徒歩ルート図を初めて目視した。帰路が砂の波紋を横切っている。ローバーの実経路は避けている。傾斜だけのコストでは軟らかい砂を扱えない → 定義の手直しで対応する。
 - `PROJECT_STATE.md` を全面的に書き直した(決定済みの項目が別の節に紛れていたのを修正)。
+
+---
+
+## 2026-11-14 14:30 JST — Unity の環境とバージョン条件の確認(Claude Code)
+
+ユーザー方針: Unity のバージョンは Quest 開発の SDK 都合で決める。Unity から Web への書き出しも検討対象。
+
+- **インストール済み**: Unity Editor 6000.3.6f1 のみ。Android モジュール(SDK / NDK / OpenJDK)、iOS、Mac。Web モジュールは無し。
+- **Meta XR Core SDK**(Meta のパッケージレジストリ `npm.developer.oculus.com/com.meta.xr.sdk.core` で確認): 最新 209.0.0(2026-11-10)。v203(2026-06)以降の要求は Unity 6000.0.66f2 以上。それ以前は 2022.3.15f1 以上。依存に `com.unity.xr.hands` 1.7.2。
+- **Unity 6.3 と Meta SDK の不具合報告**(検索結果。自分では再現していない): ライセンス権利エラー(Unity 側で 6000.3.3f1 で修正済みとの記載)、SDK 203 を 6.3 LTS に入れると OpenXR の API バージョン不一致の警告(Meta が調査中)。
+- **Unity 6.3 の Web**: 既定は WebGL2。WebGPU は実験段階とマニュアルに記載。
+- **バッチモード**: `Unity -batchmode -nographics -quit -createProject <一時フォルダ>` が 15 秒で成功(終了コード 0、ライセンス解決)。この環境からコンパイル確認やビルドを回せる見込み。ビルド自体は未検証。
+- 一時プロジェクトはセッションの一時領域に作成し、リポジトリには入れていない。

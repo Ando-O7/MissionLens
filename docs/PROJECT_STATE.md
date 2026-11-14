@@ -1,6 +1,6 @@
 # PROJECT STATE
 
-最終更新: 2026-11-14 14:20 JST(未決定事項へのユーザー回答を反映)
+最終更新: 2026-11-14 14:30 JST(Unity の環境確認を反映)
 
 ## コンセプト
 
@@ -66,8 +66,9 @@ git の管理対象は `NASASpaceAppsChallenge/MissionLens/`(このリポジト�
 ## 未決定(ユーザー確認待ち)
 
 1. **放射線データの扱い**: Gale の RAD 実測を参考値として示すか、扱わないか。ユーザーから出どころの質問あり、回答中。
-2. **Unity 版の対象と進め方**: 対象(Mac のデスクトップ / Quest 3 / 両方)、プロジェクトを誰が作るか、Unity 版と Web 版のどちらを先に通すか。
-3. デモの形式(最後に決める)。
+2. **触れる版の作り方**: Unity から Web(WebGL)へ書き出して 1 本化するか、Three.js 版を別に作り込むか。ユーザーが検討中。Claude の推奨は Unity への 1 本化(Three.js は実験と予備)。
+3. **Unity 版の進め方**: プロジェクトを誰が作るか、最初のスモークテスト(Quest ビルドと Web ビルド)の担当。
+4. デモの形式(最後に決める)。
 
 ## 既知の問題
 
@@ -79,7 +80,10 @@ git の管理対象は `NASASpaceAppsChallenge/MissionLens/`(このリポジト�
 ## 開発環境
 
 - macOS、Python 3.9(`.venv`: numpy 2.0.2 / rasterio 1.4.3 / Pillow 11.3)、Node 24.12。GDAL 単体は無し(rasterio 同梱を使用)。
-- Unity Editor **6000.3.6f1**(Unity Hub 経由)。ビルドモジュールは Android と iOS が入っている。WebGL モジュールは入っていない。バッチモードでの実行可否は未確認。
+- Unity Editor **6000.3.6f1**(Unity Hub 経由、他のバージョンは入っていない)。ビルドモジュールは Android(SDK / NDK / OpenJDK つき)、iOS、Mac。**Web(WebGL)モジュールは入っていない。**
+- Unity のバッチモードはこの環境で動く(ライセンス解決、空プロジェクト作成 15 秒、終了コード 0)。ビルドそのものは未確認。
+- Unity のバージョンは Quest 開発の SDK 都合で決める(ユーザー方針)。Meta XR Core SDK の最新は 209.0.0(2026-11-10 公開)で、要求は Unity 6000.0.66f2 以上。6000.3.6f1 は条件を満たす。ただし Unity 6.3 と Meta SDK の組み合わせには不具合報告がある(下記 WORKLOG)。実際の組み合わせは未検証。
+- Unity 6.3 の WebGPU は実験段階。Web 書き出しは WebGL2 を使う。
 - Three.js 0.160.0 を `experiments/phase0/vendor/` に同梱。
 - 確認用ブラウザ: Google Chrome(ヘッドレスでスクリーンショット取得可)。
 
