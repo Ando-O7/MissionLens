@@ -14,14 +14,14 @@ namespace MissionLens
         // ax/az: the map point at the table's centre (x east, z south). S: scale. yawRel: how far the map is turned
         // on the table, in degrees (0 = north away from the person).
         struct TView { public float ax, az, S, yawRel; }
-        class Grab { public MLRig.Pointer p; public Vector2 map; }
+        class Grab { public MLRig.Pointer p; public Vector2 map; public bool byHand; }   // byHand: held under the hand itself, not where its ray lands
 
         const float FootHx = .43f, FootHz = .395f;      // half size of the table's patch, metres
         const float SMax = 1f / 200f;                   // closest: 1 : 200, where the patch is 172 x 158 m
         TView tv, tvDefault; float SMin, tableEx = 1; bool followTasks = true;
         readonly List<Grab> grabs = new List<Grab>();
         Coroutine framing; Mesh skirtMesh; TView skirtFor; float skirtBaseY = float.NaN; int scaleShown;
-        Vector2 glide, glideNow, lastHold; MLRig.Pointer lastHoldBy; float legendDrawnAt;
+        Vector2 glide, glideNow, lastHold; MLRig.Pointer lastHoldBy; float menuDrawnAt;
 
         string ScaleText => "1 : " + Mathf.RoundToInt(1 / tv.S / 10) * 10;
 
@@ -70,7 +70,7 @@ namespace MissionLens
                 view = TableView(); ApplyView();
                 // the sign's scale and north arrow follow the map, but not on every frame of a move: redrawing a sign is not free
                 int shown = Mathf.RoundToInt(1 / tv.S / 10) * 1000 + Mathf.RoundToInt(Mathf.Repeat(tv.yawRel, 360) / 3);
-                if (shown != scaleShown && Time.time - legendDrawnAt > .25f) { scaleShown = shown; legendDrawnAt = Time.time; DrawLegend(); }
+                if (shown != scaleShown && Time.time - menuDrawnAt > .25f) { scaleShown = shown; menuDrawnAt = Time.time; DrawMenu(); }
             }
             if (OnTable && frontR > 0 && (!Same(skirtFor, tv) || skirtBaseY != baseY)) RebuildSkirt();
         }
@@ -85,27 +85,42 @@ namespace MissionLens
             skirtMat.SetFloat("_BaseY", baseY); skirtFor = tv; skirtBaseY = baseY;
         }
 
-        // Where a pointer takes hold of the table: under the hand when the hand is over the model, otherwise
-        // where its ray meets the table. In table metres.
+        // Two ways to take hold of the map, both in table metres. With the hand itself: the point straight under
+        // it, when the hand is over the table or just in front of it (where hands are when standing at it), so that
+        // the map moves exactly as the hand does. Or from a distance: the point where the pointer's ray meets the table.
+        Vector2 UnderHand(MLRig.Pointer p) { var o = tableFrame.InverseTransformPoint(p.origin); return new Vector2(o.x, o.z); }
+        bool HandAtTable(MLRig.Pointer p)
+        {
+            var o = tableFrame.InverseTransformPoint(p.origin);
+            return rig.xr && Mathf.Abs(o.x) < FootHx + .22f && o.z > -FootHz - .32f && o.z < FootHz + .1f && o.y > -.1f && o.y < .5f;
+        }
         bool HoldPoint(MLRig.Pointer p, out Vector2 t)
         {
             var o = tableFrame.InverseTransformPoint(p.origin); var d = tableFrame.InverseTransformDirection(p.rotation * Vector3.forward);
-            if (rig.xr && Mathf.Abs(o.x) < FootHx + .08f && Mathf.Abs(o.z) < FootHz + .08f && o.y > -.06f && o.y < .42f) { t = new Vector2(o.x, o.z); return true; }
             t = default; if (d.y > -.04f) return false;
             float k = (.03f - o.y) / d.y; if (k <= 0) return false;
             var hit = o + d * k; t = new Vector2(hit.x, hit.z); return true;
         }
+        bool HoldNow(Grab g, out Vector2 t) { if (g.byHand) { t = UnderHand(g.p); return true; } return HoldPoint(g.p, out t); }
 
         void Manipulate(float dt)
         {
             grabs.RemoveAll(g => !g.p.active || !g.p.held);
             foreach (var p in rig.xr ? new[] { rig.right, rig.left } : new[] { rig.mouse })
-                if (p.active && p.grabDown && !p.overSurface && p.tool == null && grabs.All(g => g.p != p) && HoldPoint(p, out var t0) && OnPatch(t0, -.03f))
-                { grabs.Add(new Grab { p = p, map = TableToMap(t0, tv) }); glide = Vector2.zero; sfx.Play("hover", .7f); rig.Haptic(p, .3f, .03f); Log("map taken (" + grabs.Count + ")"); }
+            {
+                if (!p.active || !p.grabDown || p.overSurface || p.tool != null || grabs.Count >= 2 || grabs.Any(g => g.p == p)) continue;
+                // While one hand holds the map, a pinch of the other hand joins in from wherever it is: both then hold
+                // the map under the hands themselves, and pulling them apart stretches it.
+                bool second = rig.xr && grabs.Count == 1, hand = second || HandAtTable(p); Vector2 t0 = UnderHand(p);
+                if (!hand && !(HoldPoint(p, out t0) && OnPatch(t0, -.03f))) continue;
+                if (second && !grabs[0].byHand) { grabs[0].byHand = true; grabs[0].map = TableToMap(UnderHand(grabs[0].p), tv); }
+                grabs.Add(new Grab { p = p, map = TableToMap(t0, tv), byHand = hand }); glide = Vector2.zero; lastHoldBy = null;
+                sfx.Play("hover", grabs.Count == 2 ? 1 : .7f); rig.Haptic(p, .3f, .03f); Log("map taken (" + grabs.Count + (hand ? ", by hand)" : ", by ray)"));
+            }
             rig.lookLocked = grabs.Count > 0 || lensBy != null || dialBy != null;
 
             var v = tv; bool changed = false;
-            if (grabs.Count >= 2 && HoldPoint(grabs[0].p, out var a) && HoldPoint(grabs[1].p, out var b) && (b - a).magnitude > .03f)
+            if (grabs.Count >= 2 && HoldNow(grabs[0], out var a) && HoldNow(grabs[1], out var b) && (b - a).magnitude > .03f)
             {   // two holds: the two map points stay under the two hands, which fixes scale and turn
                 Vector2 m1 = grabs[0].map, m2 = grabs[1].map, mv = new Vector2(m2.x - m1.x, -(m2.y - m1.y)), tt = b - a;
                 if (mv.magnitude > .5f)
@@ -115,7 +130,7 @@ namespace MissionLens
                     Hold(ref v, m1, a); changed = true;
                 }
             }
-            else if (grabs.Count >= 1 && HoldPoint(grabs[0].p, out var h))
+            else if (grabs.Count >= 1 && HoldNow(grabs[0], out var h))
             {
                 Hold(ref v, grabs[0].map, h); changed = true;
                 // how fast the map is being slid, for the glide after letting go
@@ -181,6 +196,6 @@ namespace MissionLens
             tv = target; framing = null;
         }
         public void WholeRoute() { sfx.Play("toggle", .7f); TableTo(tvDefault); }
-        public void ToggleFollow() { followTasks = !followTasks; sfx.Play("toggle", .7f); DrawLegend(); }
+        public void ToggleFollow() { followTasks = !followTasks; sfx.Play("toggle", .7f); DrawMenu(); }
     }
 }

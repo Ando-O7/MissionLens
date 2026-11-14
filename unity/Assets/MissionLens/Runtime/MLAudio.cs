@@ -30,6 +30,8 @@ namespace MissionLens
             Make("arrive", 1.6f, t => (Sin(220, t) + .7f * Sin(330, t) + .5f * Sin(440, t)) * Mathf.Sin(Mathf.PI * Mathf.Clamp01(t / 1.6f)) * Mathf.Sin(Mathf.PI * Mathf.Clamp01(t / 1.6f)) * .2f);
             Make("whoosh", 3.0f, Noise(3.0f, 180, 1400, .34f));
             Make("travel", 1.2f, Noise(1.2f, 240, 700, .2f));
+            // The walk between stations: two soft, muffled steps that alternate. Ours, for the pace of walking; not a recording.
+            Make("stepA", .24f, Step(96, 11)); Make("stepB", .24f, Step(84, 23));
             Make("intro", 4.2f, t =>
             {   // a slow rising shimmer under the opening
                 float k = Mathf.Clamp01(t / 4.2f), e = Mathf.Sin(Mathf.PI * k); e *= e;
@@ -49,6 +51,18 @@ namespace MissionLens
         static float Sin(float hz, float t) => Mathf.Sin(2 * Mathf.PI * hz * t);
         static float Env(float t, float attack, float decay) => t < 0 ? 0 : t < attack ? t / attack : Mathf.Exp(-(t - attack) / (decay * .35f));
         static float Bell(float hz, float t) => t < 0 ? 0 : (Sin(hz, t) + .3f * Sin(hz * 2.01f, t) + .12f * Sin(hz * 3.02f, t)) * Env(t, .004f, .9f);
+
+        // A low thump that drops in pitch as it lands, with a short scuff of low-passed noise.
+        static Func<float, float> Step(float hz, int seed)
+        {
+            var rng = new System.Random(seed); float lp = 0;
+            return t =>
+            {
+                float x = (float)rng.NextDouble() * 2 - 1; lp += (x - lp) * .07f;
+                float f = Mathf.Lerp(hz * 1.6f, hz, Mathf.Clamp01(t / .05f));
+                return ((Sin(f, t) + .35f * Sin(f * 2, t)) * Env(t, .004f, .17f) * .62f + lp * Env(t, .002f, .1f) * 1.7f) * .6f;
+            };
+        }
 
         // Band-limited noise that sweeps from one cutoff to another and swells in the middle.
         static Func<float, float> Noise(float seconds, float hz0, float hz1, float gain)

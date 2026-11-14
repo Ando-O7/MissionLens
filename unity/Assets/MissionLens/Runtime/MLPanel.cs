@@ -59,6 +59,9 @@ namespace MissionLens
         // lose the material it was given.
         public bool Visible => canvas.enabled;
 
+        /// <summary>Drawn over panels of a lower order whatever their distance: for what is held in front of the others.</summary>
+        public void Order(int order) { canvas.overrideSorting = true; canvas.sortingOrder = order; }
+
         /// <summary>Hidden (or shown) at once, without the fade.</summary>
         public void Snap(bool show) { Show = show; alpha = show ? 1 : 0; group.alpha = alpha; canvas.enabled = show; SetWorldWidth(worldWidth); }
 

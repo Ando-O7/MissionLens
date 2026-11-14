@@ -22,6 +22,8 @@ namespace MissionLens
     public partial class MLApp
     {
         public bool tools = true;
+        /// <summary>The lens is switched off: tried on the headset, it was hard to use and not missed. Its code stays for another try.</summary>
+        public bool lensEnabled = false;
 
         // ---------- the lens ----------
         const float LensR = .1f, OrbR = .05f, LensNear = .13f;      // footprint on the table, the ball itself, and how near a hand takes it (metres)
@@ -33,8 +35,8 @@ namespace MissionLens
 
         // ---------- the timer ----------
         const float DialSweep = 300, DialUp = 140, TimerGain = 2f;   // degrees of the dial the timeline takes up; the dial's centre above the panel's (pixels); dial degrees per degree the hand turns
-        const float TimerReach = 270;                                // how near a hand picks it up, in the panel's pixels (about 9 cm)
-        static readonly Vector3 TimerHome = new Vector3(.6f, .1f, -.52f), TimerHomeEuler = new Vector3(50, 24, 0);
+        const float TimerW = .16f, TimerSide = 150, TimerOff = 260;  // its width (metres: small enough to hold and to catch again); how near a hand picks it up, in the panel's pixels: 4 cm beyond its edges, 7 cm off its face
+        static readonly Vector3 TimerHome = new Vector3(.355f, .07f, -.56f), TimerHomeEuler = new Vector3(54, 18, 0);
         MLPanel dial; Transform needleT;
         MLRig.Pointer dialBy; bool timerCarried, timerAway;          // dialBy: the pointer that has it. carried: picked up (else turned where it lies). away: left somewhere other than its place
         Vector3 timerPos = TimerHome, timerHandAt; Quaternion timerGrip; float timerGrabDist, timerSince, timerSpeed;
@@ -47,10 +49,11 @@ namespace MissionLens
             lensTag = new MLPanel("Lens tag", 480, 120, .15f, null, true); lensTag.Snap(false); panels.Add(lensTag);
             stemMat = ColorMat(Amber, 3090); stemT = Add("Lens stem", MLMesh.Quad(false), stemMat, null).transform;   // ties the ball to its circle on the ground
 
-            dial = new MLPanel("Timer", 600, 880, .2f, tableFrame); dial.Snap(false); panels.Add(dial);
+            dial = new MLPanel("Timer", 600, 880, TimerW, tableFrame); dial.Snap(false); panels.Add(dial); dial.Order(10);
             dial.go.transform.localPosition = TimerHome; dial.go.transform.localRotation = Quaternion.Euler(TimerHomeEuler);
             var pivot = new GameObject("Timer needle").transform; pivot.SetParent(tableFrame, false); needleT = pivot;
-            var bar = Add("Bar", MLMesh.Quad(false), ColorMat(Amber, 3100), pivot).transform; bar.localPosition = new Vector3(0, .066f, -.0015f); bar.localScale = new Vector3(.0045f, .058f, 1);
+            var barR = Add("Bar", MLMesh.Quad(false), ColorMat(Amber, 3100), pivot); barR.sortingOrder = 11;   // over the dial's face, which has a draw order of its own
+            var bar = barR.transform; bar.localPosition = new Vector3(0, .0703f, -.0015f); bar.localScale = new Vector3(.0045f, .034f, 1);   // from outside the time in the middle to the arcs
         }
 
         /// <summary>Puts the lens and the timer back where they start.</summary>
@@ -137,7 +140,7 @@ namespace MissionLens
         bool TimerAt(MLRig.Pointer p, out float deg, out float r, out bool byHand)
         {
             deg = 0; r = 0; var t = dial.go.transform; var l = t.InverseTransformPoint(p.origin);   // the panel's pixels from its centre, y up
-            byHand = rig.xr && Mathf.Abs(l.x) < 300 + TimerReach && Mathf.Abs(l.y) < 440 + TimerReach && Mathf.Abs(l.z) < TimerReach;
+            byHand = rig.xr && Mathf.Abs(l.x) < 300 + TimerSide && Mathf.Abs(l.y) < 440 + TimerSide && Mathf.Abs(l.z) < TimerOff;
             if (byHand) return true;
             var plane = new Plane(t.forward, t.position); var ray = p.Ray;
             if (!plane.Raycast(ray, out float d) || d <= 0) return false;
@@ -156,17 +159,17 @@ namespace MissionLens
         {
             if (!rig.xr || !ToolsLive) return false;
             if (p.tool != null) return true;
-            return Vector3.Distance(p.origin, orbT.position) < LensNear || (TimerAt(p, out _, out _, out bool byHand) && byHand);
+            return (lensEnabled && Vector3.Distance(p.origin, orbT.position) < LensNear) || (TimerAt(p, out _, out _, out bool byHand) && byHand);
         }
 
         // ---------- per frame ----------
         void UpdateTools(float dt)
         {
             bool table = stage == Stage.Table && introDone, live = ToolsLive; var head = rig.Head.position;
-            bool show = table && tools && roomO > .6f;
-            dial.Show = show; lensTag.Show = show;
+            bool show = table && tools && roomO > .6f, showLens = show && lensEnabled;
+            dial.Show = show; lensTag.Show = showLens;
             if (needleT.gameObject.activeSelf != dial.alpha > .5f) needleT.gameObject.SetActive(dial.alpha > .5f);
-            if (orbT.gameObject.activeSelf != show) orbT.gameObject.SetActive(show);
+            if (orbT.gameObject.activeSelf != showLens) orbT.gameObject.SetActive(showLens);
 
             var ptrs = rig.xr ? new[] { rig.right, rig.left } : new[] { rig.mouse }; lensReach = false;
             if (!live) { lensBy = null; dialBy = null; timerCarried = false; foreach (var p in ptrs) p.tool = null; }
@@ -183,7 +186,7 @@ namespace MissionLens
                 foreach (var p in ptrs)
                 {
                     if (!p.active || p.tool != null) continue;
-                    bool lensHere = lensBy == null && LensAt(p, out bool near0); if (lensHere) lensReach = true;
+                    bool lensHere = lensEnabled && lensBy == null && LensAt(p, out bool near0); if (lensHere) lensReach = true;
                     if (!p.grabDown) continue;
                     if (dialBy == null && TimerAt(p, out _, out float r0, out bool byHand))
                     {   // by the hand, by its middle or by its card: picked up. By its rim from a distance: turned where it lies.
@@ -214,12 +217,12 @@ namespace MissionLens
             }
             else if (!LensOverModel) lensPos = Vector3.Lerp(lensPos, LensHome, 1 - Mathf.Exp(-6 * dt));
             orbT.localPosition = lensPos;
-            lensOn = Mathf.MoveTowards(lensOn, show && LensOverModel ? 1 : 0, dt * 5);
+            lensOn = Mathf.MoveTowards(lensOn, showLens && LensOverModel ? 1 : 0, dt * 5);
             Shader.SetGlobalVector("_MLLens", new Vector4(lensPos.x, lensPos.z, LensR, lensOn));
             terrainMat.SetFloat("_LensSlope", lensLayer == "slope" ? 1 : 0); terrainMat.SetFloat("_LensCrism", lensLayer == "crism" ? 1 : 0);
             var lc = lensLayer == "slope" ? Amber : new Color(1f, .42f, .5f);
             orbMat.SetColor("_Color", lc); orbMat.SetFloat("_Body", lensBy != null ? .34f : lensReach ? .27f : .16f); orbMat.SetFloat("_Rim", .95f);   // brighter when a pinch would take it
-            if (show)
+            if (showLens)
             {   // a tag by the ball: what it shows, and for slope the value under its centre. Pressing the tag changes the layer too.
                 var m = TableToMap(new Vector2(lensPos.x, lensPos.z), tv); int slope = LensOverModel && lensLayer == "slope" ? Mathf.RoundToInt(D.SlopeDeg(m.x, m.y)) : -1;
                 int shown = (lensLayer == "slope" ? 0 : 1000) + slope + (LensOverModel ? 0 : 500);
@@ -237,7 +240,7 @@ namespace MissionLens
                 var at = orbT.position + Vector3.up * (OrbR + .045f); float d = Mathf.Max(.2f, Vector3.Distance(at, head));
                 lensTag.SetWorldWidth(.22f * d); lensTag.go.transform.SetPositionAndRotation(at, Quaternion.LookRotation(at - head, Vector3.up));
             }
-            bool stem = show && lensOn > .05f; if (stemT.gameObject.activeSelf != stem) stemT.gameObject.SetActive(stem);
+            bool stem = showLens && lensOn > .05f; if (stemT.gameObject.activeSelf != stem) stemT.gameObject.SetActive(stem);
             if (stem)
             {
                 var m = TableToMap(new Vector2(lensPos.x, lensPos.z), tv); Vector3 foot = world.TransformPoint(D.Local(m.x, m.y)), top = orbT.position - Vector3.up * OrbR; float len = Mathf.Max(0, top.y - foot.y);
@@ -252,12 +255,12 @@ namespace MissionLens
             if (live && rig.xr && dialBy == null) foreach (var p in ptrs) if (p.active && p.tool == null && TimerAt(p, out _, out _, out bool at) && at) reach = true;
             if (reach && !timerInReach) sfx.Play("hover", .5f);
             timerInReach = reach; timerReach = Mathf.MoveTowards(timerReach, reach || dialBy != null ? 1 : 0, dt * 8);
-            dial.SetWorldWidth(.2f * (1 + .05f * timerReach));
+            dial.SetWorldWidth(TimerW * (1 + .05f * timerReach));
             var dialT = dial.go.transform; float before = needleDeg;
             if (dialBy != null && timerCarried)
             {
                 // Picked up: it rides above the hand, turned to face the eyes, and turning the hand turns the time.
-                Vector3 want = rig.xr ? dialBy.gripAt + Vector3.up * .21f : dialBy.Ray.GetPoint(timerGrabDist);
+                Vector3 want = rig.xr ? dialBy.gripAt + Vector3.up * .175f : dialBy.Ray.GetPoint(timerGrabDist);
                 timerPos = Vector3.Lerp(timerPos, tableFrame.InverseTransformPoint(want), 1 - Mathf.Exp(-18 * dt));
                 float turned = Twist(timerGrip, dialBy.grip, dialBy.gripAxis); timerGrip = dialBy.grip;
                 // Carrying it somewhere is not turning it: while the hand is travelling its turn counts for less,
@@ -289,7 +292,7 @@ namespace MissionLens
             bool up = timerAway || (dialBy != null && timerCarried);
             var facing = up ? Quaternion.LookRotation(dialT.position - head, Vector3.up) : tableFrame.rotation * Quaternion.Euler(TimerHomeEuler);
             dialT.rotation = Quaternion.Slerp(dialT.rotation, facing, 1 - Mathf.Exp(-12 * dt));
-            needleT.SetPositionAndRotation(dialT.TransformPoint(0, DialUp, 0), dialT.rotation * Quaternion.Euler(0, 0, -needleDeg)); needleT.localScale = Vector3.one * (dial.alpha * (2 - dial.alpha));
+            needleT.SetPositionAndRotation(dialT.TransformPoint(0, DialUp, 0), dialT.rotation * Quaternion.Euler(0, 0, -needleDeg)); needleT.localScale = Vector3.one * (dial.alpha * (2 - dial.alpha) * TimerW / .2f * (1 + .05f * timerReach));
         }
         bool LensOverModel => OnPatch(new Vector2(lensPos.x, lensPos.z), -.02f) && lensPos.y < .45f;
         void LensNextLayer()
@@ -313,7 +316,7 @@ namespace MissionLens
             return $"timer vp=({v.x:F3},{v.y:F3}) held={dialBy != null} carried={timerCarried} away={timerAway} needle={needleDeg:F1} pos={timerPos.ToString("F2")} | lens vp=({o.x:F3},{o.y:F3}) held={lensBy != null} layer={lensLayer} over={LensOverModel} | selTask={selTask}";
         }
 
-        public void ToggleTools() { tools = !tools; if (tools) ResetTools(); sfx.Play("toggle", .7f); Log("tools " + (tools ? "on" : "off")); DrawLegend(); }
+        public void ToggleTools() { tools = !tools; if (tools) ResetTools(); sfx.Play("toggle", .7f); Log("timer " + (tools ? "on" : "off")); DrawMenu(); }
 
         /// <summary>A line in the device log for what the person did, so a session on the headset can be followed from outside.</summary>
         static void Log(string what) => Debug.Log("[ML] " + what);

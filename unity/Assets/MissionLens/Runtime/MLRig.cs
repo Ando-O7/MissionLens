@@ -60,6 +60,7 @@ namespace MissionLens
         public float lastDragTime = -10;
         public bool wristToggle;                 // desktop: Space pressed this frame
         public bool anyKey;                      // desktop: Enter pressed this frame (stands in for the first press)
+        public bool menuKey;                     // desktop: M pressed this frame (shows or hides the menu, which in the headset is on the left hand)
         /// <summary>For checks from the Editor: aim the desktop pointer through this viewport point instead of the mouse.</summary>
         public Vector2? debugAim; public bool debugClick, debugHold;
         /// <summary>For checks from the Editor: how far the desktop pointer's "hand" is rolled, in degrees.</summary>
@@ -88,6 +89,12 @@ namespace MissionLens
             new[] { XRHandJointID.Wrist, XRHandJointID.RingMetacarpal, XRHandJointID.RingProximal, XRHandJointID.RingIntermediate, XRHandJointID.RingDistal, XRHandJointID.RingTip },
             new[] { XRHandJointID.Wrist, XRHandJointID.LittleMetacarpal, XRHandJointID.LittleProximal, XRHandJointID.LittleIntermediate, XRHandJointID.LittleDistal, XRHandJointID.LittleTip },
         };
+
+        /// <summary>
+        /// Draw order for the hands and the pointers. Panels that are held in front of others are given an order of
+        /// their own (MLPanel.Order); the hand that reaches for them must still be drawn over them.
+        /// </summary>
+        public const int OverPanels = 100;
 
         public static MLRig Create()
         {
@@ -124,7 +131,7 @@ namespace MissionLens
                 for (int i = 0; i < handLines.Length; i++)
                 {
                     var hg = new GameObject("Hand line " + i); hg.transform.SetParent(transform, false);
-                    var lr = hg.AddComponent<LineRenderer>(); lr.material = handMat; lr.useWorldSpace = true; lr.startWidth = lr.endWidth = .0045f; lr.numCapVertices = 2; lr.numCornerVertices = 2; lr.enabled = false; handLines[i] = lr;
+                    var lr = hg.AddComponent<LineRenderer>(); lr.material = handMat; lr.useWorldSpace = true; lr.startWidth = lr.endWidth = .0045f; lr.numCapVertices = 2; lr.numCornerVertices = 2; lr.enabled = false; lr.sortingOrder = OverPanels; handLines[i] = lr;
                 }
                 right.haptic = new InputAction("haptic right", InputActionType.PassThrough, "<XRController>{RightHand}/{Haptic}"); right.haptic.Enable();
                 left.haptic = new InputAction("haptic left", InputActionType.PassThrough, "<XRController>{LeftHand}/{Haptic}"); left.haptic.Enable();
@@ -139,9 +146,9 @@ namespace MissionLens
         {
             var mat = new Material(Resources.Load<Shader>("MLShaders/MLColor")); mat.SetColor("_Color", new Color(.37f, .83f, 1f, .7f)); mat.SetFloat("_ZTest", (float)UnityEngine.Rendering.CompareFunction.Always); mat.renderQueue = 4000;
             var go = new GameObject(name); go.transform.SetParent(transform, false);
-            p.line = go.AddComponent<LineRenderer>(); p.line.material = mat; p.line.positionCount = 2; p.line.startWidth = .004f; p.line.endWidth = .002f; p.line.useWorldSpace = true; p.line.enabled = false;
+            p.line = go.AddComponent<LineRenderer>(); p.line.material = mat; p.line.positionCount = 2; p.line.startWidth = .004f; p.line.endWidth = .002f; p.line.useWorldSpace = true; p.line.enabled = false; p.line.sortingOrder = OverPanels;
             var dot = new GameObject(name + " dot"); dot.transform.SetParent(transform, false);
-            dot.AddComponent<MeshFilter>().sharedMesh = MLMesh.Octa(); dot.AddComponent<MeshRenderer>().sharedMaterial = mat; p.dot = dot.transform; dot.SetActive(false);
+            dot.AddComponent<MeshFilter>().sharedMesh = MLMesh.Octa(); var dr = dot.AddComponent<MeshRenderer>(); dr.sharedMaterial = mat; dr.sortingOrder = OverPanels; p.dot = dot.transform; dot.SetActive(false);
         }
 
         /// <summary>
@@ -175,6 +182,19 @@ namespace MissionLens
             }
             else { ReadDesktop(); mouse.grip = mouse.rotation * Quaternion.Euler(0, 0, debugRoll); mouse.gripAt = mouse.origin; mouse.gripAxis = mouse.rotation * Vector3.forward; }
         }
+
+        /// <summary>Where a joint of a tracked hand is, in the world. side: 0 right, 1 left. False when that hand is not tracked.</summary>
+        public bool Joint(int side, XRHandJointID id, out Vector3 at)
+        {
+            at = default;
+            if (debugJoints != null) return debugJoints.TryGetValue((side, id), out at);
+            if (!xr || handsFailed || handSystem == null || !handSystem.running) return false;
+            var hand = side == 0 ? handSystem.rightHand : handSystem.leftHand;
+            if (!hand.isTracked || !hand.GetJoint(id).TryGetPose(out UnityEngine.Pose pose)) return false;
+            at = space.TransformPoint(pose.position); return true;
+        }
+        /// <summary>For checks from the Editor, where no hand is tracked: joint positions to report instead.</summary>
+        public Dictionary<(int, XRHandJointID), Vector3> debugJoints;
 
         void FindHands()
         {
@@ -239,7 +259,7 @@ namespace MissionLens
                 var missing = new List<string>(); driver.FindJointsFromRoot(missing); driver.InitializeFromSerializedReferences();
                 if (driver.jointTransformReferences.Count < 20) throw new System.InvalidOperationException("only " + driver.jointTransformReferences.Count + " hand joints found; missing " + string.Join(", ", missing));
                 var mat = new Material(shader); var mats = new Material[skin.sharedMaterials.Length]; for (int i = 0; i < mats.Length; i++) mats[i] = mat;
-                skin.sharedMaterials = mats; skin.updateWhenOffscreen = true; skin.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; skin.receiveShadows = false; skin.enabled = false;
+                skin.sharedMaterials = mats; skin.updateWhenOffscreen = true; skin.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; skin.receiveShadows = false; skin.enabled = false; skin.sortingOrder = OverPanels;
                 go.SetActive(true);
                 handModels[side] = new HandModel { go = go, r = skin, mat = mat, events = events, joints = driver.jointTransformReferences.Count };
             }
@@ -303,6 +323,7 @@ namespace MissionLens
             var m = Mouse.current; var k = Keyboard.current;
             wristToggle = k != null && k.spaceKey.wasPressedThisFrame;
             anyKey = k != null && (k.enterKey.wasPressedThisFrame || k.numpadEnterKey.wasPressedThisFrame);
+            menuKey = k != null && k.mKey.wasPressedThisFrame;
             mouse.down = mouse.grabDown = false; wheel = 0; turn = 0;
             if (m == null) { mouse.active = false; return; }
             wheel = Mathf.Clamp(m.scroll.ReadValue().y, -1, 1) ; if (k != null) turn = (k.eKey.isPressed ? 1 : 0) - (k.qKey.isPressed ? 1 : 0);

@@ -69,9 +69,9 @@ namespace MissionLens
             }
             beaconMat = new Material(Sh("MLBeam")); beaconR = Add("Beacon", MLMesh.Cross(), beaconMat, world); beaconR.enabled = false;
             reticleMat = new Material(ringShader); reticleMat.SetColor("_Color", Amber); reticleMat.SetFloat("_Radius", .62f); reticleMat.SetFloat("_Width", .1f); reticleMat.SetFloat("_Fill", .35f);
-            reticleR = Add("Reticle", MLMesh.Quad(false), reticleMat, null); reticleR.enabled = false;
+            reticleR = Add("Reticle", MLMesh.Quad(false), reticleMat, null); reticleR.enabled = false; reticleR.sortingOrder = MLRig.OverPanels;
             gazeMat = new Material(ringShader); gazeMat.SetFloat("_Radius", .6f); gazeMat.SetFloat("_Width", .16f); gazeMat.renderQueue = 4005;
-            gazeR = Add("Gaze dot", MLMesh.Quad(false), gazeMat, null); gazeR.enabled = false;
+            gazeR = Add("Gaze dot", MLMesh.Quad(false), gazeMat, null); gazeR.enabled = false; gazeR.sortingOrder = MLRig.OverPanels;
         }
 
         // ---------- the opening ----------
@@ -90,7 +90,7 @@ namespace MissionLens
                 foreach (var p in pins) if (!p.shown && k > .34f && p.routeM <= routeDraw) { p.shown = true; sfx.Play("toggle", .45f); }
             });
             frontR = 1e6f; routeDraw = 1e9f; introDone = true; foreach (var p in pins) p.shown = true;
-            sfx.Play("ready"); busy = false; Refresh(); DrawLegend();
+            sfx.Play("ready"); busy = false; Refresh(); DrawMenu();
         }
 
         // ---------- per frame ----------
@@ -146,6 +146,10 @@ namespace MissionLens
             {
                 var s = St(target); float w = Mathf.Clamp(.02f / S, .8f, 3f), h = Mathf.Clamp(1.2f / S, 40f, 70f);
                 beaconR.transform.localPosition = D.Local(s.x, s.z); beaconR.transform.localScale = new Vector3(w, h, w);
+                // It is there to be found from a distance. Coming up to it, it thins away, and is gone by the time you
+                // arrive, instead of standing in front of your face.
+                float away = Vector2.Distance(new Vector2(view.ax, view.az), new Vector2(s.x, s.z));
+                var bc = Amber; bc.a = Ease(Mathf.InverseLerp(12, 55, away)); beaconMat.SetColor("_Color", bc);
             }
 
             for (int i = ripples.Count - 1; i >= 0; i--)
@@ -164,7 +168,7 @@ namespace MissionLens
             floorT.localPosition = new Vector3(0, -tableFrame.position.y, 0);
             plinthT.localScale = new Vector3(FootHx * 2 + .03f, h, FootHz * 2 + .03f); plinthT.localPosition = new Vector3(0, -.004f - h / 2, 0);
         }
-        public void ToggleStudio() { studio = !studio; sfx.Play("toggle", .7f); Log("room " + (studio ? "studio" : "passthrough")); DrawLegend(); }
+        public void ToggleStudio() { studio = !studio; sfx.Play("toggle", .7f); Log("room " + (studio ? "studio" : "passthrough")); DrawMenu(); }
 
         /// <summary>A ring that spreads once from a point on the ground (where a mark was placed).</summary>
         void Ripple(Vector3 at, Color col, float size)

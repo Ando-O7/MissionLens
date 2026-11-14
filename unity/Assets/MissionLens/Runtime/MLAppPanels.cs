@@ -11,21 +11,22 @@ namespace MissionLens
     // surface (x right, y down), carried over from the desktop mock in experiments/spatial/.
     public partial class MLApp
     {
-        MLPanel board, boardR, strip, wrist, hud, title, banner, legend;
+        MLPanel board, boardR, strip, wrist, hud, title, banner, menu;
         readonly List<MLPanel> panels = new List<MLPanel>();   // every surface that can hold buttons
-        TextMeshProUGUI hudHeading;
+        TextMeshProUGUI hudHeading, hudClock, hudSub;
         readonly Dictionary<string, Texture2D> viewTex = new Dictionary<string, Texture2D>();
         bool wristPlaced; float restartArmedUntil;
 
         void BuildPanels()
         {
             // PLAN, in the room: two briefing panels (left: the objective and why this station; right: the NASA
-            // evidence), the task timeline, and a sign with the table's controls. Where they sit is a layout that
-            // can be switched (ApplyLayout): spread on the desk around the model, or as a wall behind it.
+            // evidence) and the task timeline. Where they sit is a layout that can be switched (ApplyLayout): spread
+            // on the desk around the model, or as a wall behind it. What is done to the map and the room is on a
+            // menu carried on the left hand (MLAppMenu.cs).
             board = new MLPanel("Board left", 1100, 900, .5f, tableFrame);
             boardR = new MLPanel("Board right", 1100, 900, .5f, tableFrame);
             strip = new MLPanel("Timeline", 1600, 270, .78f, tableFrame);
-            legend = new MLPanel("Map legend", 600, rig.xr ? 532 : 454, .3f, tableFrame);
+            menu = new MLPanel("Menu", 600, rig.xr ? 840 : 700, MenuW, rig.xr ? null : rig.Head); menuIntro = rig.xr; menu.Order(20);
             // FIELD: a wrist panel for details, raised on demand, and a head-up strip that stays out of the scenery.
             wrist = new MLPanel("Wrist", 600, 860, rig.xr ? .26f : .215f, rig.xr ? null : rig.Head);
             hud = new MLPanel("HUD", 1200, 170, rig.xr ? .7f : .5f, rig.xr ? null : rig.Head);
@@ -39,6 +40,7 @@ namespace MissionLens
                 hud.go.transform.localPosition = new Vector3(0, -.262f, .6f);
                 title.go.transform.localPosition = new Vector3(0, .58f, .46f);
                 banner.go.transform.localPosition = new Vector3(0, .1f, 1.0f);
+                menu.go.transform.localPosition = new Vector3(-.4f, -.03f, .5f); menu.go.transform.localRotation = Quaternion.Euler(0, -24, 0);   // where a raised left hand would be
                 rig.lookPitch = -3;
             }
             foreach (var s in M.stations)
@@ -46,7 +48,7 @@ namespace MissionLens
                 pins.Add(new Pin { st = s, local = D.Local(s.x, s.z, .3f), label = new MLPanel("Pin " + s.id, 640, 128, .34f, null, true) });
                 viewTex[s.id] = Resources.Load<Texture2D>("ML/view_" + s.id);
             }
-            panels.AddRange(new[] { board, boardR, strip, legend, wrist, hud, title, banner }); panels.AddRange(pins.Select(p => p.label));
+            panels.AddRange(new[] { board, boardR, strip, menu, wrist, hud, title, banner }); panels.AddRange(pins.Select(p => p.label));
             foreach (var p in panels) p.Snap(false);
             DrawTitle();
         }
@@ -60,18 +62,18 @@ namespace MissionLens
             {   // about 1.3 m from the eyes and 50 degrees across, the timeline under the two panels
                 Put(board, .625f, new Vector3(-.308f, .75f, .465f), new Vector3(2, -13, 0)); Put(boardR, .625f, new Vector3(.308f, .75f, .465f), new Vector3(2, 13, 0));
                 Put(strip, 1.25f, new Vector3(0, .365f, .5f), new Vector3(11, 0, 0));
-                Put(legend, .3f, new Vector3(-.6f, .075f, -.2f), new Vector3(46, -24, 0));
             }
             else
-            {   // like papers on a desk: a panel either side of the model leaning toward the person, the timeline along the near edge
-                Put(board, .5f, new Vector3(-.72f, .24f, -.14f), new Vector3(40, -32, 0)); Put(boardR, .5f, new Vector3(.72f, .24f, -.14f), new Vector3(40, 32, 0));
-                Put(strip, .7f, new Vector3(-.07f, .05f, -.515f), new Vector3(60, 0, 0));
-                Put(legend, .3f, new Vector3(-.63f, .08f, -.5f), new Vector3(48, -28, 0));
+            {   // Like papers on a desk: a panel either side of the model, turned in and leaning toward the person, the
+                // timeline along the near edge. About 0.9 m from the eyes: as near as they come without covering the
+                // model's near corners. (They were 1.1 m away, which read as far.)
+                Put(board, .46f, new Vector3(-.68f, .22f, -.4f), new Vector3(40, -48, 0)); Put(boardR, .46f, new Vector3(.68f, .22f, -.4f), new Vector3(40, 48, 0));
+                Put(strip, .7f, new Vector3(-.1f, .05f, -.515f), new Vector3(60, 0, 0));
             }
         }
         public void ToggleLayout()
         {
-            layout = layout == "desk" ? "wall" : "desk"; sfx.Play("toggle", .7f); Log("layout " + layout); ApplyLayout(); DrawLegend();
+            layout = layout == "desk" ? "wall" : "desk"; sfx.Play("toggle", .7f); Log("layout " + layout); ApplyLayout(); DrawMenu();
             if (!rig.xr) StartCoroutine(Look(.6f, rig.lookYaw, TableLookPitch));
         }
 
@@ -79,7 +81,7 @@ namespace MissionLens
         IEnumerable<MLPanel> Surfaces()
         {
             if (stage == Stage.Title) { yield return title; yield break; }
-            if (stage == Stage.Table) { yield return board; yield return boardR; yield return strip; yield return legend; if (tools) { yield return dial; yield return lensTag; } }
+            if (stage == Stage.Table) { yield return board; yield return boardR; yield return strip; yield return menu; if (tools) { yield return dial; if (lensEnabled) yield return lensTag; } }
             else { yield return wrist; yield return hud; }
             if (banner.Show && bannerHasButton) yield return banner;
             foreach (var p in pins) yield return p.label;
@@ -101,21 +103,19 @@ namespace MissionLens
         {
             var head = rig.Head.position; bool table = stage == Stage.Table; var yaw = Quaternion.Euler(0, rig.HeadYaw, 0);
             title.Show = stage == Stage.Title && !busy;
-            board.Show = boardR.Show = strip.Show = legend.Show = table && introDone && roomO > .6f;
+            board.Show = boardR.Show = strip.Show = table && introDone && roomO > .6f;
+            UpdateMenu(dt);
             hud.Show = !OnTable;
             if (banner.Show && bannerUntil > 0 && Time.time > bannerUntil) banner.Show = false;
             if (rig.xr)
             {
                 // Title: in front of the person, following their turn loosely until the briefing begins.
                 if (stage == Stage.Title) Chase(title, ref titleChasing, head + yaw * new Vector3(0, -.06f, 1.25f), head, 30, 3, dt);
-                // Wrist panel: floats just above the left hand and shows while you look at it; or, asked for from
-                // the head-up strip, stays where it was called up, low and to the left.
-                // "Looking at it" means the hand is raised near the face and is not itself pointing ahead at something.
-                var l = rig.left; bool looking = l.active && !l.held && Vector3.Distance(l.origin, head) < .75f && Vector3.Angle(rig.Head.forward, l.origin - head) < 34
-                    && Vector3.Dot(l.rotation * Vector3.forward, rig.Head.forward) < .5f;
-                wrist.Show = !OnTable && (wristUp || looking);
-                if (wristUp) { if (!wristPlaced) { wristPlaced = true; Follow(wrist, head + yaw * new Vector3(-.3f, -.2f, .55f), head, 1); } }
-                else if (looking) Follow(wrist, l.origin + Vector3.up * .17f, head, 1);
+                // The FIELD panel: carried on the opened left hand like the menu at the table (MLAppMenu.cs); or, asked
+                // for from the head-up strip, it stays where it was called up, low and to the left.
+                UpdateWristOnHand(dt);
+                wrist.Show = !OnTable && (wristUp || wristDock.on);
+                if (wristUp) { if (!wristPlaced) { wristPlaced = true; wrist.SetWorldWidth(.26f); Follow(wrist, head + yaw * new Vector3(-.3f, -.2f, .55f), head, 1); } }
                 // Head-up strip: low in view. It stays put while you look around a little, so it can be pointed
                 // at, and comes round once you have turned away from it.
                 Chase(hud, ref hudChasing, head + yaw * new Vector3(0, -.38f, .93f), head, 20, 5, dt);
@@ -170,7 +170,7 @@ namespace MissionLens
                 m.label.SetWorldWidth(mw); m.label.go.transform.SetPositionAndRotation(at + mrot * Vector3.up * (mw * 67f / 96f), mrot);
                 m.label.Show = !table || OnPatch(m.x, m.z, .004f); m.label.Tick(dt, 8);
             }
-            foreach (var p in panels) p.Tick(dt, p == board || p == boardR || p == strip || p == legend || p == title ? 2.6f : 5);
+            foreach (var p in panels) p.Tick(dt, p == board || p == boardR || p == strip || p == title ? 2.6f : 5);
             if (hudHeading != null) hudHeading.text = $"HDG {MLData.Deg3(HeadingNow)}°";
             if (TurnSide() != hudSide && !OnTable) DrawHud();   // the turn hint changed
         }
@@ -213,6 +213,7 @@ namespace MissionLens
                 var s = p.st; bool isNext = s.id == target; int mk = marks.Count(m => m.station == s.id);
                 string sub = "";
                 if (table) sub = string.Join(" · ", new[] { s.id == here ? (taskIndex == 0 ? L("start", "出発点") : Finished ? L("finish", "帰着点") : L("the Marswalk is here", "Marswalk はここ")) : "", mk > 0 ? L(mk + " marked", "印 " + mk) : "" }.Where(x => x.Length > 0));
+                else if (travelling != null) sub = "";   // on the way: the distance left is on the head-up strip
                 else if (s.id != At) sub = $"{BearingFromHere(s.id).d:0} m" + (stage == Stage.Field && St(At).hidden.Contains(s.id) ? L(" · behind terrain", " · 地形の陰") : "");
                 bool full = table ? s.id == sel : isNext || preview != null || (Finished && s.id != here);
                 var col = table && s.id == sel ? Cyan : isNext && !table ? Amber : Color.white;
@@ -239,7 +240,7 @@ namespace MissionLens
         public void SetLanguage(string lang)
         {
             MLText.lang = lang == "ja" ? "ja" : "en"; PlayerPrefs.SetString("ml.lang", MLText.lang); Log("language " + MLText.lang);
-            HideBanner(); DrawTitle(); Refresh(); DrawLegend(); dialBuiltFor = -1; dialTask = -1; lensShown = -999;
+            HideBanner(); DrawTitle(); Refresh(); DrawMenu(); dialBuiltFor = -1; dialTask = -1; lensShown = -999;
             if (OnTable && stage != Stage.Title) { DrawBoard(); DrawStrip(); }
         }
         public void ToggleLanguage() { sfx.Play("toggle", .7f); SetLanguage(Ja ? "en" : "ja"); }
@@ -248,7 +249,9 @@ namespace MissionLens
         void DrawPin(Pin p)
         {
             var l = p.label; l.Clear(); string text = p.text, sub = p.sub; var col = p.col; bool left = p.side < 0;
-            float w = Mathf.Min(640, Mathf.Max(l.Measure(text, 38, true), sub.Length > 0 ? l.Measure(sub, 27) : 0) + 104), x0 = left ? 640 - w : 0; p.boxW = w;
+            // On the table the selected station's label also carries the way to stand there: what is done to a place is offered at the place.
+            bool stand = stage == Stage.Table && introDone && p.st.id == sel; float extra = stand ? 152 : 0;
+            float w = Mathf.Min(640, Mathf.Max(l.Measure(text, 38, true), sub.Length > 0 ? l.Measure(sub, 27) : 0) + 104 + extra), x0 = left ? 640 - w : 0; p.boxW = w;
             l.Box(x0, 14, w, 100, 20, new Color(8 / 255f, 10 / 255f, 14 / 255f, .86f), new Color(col.r, col.g, col.b, .35f));
             float ix = left ? 594 : 46; l.Box(ix - 20, 44, 40, 40, 20, new Color(0, 0, 0, 0), col); l.Box(ix - 8, 56, 16, 16, 8, col);
             float tx = left ? 560 : 80; int al = left ? 1 : -1;
@@ -256,6 +259,7 @@ namespace MissionLens
             if (sub.Length > 0) l.Text(sub, tx, 97, 27, Soft, false, al);
             string id = p.st.id;
             l.Hit("pin:" + id, x0, 14, w, 100, () => PressPin(id), 20);
+            if (stand) l.Button(L("Stand ›", "立つ ›"), left ? x0 + 12 : x0 + w - 150, 31, 138, 66, () => ToField(id), primary: true, px: 27, key: "Stand:" + id);
         }
 
         // On the table a label selects its station. Inside the terrain it takes you to the surface image there.
@@ -300,44 +304,6 @@ namespace MissionLens
             s.Button(Ja ? "English" : "日本語", X + W - 170, 34, 170, 56, ToggleLanguage, px: 26, key: "Language");
             var stamp = Resources.Load<TextAsset>("ML/build");
             if (stamp != null) s.Text("Build " + stamp.text.Trim(), X + W - 190, 72, 20, Dim, false, 1);
-        }
-
-        // The sign beside the model: which way is north on the table, a scale bar, the scale, and the table's own
-        // controls. Redrawn as the map is slid, stretched or turned.
-        void DrawLegend()
-        {
-            var s = legend; s.Clear(); const float X = 28; float W = s.w - 2 * X, pxPerM = tv.S / (.3f / s.w);
-            s.Box(1.5f, 1.5f, s.w - 3, s.h - 3, 26, Back, Line);
-            // north: an arrow in a ring, turned as the map is turned
-            float cx = X + 46, cy = 74, r = 40, th = tv.yawRel * Mathf.Deg2Rad; Vector2 up = new Vector2(Mathf.Sin(th), -Mathf.Cos(th)), side = new Vector2(-up.y, up.x);
-            s.Box(cx - r, cy - r, 2 * r, 2 * r, r, new Color(0, 0, 0, 0), new Color(1, 1, 1, .25f));
-            Vector2 c = new Vector2(cx, cy), tip = c + up * (r - 8), tail = c - up * (r - 12), barb = tip - up * 20;
-            s.Stroke(tail.x, tail.y, tip.x, tip.y, 6, Ink); s.Stroke(tip.x, tip.y, barb.x + side.x * 13, barb.y + side.y * 13, 6, Ink); s.Stroke(tip.x, tip.y, barb.x - side.x * 13, barb.y - side.y * 13, 6, Ink);
-            Vector2 n = c + up * (r + 20); s.Text("N", n.x, n.y + 11, 30, Ink, true, 0);
-            // scale bar: the longest round length that fits
-            float len = 10; foreach (var l in new[] { 20f, 50f, 100f, 200f, 500f }) if (l * pxPerM <= 300) len = l;
-            float bar = len * pxPerM, bx = X + 150; const float by = 78;
-            s.Box(bx, by - 6, bar, 12, 3, Ink); s.Box(bx, by - 6, bar / 2, 12, 3, Gray);
-            s.Text("0", bx, by - 20, 23, Soft, false, 0); s.Text($"{len / 2:0}", bx + bar / 2, by - 20, 23, Soft, false, 0); s.Text($"{len:0} m", bx + bar, by - 20, 23, Soft, false, 0);
-            s.Text($"{ScaleText} · {(tableEx > 1 ? L("height ×2", "高さ ×2") : L("height as measured", "高さ 実寸"))}", bx, by + 44, 29, Ink, true);
-            s.Button(Ja ? "English" : "日本語", s.w - X - 110, 22, 110, 44, ToggleLanguage, px: 20, key: "Language");
-            s.Text(L("MRO HiRISE terrain model, 2 m grid · walls and base drawn by us", "MRO HiRISE の地形モデル(2 m 格子)· 側壁と台はこちらで描画"), X, 168, 18, Gray);
-            float bw = (W - 14) / 2; int px = Ja ? 23 : 25;
-            s.Button(L("Whole route", "ルート全体"), X, 190, bw, 64, WholeRoute, px: px, key: "Whole route");
-            s.Button(followTasks ? L("Follow tasks: on", "作業に追従: 入") : L("Follow tasks: off", "作業に追従: 切"), X + bw + 14, 190, bw, 64, ToggleFollow, followTasks, px: px, key: "Follow tasks");
-            s.Button(layout == "desk" ? L("Layout: desk", "配置: 机") : L("Layout: wall", "配置: 壁"), X, 268, bw, 64, ToggleLayout, px: px, key: "Layout");
-            s.Button(tools ? L("Tools: on", "道具: 入") : L("Tools: off", "道具: 切"), X + bw + 14, 268, bw, 64, ToggleTools, tools, px: px, key: "Tools");
-            float y = 364;
-            if (rig.xr)
-            {
-                s.Button(L("Bring table here", "机をここへ"), X, 346, bw, 64, PlaceTable, px: px, key: "Bring table here");
-                s.Button(studio ? L("Room: studio", "部屋: スタジオ") : L("Room: yours", "部屋: 実際"), X + bw + 14, 346, bw, 64, ToggleStudio, studio, px: px, key: "Room");
-                y = 442;
-            }
-            s.Wrap(rig.xr ? L("Pinch the model and move to slide it. Pinch with both hands to stretch and turn it. \"Follow tasks\" brings each task's place onto the table.",
-                              "模型をピンチして動かすと地図が滑ります。両手でピンチすると伸縮・回転します。「作業に追従」は、選んだ作業の場所を机に寄せます。")
-                          : L("Drag the model to slide it, wheel to zoom, Q / E to turn. \"Follow tasks\" brings each task's place onto the table.",
-                              "模型をドラッグで移動、ホイールで拡大縮小、Q / E で回転。「作業に追従」は、選んだ作業の場所を机に寄せます。"), X, y, W, 24, 19, Gray);
         }
 
         // PLAN: left, what the Marswalk is for and why the selected station serves it; right, the NASA evidence.
@@ -400,13 +366,12 @@ namespace MissionLens
             int p = st.crismRank; b.Text(L($"SPECTRAL CONTEXT · MRO CRISM · {M.crismMPerPx:0} M PER PIXEL", $"分光データ · MRO CRISM · 1 画素 {M.crismMPerPx:0} m"), X2, y + 24, 24, Gray, true);
             b.Wrap(L($"{M.crismBands[0]} band here: {(p >= 50 ? $"stronger than in {p}%" : $"weaker than in {100 - p}%")} of this area (our reading). NASA label: Mg/Fe-OH bearing minerals may appear red; spectra are needed for positive identification.",
                      $"この地点の {M.crismBands[0]} バンド: この範囲の {(p >= 50 ? $"{p}% より強い" : $"{100 - p}% より弱い")}(こちらの読み取り)。NASA の説明: Mg/Fe-OH を含む鉱物は赤く見えることがある。鉱物の特定にはスペクトルの確認が必要。"), X2, y + 60, W2, 35, Ja ? 25 : 27, Ink);
-            float x = X2; const float by = 762; string s = sel; int bp = Ja ? 24 : 26;
-            b.Text(L("ON THE MODEL", "模型の表示"), x, by - 14, 19, Dim, true); b.Text(L("LOOK AHEAD AT " + s, s + " を先に見る"), x + 584, by - 14, 19, Dim, true);
-            b.Button(L("Slope", "傾斜"), x, by, 150, 64, () => SetLayer("slope"), layer == "slope", px: bp, key: "Slope"); x += 166;
-            b.Button(L("Spectral", "分光"), x, by, 180, 64, () => SetLayer("crism"), layer == "crism", px: bp, key: "Spectral"); x += 196;
-            b.Button(L("Height ×2", "高さ ×2"), x, by, 190, 64, ToggleHeight, tableEx > 1, px: bp, key: "Height ×2"); x += 222;
-            b.Button(L("Preview 1 : 25", "下見 1 : 25"), x, by, 216, 64, () => EnterTerrain(s, SGiant), px: 25, key: "Preview 1 : 25"); x += 232;
-            b.Button(L("Stand at " + s, s + " に立つ"), x, by, 224, 64, () => ToField(s), px: bp, key: "Stand at " + s);
+            float x = X2; const float by = 762; string s = sel; int bp = Ja ? 26 : 28;
+            b.Text(L("LOOK AHEAD AT " + s, s + " を先に見る"), x, by - 14, 19, Dim, true);
+            b.Button(L("Stand at " + s, s + " に立つ"), x, by, 300, 68, () => ToField(s), px: bp, key: "Stand at " + s); x += 316;
+            b.Button(L("Preview 1 : 25", "下見 1 : 25"), x, by, 300, 68, () => EnterTerrain(s, SGiant), px: bp, key: "Preview 1 : 25"); x += 324;
+            b.Wrap(rig.xr ? L("Slope, spectral and height are on the menu on your left hand.", "傾斜・分光・高さの切り替えは、左手のメニューにあります。")
+                          : L("Slope, spectral and height are on the menu (M).", "傾斜・分光・高さの切り替えは、メニュー(M)にあります。"), x, by + 28, W2 - (x - X2), 26, 21, Dim);
             const float ly = 866;
             if (layer == "slope")
             {
@@ -455,9 +420,10 @@ namespace MissionLens
             }
             for (int m = 0; m < M.plannedTotalMin; m += 60) s.Text(MLData.Hm(m), X0 + m * k, 212, 20, Gray);
             s.Text(MLData.Hm(M.plannedTotalMin), X0 + W, 212, 20, Gray, false, 1);
-            s.Text(L("Timeline after the BASALT-2 planned EVA (Beaton et al. 2019, Table 2) · walking times and slope classes are ours · amber outline: current task",
-                     "時間割は BASALT-2 の計画 EVA(Beaton ほか 2019、表 2)に基づく · 歩行時間と傾斜の区分はこちらで設定 · 橙の枠: 現在の作業"), X0, 248, 20, Dim);
+            s.Text(L("Timeline: BASALT-2 planned EVA (Beaton et al. 2019, Table 2) · walking times and slope classes are ours · amber: current task",
+                     "時間割は BASALT-2 の計画 EVA(Beaton ほか 2019、表 2)に基づく · 歩行時間と傾斜の区分はこちらで設定 · 橙の枠: 現在の作業"), X0, 248, 19, Dim);
             bool armed = Time.time < restartArmedUntil; float rw = armed ? 270 : 130;
+            if (rig.xr) s.Button(L("Menu", "メニュー"), s.w - 30 - rw - 12 - 130, 222, 130, 40, ToggleMenuPin, menuPinned || menuIntro, px: 19, key: "Menu");
             s.Button(armed ? L("Press again to restart", "もう一度押すと最初から") : L("Restart", "やり直す"), s.w - 30 - rw, 222, rw, 40, () => { if (Time.time < restartArmedUntil) Restart(); else { restartArmedUntil = Time.time + 3; Refresh(); } }, armed, px: 19, key: "Restart");
         }
 
@@ -580,9 +546,9 @@ namespace MissionLens
             s.Box(0, 0, W, s.h, 26, new Color(10 / 255f, 12 / 255f, 16 / 255f, .88f));
             if (!rig.xr) s.Hit("hud", 0, 0, W, s.h, ToggleWrist, 26, true);
             s.Text(top, 40, 48, 23, stage == Stage.Field && preview != null ? Cyan : Gray, true);
-            s.Text($"T+ {MLData.Hm(Pet)} / {MLData.Hm(M.plannedTotalMin)}", R - 132, 48, 23, Gray, true, 1);
+            hudClock = s.Text($"T+ {MLData.Hm(Pet)} / {MLData.Hm(M.plannedTotalMin)}", R - 132, 48, 23, Gray, true, 1);
             hudHeading = s.Text($"HDG {MLData.Deg3(HeadingNow)}°", R, 48, 23, Gray, true, 1);
-            s.Text(main, 40, 104, Ja ? 34 : 38, col, true); s.Text(sub, 40, 146, Ja ? 22 : 24, flashMsg.Length > 0 ? Amber : Soft);
+            s.Text(main, 40, 104, Ja ? 34 : 38, col, true); hudSub = s.Text(sub, 40, 146, Ja ? 22 : 24, flashMsg.Length > 0 ? Amber : Soft);
             hudSide = TurnSide();   // which way to turn when the next station is outside the view
             if (hudSide != 0) s.Text(hudSide < 0 ? $"« {target}" : $"{target} »", R, 104, 34, Amber, true, 1);
             s.Box(W - 292, 18, 1.5f, s.h - 36, 1, new Color(1, 1, 1, .14f));

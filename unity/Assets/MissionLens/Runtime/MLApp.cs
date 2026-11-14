@@ -292,9 +292,19 @@ namespace MissionLens
             panoTarget = 0; pendingPano = to; stage = Stage.Walk; wristUp = false; travelling = to; Refresh();
             float g0 = view.w.y;
             yield return Tween(.7f, k => { view.w.y = Mathf.Lerp(g0, 0, k); ApplyView(); });
-            yield return Tween(Mathf.Clamp(total / 45f, 3, 8), k =>
+            // The walk is shown many times faster than it is planned to take. To keep it a walk all the same: soft
+            // steps at an even stride (so they quicken and slow with the pace), the distance left counting down,
+            // and the planned clock running through the minutes the leg is given.
+            float dur = Mathf.Clamp(total / 45f, 3, 8); int strides = Mathf.RoundToInt(dur * 2.1f), stepped = 0;
+            var legTask = !Finished && Task.leg >= 0 && Task.station == to ? Task : null;
+            yield return Tween(dur, k =>
             {
-                float d = Ease(k) * total; int i = 1; while (i < pts.Count - 1 && cum[i] < d) i++;
+                float e = Ease(k);
+                if (e * strides >= stepped + .5f) { sfx.Play((stepped & 1) == 0 ? "stepA" : "stepB", .5f); stepped++; }
+                if (hudSub != null && flashMsg.Length == 0)
+                    hudSub.text = L($"{total * (1 - e):0} m to go", $"残り {total * (1 - e):0} m") + (legTask != null ? L($" · {legTask.plannedMin} min on the plan, shown faster", $" · 計画では {legTask.plannedMin} 分(早送りで表示)") : "");
+                if (hudClock != null && legTask != null) hudClock.text = $"T+ {MLData.Hm(Mathf.Lerp(legTask.startMin, legTask.endMin, e))} / {MLData.Hm(M.plannedTotalMin)}";
+                float d = e * total; int i = 1; while (i < pts.Count - 1 && cum[i] < d) i++;
                 float u = (d - cum[i - 1]) / Mathf.Max(1e-6f, cum[i] - cum[i - 1]); var p = Vector2.Lerp(pts[i - 1], pts[i], u);
                 view.ax = p.x; view.az = p.y; view.w = new Vector3(rig.Head.position.x, 0, rig.Head.position.z); ApplyView();
                 if (!rig.xr && Time.time - rig.lastDragTime > 1.5f)
@@ -308,6 +318,7 @@ namespace MissionLens
             here = to; sel = to; stage = Stage.Field; panoTarget = 1; travelling = null;
             if (!Finished && Task.leg >= 0 && Task.station == to) { taskIndex++; done.Clear(); }   // an Approach task ends on arrival
             busy = moving = false; Refresh(); Arrived(to);
+            var feet = rig.Head.position; feet.y = rig.transform.position.y + .03f; Ripple(feet, MLPanel.Amber, 9f);   // a ring spreading over the ground from where you have come to stand
         }
 
         public void Rescale(float S) { if (!busy) StartCoroutine(CoRescale(S)); }
@@ -320,9 +331,9 @@ namespace MissionLens
         }
 
         public void ToggleHeight() { if (!busy) StartCoroutine(CoHeight()); }
-        IEnumerator CoHeight() { busy = true; tableEx = tableEx > 1 ? 1 : 2; yield return FlyTo(TableView(), .6f); busy = false; Refresh(); DrawLegend(); }
+        IEnumerator CoHeight() { busy = true; tableEx = tableEx > 1 ? 1 : 2; yield return FlyTo(TableView(), .6f); busy = false; Refresh(); DrawMenu(); }
 
-        public void SetLayer(string name) { layer = layer == name ? "none" : name; sfx.Play("toggle", .7f); Refresh(); }
+        public void SetLayer(string name) { layer = layer == name ? "none" : name; sfx.Play("toggle", .7f); Refresh(); DrawMenu(); }
         public void CompleteTask()
         {
             if (Finished) return;
@@ -343,7 +354,7 @@ namespace MissionLens
             panoTarget = 0; roomTarget = 1; introDone = false; frontR = 0; routeDraw = 0; plateK = 0; moving = false;
             foreach (var p in pins) p.shown = false;
             if (framing != null) framing = null;
-            tv = tvDefault; tableEx = 1; baseY = BaseFor(tv); grabs.Clear(); ResetTools();
+            tv = tvDefault; tableEx = 1; baseY = BaseFor(tv); grabs.Clear(); ResetTools(); menuIntro = rig.xr; menuPinned = false;
             stage = Stage.Title; view = TableView(); ApplyView();
             if (!rig.xr) StartCoroutine(Look(1.2f, tableFrame.eulerAngles.y, -3));
             Refresh();
@@ -436,9 +447,6 @@ namespace MissionLens
             if (!placed && !rig.xr) PlaceTable();   // in the headset the table is placed when the briefing begins
             if (!rig.xr && rig.wristToggle) ToggleWrist();
             if (stage == Stage.Title && !busy && rig.anyKey) Begin();
-            // Both hands (or both triggers) held for a moment: bring the table to where you are looking.
-            // (Not while the hands are on the model: there, two held pinches are stretching the map.)
-            if (rig.xr && stage == Stage.Table && !busy && grabs.Count == 0 && rig.right.HeldFor > 1.2f && rig.left.HeldFor > 1.2f && Time.time - lastPlaced > 2.5f) { PlaceTable(); sfx.Play("ready", .6f); }
 
             float dt = Time.deltaTime;
             roomO = Mathf.MoveTowards(roomO, roomTarget, dt * .9f);
@@ -490,6 +498,7 @@ namespace MissionLens
                 var ray = p.Ray; MLPanel hit = null; MLPanel.Btn btn = null; float best = float.MaxValue;
                 foreach (var s in Surfaces())
                 {
+                    if (p == rig.left && ((s == menu && menuDock.on) || (s == wrist && wristDock.on))) continue;   // the hand that carries a panel does not point at it
                     if (!s.Raycast(ray, out float d, out Vector2 px) || d >= best) continue;
                     var b = s.ButtonAt(px, reach); if (b == null && IsLabel(s)) continue;   // labels only count where their box is
                     best = d; hit = s; btn = b;
@@ -538,6 +547,7 @@ namespace MissionLens
             }
             if (!reticle) HideReticle();
             if (!rig.gaze.active) HideGazeDot();
+            TouchPanels();
             foreach (var s in panels)
             {
                 hovered.TryGetValue(s, out var b);
