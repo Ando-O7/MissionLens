@@ -104,7 +104,7 @@ namespace MissionLens
             p.Stroke(48, 84, 48, 146, 5, Amber); p.Box(39, 138, 18, 18, 9, Amber);
             p.Box(14, 14, 68, 68, 12, on ? Amber : new Color(8 / 255f, 10 / 255f, 14 / 255f, .88f), Amber);
             p.Text(n.ToString("00"), 48, 60, 34, on ? new Color(.1f, .06f, 0, 1) : Amber, true, 0);
-            p.Hit("mark:" + n, 6, 6, 84, 84, () => SelectMark(n), 12);
+            p.Hit("mark:" + n, 0, 0, 96, 104, () => SelectMark(n), 12);
         }
 
         // Positions that depend on the head or on the moving terrain, and which surfaces show.

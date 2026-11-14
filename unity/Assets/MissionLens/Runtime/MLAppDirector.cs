@@ -123,6 +123,72 @@ namespace MissionLens
             h.point = false;
         }
 
+        // Raised higher than for a button, to point out over the head-up strip at the ground ahead.
+        void PointOut(int side, Vector3 target)
+        {
+            var h = rig.simHands[side]; float s = side == 0 ? 1 : -1;
+            h.on = true; h.point = false; h.curlTo = .36f; h.indexTo = .16f; h.thumbTo = .35f; h.speed = 6;
+            h.wristTo = rig.simHeadTo + BodyYaw * new Vector3(.23f * s, -.16f, .4f);
+            h.rotTo = Quaternion.LookRotation((target - h.wristTo).normalized + Vector3.up * .15f, Vector3.up) * Quaternion.Euler(0, 0, -34 * s); h.aimTo = target;
+        }
+        // Point at the ground in a direction given from where the head looks, and pinch: a candidate is recorded there.
+        IEnumerator RecordAt(float yawOff, float pitch)
+        {
+            var dir = Quaternion.Euler(-pitch, rig.simYawTo + yawOff, 0) * Vector3.forward;
+            if (!PointOnTerrain(new Ray(rig.simHeadTo, dir), out var local, out _)) { Debug.LogWarning("[director] no terrain that way"); yield break; }
+            var at = world.TransformPoint(local); int before = marks.Count;
+            for (int attempt = 0; attempt < 3 && marks.Count == before; attempt++)
+            {
+                for (float t = 0; t < 1.1f; t += Time.deltaTime) { PointOut(0, at); yield return null; }
+                RH.pinch = true; yield return Pause(.18f); RH.pinch = false; yield return Pause(.7f);
+            }
+        }
+
+        // The run shown in Tokyo: check a walk and a station's work on the table, go to that station, record two
+        // candidates in the real view, come back and find them on the map.
+        IEnumerator CoTokyo(bool brisk)
+        {
+            float beat = brisk ? .7f : 1; Vector3 T(float x, float y, float z) => tableFrame.TransformPoint(x, y, z);
+            directorStatus = "title"; HeadTo(title.go.transform.position, 6);
+            rig.simHeadTo += new Vector3(0, 0, .3f); rig.simHeadSpeed = 1.6f; yield return Pause(1.0f * beat);
+            yield return PressRay(0, title, "Begin briefing", .7f, () => stage != Stage.Title || busy); Rest(0);
+            directorStatus = "opening"; yield return Pause(.5f);
+            HeadTo(T(0, .1f, -.05f), 1.6f, 11); if (brisk) Time.timeScale = 1.5f;
+            yield return WaitFor(() => introDone && !busy); Time.timeScale = 1; yield return Pause(.5f * beat);
+
+            // 1. a walk: the climb to B comes onto the table with its slope classes
+            directorStatus = "walk task"; var tb = FindButton(strip, "task:3"); if (tb != null) HeadTo(ButtonWorld(strip, tb), 2.2f, -13);
+            yield return PressRay(0, strip, "task:3", .6f, () => selTask == 3); Rest(0);
+            HeadTo(T(0, .1f, -.05f), 1.8f, 11); yield return Pause(1.5f * beat);
+            PointAt(0, T(.02f, .06f, .12f)); yield return Pause(1.5f * beat); Rest(0);   // the slope and elevation of a point on the climb
+            HeadTo(board.go.transform.position, 1.6f, -4); yield return Pause(1.8f * beat);
+            // 2. the work at B: why there, and NASA's record of it
+            directorStatus = "station task"; tb = FindButton(strip, "task:5"); if (tb != null) HeadTo(ButtonWorld(strip, tb), 2.2f, -6);
+            yield return PressRay(0, strip, "task:5", .6f, () => selTask == 5); Rest(0);
+            HeadTo(boardR.go.transform.position, 1.5f, -6); yield return Pause(2.0f * beat);
+            HeadTo(board.go.transform.position, 1.5f, -8); yield return Pause(1.6f * beat);
+            // 3. the simulated Marswalk is set to begin there, and goes out
+            directorStatus = "start"; yield return PressRay(0, board, "Start here", .7f, () => taskIndex == 5); yield return Pause(.7f * beat);
+            yield return PressRay(0, board, "Marswalk", .6f, () => busy || stage != Stage.Table); Rest(0); Rest(1);
+            Head(rig.simYawTo * .3f, -6, 1.3f);
+            yield return WaitFor(() => stage == Stage.Field && !busy && panoOpacity > .98f); yield return Pause(1.6f * beat);
+            // 4. two candidates in the real view
+            directorStatus = "record"; Head(rig.simYawTo - 8, -7, 1.2f); yield return Pause(.9f * beat);
+            yield return RecordAt(-16, -3.5f); yield return Pause(.6f * beat);
+            Head(rig.simYawTo + 22, -8, 1.2f); yield return Pause(.6f * beat);
+            yield return RecordAt(13, -6); Rest(0); yield return Pause(1.2f * beat);
+            // 5. back at the table they are on the map; one is picked
+            directorStatus = "back"; yield return PressRay(0, hud, "HudTable", .7f, () => stage == Stage.Table); Rest(0);
+            yield return Pause(.6f); HeadTo(T(0, .1f, -.05f), 1.4f, 10);
+            yield return WaitFor(() => stage == Stage.Table && !busy, 12); yield return Pause(3.0f * beat);
+            if (marks.Count > 0)
+            {
+                var m = marks[0]; directorStatus = "pick"; yield return WaitFor(() => framing == null, 3);
+                yield return PressRay(0, m.label, "mark:" + m.n, .7f, () => selMark == m.n); Rest(0); yield return Pause(1.4f * beat);
+                HeadTo(board.go.transform.position, 1.5f, -12); yield return Pause(3.0f * beat);
+            }
+        }
+
         // ---------- the run ----------
         IEnumerator CoDirect(string scenario, string outDir, string language)
         {
@@ -137,6 +203,8 @@ namespace MissionLens
             rig.simHeadTo = new Vector3(0, 1.6f, 0); Head(0, -3, 20); Rest(0); Rest(1); RH.Snap(); LH.Snap();
             yield return Pause(.6f);
             if (outDir != null) { StartCoroutine(CoRecord(outDir, 1920, 1080, 30)); yield return null; }
+
+            if (scenario.StartsWith("tokyo")) { yield return CoTokyo(scenario == "tokyo30"); recording = false; yield return null; yield return null; directorStatus = "done " + recFrame + " frames"; yield break; }
 
             // 1. the title; begin
             directorStatus = "title"; HeadTo(title.go.transform.position, 6);

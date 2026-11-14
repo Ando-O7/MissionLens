@@ -613,8 +613,10 @@ namespace MissionLens
                 foreach (var s in Surfaces())
                 {
                     if (p == rig.left && ((s == menu && menuDock.on) || (s == wrist && wristDock.on))) continue;   // the hand that carries a panel does not point at it
-                    if (!s.Raycast(ray, out float d, out Vector2 px) || d >= best) continue;
+                    if (!s.Raycast(ray, out float d, out Vector2 px)) continue;
                     var b = s.ButtonAt(px, reach); if (b == null && IsLabel(s)) continue;   // labels only count where their box is
+                    if (b != null && b.key != null && b.key.StartsWith("mark:")) d -= .08f; // a candidate's tag is small and often stands by a station's label: it is taken first
+                    if (d >= best) continue;
                     best = d; hit = s; btn = b;
                 }
                 // Where the pointer has rested for a moment. In the headset a press goes there even if the pinch

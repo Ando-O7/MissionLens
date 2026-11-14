@@ -19,7 +19,7 @@ namespace MissionLens
         class Grab { public MLRig.Pointer p; public Vector2 map; public bool byHand; }   // byHand: held under the hand itself, not where its ray lands
 
         const float FootHx = .43f, FootHz = .395f;      // half size of the table's patch, metres
-        const float SMax = 1f / 200f;                   // closest: 1 : 200, where the patch is 172 x 158 m
+        const float SMax = 1f / 80f;                    // closest: 1 : 80, where the patch is 69 x 63 m (candidates a few metres from a station then stand clear of it; the image is soft at this scale, 25 cm to a pixel)
         TView tv, tvDefault; float SMin, tableEx = 1; bool followTasks = true;
         readonly List<Grab> grabs = new List<Grab>();
         Coroutine framing; Mesh skirtMesh; TView skirtFor; float skirtBaseY = float.NaN; int scaleShown;
