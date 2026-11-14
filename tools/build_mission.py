@@ -92,6 +92,19 @@ def main():
     cost[slope >= A["slope_block_deg"]] = np.inf
     cost = cost * (cw + ch) / 2
 
+    # Ground the rover actually drove is known to bear a wheeled vehicle and to be free of the sand
+    # ripples it steered around; slope alone cannot see those. Prefer it without forcing it.
+    on_track = np.zeros((gh, gw), bool)
+    hw = max(1, int(round(A["rover_track_halfwidth_m"] / cw)))
+    for seg in V["traverse"]:
+        pts = [to_xy(c[0], c[1]) for c in seg["coords"]]
+        for (xa, ya), (xb, yb) in zip(pts, pts[1:]):
+            for t in np.linspace(0, 1, max(2, int(math.hypot(xb - xa, yb - ya)))):
+                r, c = cell(xa + (xb - xa) * t, ya + (yb - ya) * t)
+                if 0 <= r < gh and 0 <= c < gw:
+                    on_track[max(0, r - hw):r + hw + 1, max(0, c - hw):c + hw + 1] = True
+    cost[on_track] *= A["rover_track_discount"]
+
     legs = []
     for a, bb in src["legs"]:
         sa, sb = stations[a], stations[bb]
@@ -121,6 +134,7 @@ def main():
             "ascent_m": round(float(dz[dz > 0].sum()), 1), "descent_m": round(float(-dz[dz < 0].sum()), 1),
             "slope_max_deg": round(float(sl.max()), 1), "slope_mean_deg": round(float(sl.mean()), 1),
             "pct_over_15deg": round(float((sl >= 15).mean()), 3),
+            "pct_on_rover_track": round(float(np.mean([on_track[cell(x, y)] for x, y in pts])), 3),
             "est_walk_min": round(dist / A["walk_speed_mps"] / 60, 1),
             "endpoint_on_blocked_cell": blocked,
         })
@@ -152,14 +166,14 @@ def main():
     out.update({
         "stations": list(stations.values()), "legs": legs, "tasks": tasks, "planned_total_min": t,
         "route_total_m": round(sum(l["dist_m"] for l in legs), 1),
-        "route_basis": "Least-cost path over slope derived from the MRO HiRISE DTM (2 m grid, 5 m baseline). Our calculation; rocks smaller than the grid are not represented.",
+        "route_basis": "Least-cost path over slope derived from the MRO HiRISE DTM (2 m grid, 5 m baseline), with a preference for ground Perseverance drove over. Our calculation; rocks smaller than the grid are not represented.",
     })
     dest = ROOT / "assets" / "data" / "missions" / f"{src['id']}.json"
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(json.dumps(out, indent=1))
     for l in legs:
         print(f"{l['from']:>4} -> {l['to']:<4} {l['dist_m']:6.1f} m (straight {l['straight_m']:.0f})  +{l['ascent_m']:.1f}/-{l['descent_m']:.1f} m  "
-              f"slope max {l['slope_max_deg']:.1f} mean {l['slope_mean_deg']:.1f}  >15deg {l['pct_over_15deg']:.0%}  walk ~{l['est_walk_min']} min  blocked_end {l['endpoint_on_blocked_cell']}")
+              f"slope max {l['slope_max_deg']:.1f} mean {l['slope_mean_deg']:.1f}  >15deg {l['pct_over_15deg']:.0%}  on rover track {l['pct_on_rover_track']:.0%}  walk ~{l['est_walk_min']} min")
     for sid, st in stations.items():
         print(f"{sid:>4} {st['name']:<14} elev {st['elev']:.1f} slope {st['slope_deg']}  sees {st['sees']}")
     print(f"route {out['route_total_m']} m, planned {t} min -> {dest}")

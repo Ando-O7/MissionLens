@@ -15,56 +15,219 @@
     "source": "Beaton et al. 2019, Astrobiology 19:300–320, Table 2 (PMC6442238)"
   },
   "assumptions": {
-    "note": "Our own planning assumptions, not NASA limits.",
+    "note": "Our own planning assumptions, not NASA limits. Ground Perseverance drove over is preferred because a rover has already crossed it; that is evidence about the surface, not a human-rating.",
     "walk_speed_mps": 0.5,
     "slope_block_deg": 25,
     "slope_penalty_ref_deg": 12,
-    "eye_height_m": 2.0
+    "eye_height_m": 2.0,
+    "rover_track_discount": 0.6,
+    "rover_track_halfwidth_m": 3.0
   },
   "stations": [
-    { "id": "BASE", "name": "Rover park", "kind": "base", "waypoint": "24_3290", "pano": "base_sol434",
-      "note": "Hypothetical egress point on level crater floor. Perseverance stopped here on sol 434." },
-    { "id": "A", "name": "Hawksbill Gap", "kind": "survey", "waypoint": "25_0", "pano": "hawksbill_gap_sol441",
-      "note": "Foot of the climb onto the fan front. Perseverance stopped here on sol 441." },
-    { "id": "B", "name": "Skinner Ridge", "kind": "sample", "waypoint": "26_1004", "pano": "skinner_ridge_sol477", "sample_outcrop": "Skinner Ridge",
-      "note": "Perseverance workspace, sols 477–495." },
-    { "id": "C", "name": "Wildcat Ridge", "kind": "sample", "waypoint": "26_1222", "pano": "wildcat_ridge_sol502", "sample_outcrop": "Wildcat Ridge",
-      "note": "Perseverance workspace, sols 502–516." }
+    {
+      "id": "BASE",
+      "name": "Three Forks",
+      "kind": "base",
+      "waypoint": "32_1184",
+      "pano": "mcz_three_forks",
+      "pano_navcam": "three_forks_sol686",
+      "note": "Hypothetical egress point on level crater floor, at Three Forks where Perseverance laid out its sample depot. The rover was parked here on sols 686–693."
+    },
+    {
+      "id": "A",
+      "name": "Rose River Falls",
+      "kind": "survey",
+      "waypoint": "26_0",
+      "pano": "mcz_rose_river_falls",
+      "pano_navcam": "rose_river_falls_sol449",
+      "note": "Foot of the climb through Hawksbill Gap onto the fan front. Perseverance was here on sols 449–454."
+    },
+    {
+      "id": "B",
+      "name": "Skinner Ridge",
+      "kind": "sample",
+      "waypoint": "26_1004",
+      "pano": "mcz_skinner_ridge",
+      "pano_navcam": "skinner_ridge_sol477",
+      "sample_outcrop": "Skinner Ridge",
+      "note": "Perseverance workspace, sols 477–500."
+    },
+    {
+      "id": "C",
+      "name": "Wildcat Ridge",
+      "kind": "sample",
+      "waypoint": "26_1222",
+      "pano": "mcz_wildcat_ridge",
+      "pano_navcam": "wildcat_ridge_sol502",
+      "sample_outcrop": "Wildcat Ridge",
+      "note": "Perseverance workspace, sols 502–534."
+    }
   ],
-  "legs": [["BASE", "A"], ["A", "B"], ["B", "C"], ["C", "BASE"]],
+  "legs": [
+    [
+      "BASE",
+      "A"
+    ],
+    [
+      "A",
+      "B"
+    ],
+    [
+      "B",
+      "C"
+    ],
+    [
+      "C",
+      "BASE"
+    ]
+  ],
   "tasks": [
-    { "station": "A", "phase": "Approach", "leg": 0, "planned_min": 15,
-      "checks": ["Follow the planned route; stay off red slope cells", "Confirm heading against the fan-front skyline"] },
-    { "station": "A", "phase": "Contextual Survey", "planned_min": 5,
-      "checks": ["Local report: time, wind, sky, temperature", "Describe the outcrop belt ahead, left to right"] },
-    { "station": "A", "phase": "Candidate Sample Location Search", "planned_min": 30,
-      "checks": ["Mark layered outcrops visible upslope", "Confirm line of sight to Station B"] },
-    { "station": "B", "phase": "Approach", "leg": 1, "planned_min": 15,
-      "checks": ["Climb via the mapped gap; slope rises above 15° near the top", "Stop below the ledge"] },
-    { "station": "B", "phase": "Contextual Survey", "planned_min": 5,
-      "checks": ["Describe layering and grain size of the ledge", "Photograph the outcrop face"] },
-    { "station": "B", "phase": "Candidate Sample Location Search", "planned_min": 30,
-      "checks": ["Locate the 2022 core site on the ledge", "Flag one fresh candidate nearby"] },
-    { "station": "C", "phase": "Approach", "leg": 2, "planned_min": 15,
-      "checks": ["Short traverse along the bench, about 20 m", "Keep the ledge on your right"] },
-    { "station": "C", "phase": "Contextual Survey", "planned_min": 5,
-      "checks": ["Describe the low, light-toned slab", "Compare with Skinner Ridge"] },
-    { "station": "C", "phase": "Candidate Sample Location Search", "planned_min": 30,
-      "checks": ["Locate the 2022 core site on the slab", "Flag one fresh candidate nearby"] },
-    { "station": "C", "phase": "Presampling Survey", "planned_min": 60,
-      "checks": ["Document each candidate at B and C", "Agree sampling priority with the science team"] },
-    { "station": "B", "phase": "Sampling at Sample Location 1", "planned_min": 30,
-      "checks": ["Sample the agreed Skinner Ridge candidate", "Record position and orientation"] },
-    { "station": "C", "phase": "Sampling at Sample Location 2", "planned_min": 30,
-      "checks": ["Sample the agreed Wildcat Ridge candidate", "Record position and orientation"] },
-    { "station": "BASE", "phase": "Return", "leg": 3, "planned_min": 20, "ours": true,
-      "checks": ["Descend by the planned route", "Confirm samples stowed before ingress"] }
+    {
+      "station": "A",
+      "phase": "Approach",
+      "leg": 0,
+      "planned_min": 15,
+      "checks": [
+        "Follow the planned route; stay off red slope cells",
+        "Confirm heading against the fan-front skyline"
+      ]
+    },
+    {
+      "station": "A",
+      "phase": "Contextual Survey",
+      "planned_min": 5,
+      "checks": [
+        "Local report: time, wind, sky, temperature",
+        "Describe the outcrop belt ahead, left to right"
+      ]
+    },
+    {
+      "station": "A",
+      "phase": "Candidate Sample Location Search",
+      "planned_min": 30,
+      "checks": [
+        "Mark layered outcrops visible upslope",
+        "Confirm line of sight to Station B"
+      ]
+    },
+    {
+      "station": "B",
+      "phase": "Approach",
+      "leg": 1,
+      "planned_min": 15,
+      "checks": [
+        "Climb via the mapped gap; slope rises above 15° near the top",
+        "Stop below the ledge"
+      ]
+    },
+    {
+      "station": "B",
+      "phase": "Contextual Survey",
+      "planned_min": 5,
+      "checks": [
+        "Describe layering and grain size of the ledge",
+        "Photograph the outcrop face"
+      ]
+    },
+    {
+      "station": "B",
+      "phase": "Candidate Sample Location Search",
+      "planned_min": 30,
+      "checks": [
+        "Locate the 2022 core site on the ledge",
+        "Flag one fresh candidate nearby"
+      ]
+    },
+    {
+      "station": "C",
+      "phase": "Approach",
+      "leg": 2,
+      "planned_min": 15,
+      "checks": [
+        "Short traverse along the bench, about 20 m",
+        "Keep the ledge on your right"
+      ]
+    },
+    {
+      "station": "C",
+      "phase": "Contextual Survey",
+      "planned_min": 5,
+      "checks": [
+        "Describe the low, light-toned slab",
+        "Compare with Skinner Ridge"
+      ]
+    },
+    {
+      "station": "C",
+      "phase": "Candidate Sample Location Search",
+      "planned_min": 30,
+      "checks": [
+        "Locate the 2022 core site on the slab",
+        "Flag one fresh candidate nearby"
+      ]
+    },
+    {
+      "station": "C",
+      "phase": "Presampling Survey",
+      "planned_min": 60,
+      "checks": [
+        "Document each candidate at B and C",
+        "Agree sampling priority with the science team"
+      ]
+    },
+    {
+      "station": "B",
+      "phase": "Sampling at Sample Location 1",
+      "planned_min": 30,
+      "checks": [
+        "Sample the agreed Skinner Ridge candidate",
+        "Record position and orientation"
+      ]
+    },
+    {
+      "station": "C",
+      "phase": "Sampling at Sample Location 2",
+      "planned_min": 30,
+      "checks": [
+        "Sample the agreed Wildcat Ridge candidate",
+        "Record position and orientation"
+      ]
+    },
+    {
+      "station": "BASE",
+      "phase": "Return",
+      "leg": 3,
+      "planned_min": 20,
+      "ours": true,
+      "checks": [
+        "Descend by the planned route",
+        "Confirm samples stowed before ingress"
+      ]
+    }
   ],
   "events": [
-    { "id": "overrun_b", "simulated": true, "after_task": 5, "title": "Candidate search at B ran 20 min over",
-      "overrun_min": 20, "options": [
-        { "id": "trim_presample", "label": "Shorten presampling survey to 40 min", "set": { "9": 40 } },
-        { "id": "drop_sample1", "label": "Drop sampling at location 1; keep Wildcat Ridge", "skip": [10] }
-      ] }
+    {
+      "id": "overrun_b",
+      "simulated": true,
+      "after_task": 5,
+      "title": "Candidate search at B ran 20 min over",
+      "overrun_min": 20,
+      "options": [
+        {
+          "id": "trim_presample",
+          "label": "Shorten presampling survey to 40 min",
+          "set": {
+            "9": 40
+          }
+        },
+        {
+          "id": "drop_sample1",
+          "label": "Drop sampling at location 1; keep Wildcat Ridge",
+          "skip": [
+            10
+          ]
+        }
+      ]
+    }
   ]
 }

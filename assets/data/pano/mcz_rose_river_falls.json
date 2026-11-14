@@ -1,0 +1,57 @@
+{
+ "name": "mcz_rose_river_falls",
+ "kind": "official_mastcamz",
+ "camera": "Mastcam-Z left eye, natural colour",
+ "sols": [
+  454,
+  454
+ ],
+ "site": 26,
+ "drive": 0,
+ "projection": "equirectangular, x = azimuth clockwise from north (0..360), y = elevation",
+ "size": [
+  8192,
+  2209
+ ],
+ "el_max": 18.862,
+ "el_min": -78.23,
+ "source_url": "https://mcz-images.sese.asu.edu/Mastcam-Z_360_Rose_River_Falls_Sol454_L0_natural.jpg",
+ "source_size": [
+  30000,
+  8091
+ ],
+ "source_px_per_deg": 83.33,
+ "credit": "NASA/JPL-Caltech/ASU/MSSS",
+ "registration": {
+  "method": "SIFT matches voting for one shift against the Navcam reconstruction",
+  "matches": 356,
+  "inliers": 39,
+  "inliers_per_45deg_sector": [
+   0,
+   4,
+   1,
+   0,
+   0,
+   17,
+   17,
+   0
+  ],
+  "h_drift_pct": 0.2812423691399402,
+  "v_drift_pct": 8.421591683176114,
+  "residual_rms_deg": [
+   0.3549779983641694,
+   0.2764133190468745
+  ],
+  "bridge": "rose_river_falls_sol449",
+  "skyline_fit": {
+   "used": true,
+   "skyline_columns_deg": 253.7,
+   "residual_mad_deg": 0.186,
+   "d_az_deg": 0.0,
+   "d_el_deg": 0.0
+  },
+  "az_of_source_column0_deg": 40.051,
+  "passed": true
+ },
+ "provenance": "NASA observation (official Mastcam-Z mosaic). Azimuth and elevation were assigned by us: first by matching it to our Navcam reconstruction from the same rover stop, then by fitting its skyline to the one predicted from the HiRISE DTM. The image itself is unaltered apart from resizing and a horizontal roll."
+}

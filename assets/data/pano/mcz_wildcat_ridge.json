@@ -1,0 +1,57 @@
+{
+ "name": "mcz_wildcat_ridge",
+ "kind": "official_mastcamz",
+ "camera": "Mastcam-Z left eye, natural colour",
+ "sols": [
+  518,
+  534
+ ],
+ "site": 26,
+ "drive": 1222,
+ "projection": "equirectangular, x = azimuth clockwise from north (0..360), y = elevation",
+ "size": [
+  8192,
+  2617
+ ],
+ "el_max": 24.939,
+ "el_min": -90.056,
+ "source_url": "https://mcz-images.sese.asu.edu/Mastcam-Z_360_Wildcat_Ridge_Sols518-534_L0_natural.jpg",
+ "source_size": [
+  29897,
+  9550
+ ],
+ "source_px_per_deg": 83.05,
+ "credit": "NASA/JPL-Caltech/ASU/MSSS",
+ "registration": {
+  "method": "SIFT matches voting for one shift against the Navcam reconstruction",
+  "matches": 1399,
+  "inliers": 141,
+  "inliers_per_45deg_sector": [
+   7,
+   9,
+   0,
+   95,
+   12,
+   3,
+   0,
+   15
+  ],
+  "h_drift_pct": 0.08232948723664345,
+  "v_drift_pct": -0.4919843555593748,
+  "residual_rms_deg": [
+   0.35192651165898325,
+   0.23090633653787065
+  ],
+  "bridge": "wildcat_ridge_sol502",
+  "skyline_fit": {
+   "used": true,
+   "skyline_columns_deg": 230.2,
+   "residual_mad_deg": 0.254,
+   "d_az_deg": 0.0,
+   "d_el_deg": 0.0
+  },
+  "az_of_source_column0_deg": 180.984,
+  "passed": true
+ },
+ "provenance": "NASA observation (official Mastcam-Z mosaic). Azimuth and elevation were assigned by us: first by matching it to our Navcam reconstruction from the same rover stop, then by fitting its skyline to the one predicted from the HiRISE DTM. The image itself is unaltered apart from resizing and a horizontal roll."
+}

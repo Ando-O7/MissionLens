@@ -1,6 +1,6 @@
 # HANDOFF
 
-最終更新: 2026-11-14 13:50 JST / 更新者: Claude Code セッション(git 化とフォルダ再編の時点)。未決定事項の最新は `PROJECT_STATE.md`。
+最終更新: 2026-11-14 16:30 JST / 更新者: Claude Code セッション。**この文書の 2〜9 章は Phase 0 完了時点の内容で古い。決定事項と未決定事項の最新は `PROJECT_STATE.md`、経緯は `WORKLOG.md` を見ること。**
 
 ## 1. プロジェクト概要
 
@@ -98,4 +98,4 @@ python3 -m http.server 8765
 
 確認用の画像: `experiments/phase0/out/`(`shot_3d.jpg` `shot_2d_themis.jpg` `shot_pov.jpg` `shot_pov_ne.jpg` `registration_check.jpg` `pano_dtm_horizon_check.jpg`)。
 詳細: `docs/PHASE0_REPORT.md`、経緯: `docs/WORKLOG.md`。
-別の AI セッションへ渡す共通条件: `docs/SHARED_CONDITIONS.md`。提出物の型と審査基準: `docs/SUBMISSION.md`。
+3D 地形表示の作り方: `docs/TERRAIN_RENDERING.md`。別の AI セッションへ渡す共通条件: `docs/SHARED_CONDITIONS.md`。提出物の型と審査基準: `docs/SUBMISSION.md`。

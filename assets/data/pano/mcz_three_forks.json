@@ -1,0 +1,57 @@
+{
+ "name": "mcz_three_forks",
+ "kind": "official_mastcamz",
+ "camera": "Mastcam-Z left eye, natural colour",
+ "sols": [
+  690,
+  692
+ ],
+ "site": 32,
+ "drive": 1184,
+ "projection": "equirectangular, x = azimuth clockwise from north (0..360), y = elevation",
+ "size": [
+  8192,
+  2207
+ ],
+ "el_max": 13.109,
+ "el_min": -83.886,
+ "source_url": "https://mcz-images.sese.asu.edu/Mastcam-Z_360_Three_Forks_Depot_2_Sols690-692_L0_natural.jpg",
+ "source_size": [
+  29800,
+  8029
+ ],
+ "source_px_per_deg": 82.78,
+ "credit": "NASA/JPL-Caltech/ASU/MSSS",
+ "registration": {
+  "method": "SIFT matches voting for one shift against the Navcam reconstruction",
+  "matches": 532,
+  "inliers": 21,
+  "inliers_per_45deg_sector": [
+   0,
+   0,
+   0,
+   0,
+   0,
+   2,
+   14,
+   5
+  ],
+  "h_drift_pct": -0.3083327185599232,
+  "v_drift_pct": -3.933446040369585,
+  "residual_rms_deg": [
+   0.1815235138661123,
+   0.10114638845852203
+  ],
+  "bridge": "three_forks_sol686",
+  "skyline_fit": {
+   "used": true,
+   "skyline_columns_deg": 206.5,
+   "residual_mad_deg": 0.169,
+   "d_az_deg": 0.0,
+   "d_el_deg": -0.0
+  },
+  "az_of_source_column0_deg": 65.862,
+  "passed": true
+ },
+ "provenance": "NASA observation (official Mastcam-Z mosaic). Azimuth and elevation were assigned by us: first by matching it to our Navcam reconstruction from the same rover stop, then by fitting its skyline to the one predicted from the HiRISE DTM. The image itself is unaltered apart from resizing and a horizontal roll."
+}
