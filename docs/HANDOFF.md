@@ -98,3 +98,4 @@ python3 -m http.server 8765
 
 確認用の画像: `experiments/phase0/out/`(`shot_3d.jpg` `shot_2d_themis.jpg` `shot_pov.jpg` `shot_pov_ne.jpg` `registration_check.jpg` `pano_dtm_horizon_check.jpg`)。
 詳細: `docs/PHASE0_REPORT.md`、経緯: `docs/WORKLOG.md`。
+別の AI セッションへ渡す共通条件: `docs/SHARED_CONDITIONS.md`。提出物の型と審査基準: `docs/SUBMISSION.md`。
