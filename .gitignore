@@ -9,6 +9,7 @@ __pycache__/
 /unity/[Oo]bj/
 /unity/[Bb]uild/
 /unity/[Bb]uilds/
+/unity/.utmp/
 /unity/[Ll]ogs/
 /unity/[Uu]ser[Ss]ettings/
 /unity/[Mm]emoryCaptures/
