@@ -21,7 +21,7 @@ namespace MissionLens
         TView tv, tvDefault; float SMin, tableEx = 1; bool followTasks = true;
         readonly List<Grab> grabs = new List<Grab>();
         Coroutine framing; Mesh skirtMesh; TView skirtFor; float skirtBaseY = float.NaN; int scaleShown;
-        Vector2 glide, glideNow, lastHold; MLRig.Pointer lastHoldBy;
+        Vector2 glide, glideNow, lastHold; MLRig.Pointer lastHoldBy; float legendDrawnAt;
 
         string ScaleText => "1 : " + Mathf.RoundToInt(1 / tv.S / 10) * 10;
 
@@ -68,7 +68,9 @@ namespace MissionLens
                 if (framing == null) Manipulate(dt);
                 float want = BaseFor(tv); baseY = Mathf.Abs(want - baseY) < .01f ? want : Mathf.Lerp(baseY, want, 1 - Mathf.Exp(-10 * dt));
                 view = TableView(); ApplyView();
-                int shown = Mathf.RoundToInt(1 / tv.S / 10) * 1000 + Mathf.RoundToInt(Mathf.Repeat(tv.yawRel, 360) / 3); if (shown != scaleShown) { scaleShown = shown; DrawLegend(); }
+                // the sign's scale and north arrow follow the map, but not on every frame of a move: redrawing a sign is not free
+                int shown = Mathf.RoundToInt(1 / tv.S / 10) * 1000 + Mathf.RoundToInt(Mathf.Repeat(tv.yawRel, 360) / 3);
+                if (shown != scaleShown && Time.time - legendDrawnAt > .25f) { scaleShown = shown; legendDrawnAt = Time.time; DrawLegend(); }
             }
             if (OnTable && frontR > 0 && (!Same(skirtFor, tv) || skirtBaseY != baseY)) RebuildSkirt();
         }

@@ -89,7 +89,7 @@ namespace MissionLens
                 foreach (var p in pins) if (!p.shown && k > .34f && p.routeM <= routeDraw) { p.shown = true; sfx.Play("toggle", .45f); }
             });
             frontR = 1e6f; routeDraw = 1e9f; introDone = true; foreach (var p in pins) p.shown = true;
-            sfx.Play("ready"); busy = false; Refresh();
+            sfx.Play("ready"); busy = false; Refresh(); DrawLegend();
         }
 
         // ---------- per frame ----------
@@ -163,7 +163,7 @@ namespace MissionLens
             floorT.localPosition = new Vector3(0, -tableFrame.position.y, 0);
             plinthT.localScale = new Vector3(FootHx * 2 + .03f, h, FootHz * 2 + .03f); plinthT.localPosition = new Vector3(0, -.004f - h / 2, 0);
         }
-        public void ToggleStudio() { studio = !studio; sfx.Play("toggle", .7f); Log("room " + (studio ? "studio" : "passthrough")); Refresh(); }
+        public void ToggleStudio() { studio = !studio; sfx.Play("toggle", .7f); Log("room " + (studio ? "studio" : "passthrough")); DrawLegend(); }
 
         /// <summary>A ring that spreads once from a point on the ground (where a mark was placed).</summary>
         void Ripple(Vector3 at, Color col, float size)

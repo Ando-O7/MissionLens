@@ -203,7 +203,9 @@ namespace MissionLens
             var t = p.go.transform; t.position = Vector3.Lerp(t.position, want, k); t.rotation = Quaternion.LookRotation(t.position - head, Vector3.up);
         }
 
-        void Refresh()
+        float heavyDue;
+        /// <param name="light">Redraw only what is cheap now; the briefing panels and the timeline follow a moment later.</param>
+        void Refresh(bool light = false)
         {
             bool table = OnTable; var T = Task; int selLeg = M.tasks[selTask].leg; string target = Target;
             foreach (var p in pins)
@@ -228,7 +230,9 @@ namespace MissionLens
                 o.mat.SetVector("_Near", table ? Vector4.zero : new Vector4(3, 14, 0, 0));
             }
             if (stage == Stage.Title) return;
-            if (table) { DrawBoard(); DrawStrip(); DrawLegend(); } else { DrawWrist(); DrawHud(); }
+            if (!table) { DrawWrist(); DrawHud(); }
+            else if (light) heavyDue = Time.time + .16f;
+            else { heavyDue = 0; DrawBoard(); DrawStrip(); }
         }
 
         void DrawPin(Pin p)

@@ -219,9 +219,10 @@ namespace MissionLens
             sel = id; var t = M.tasks.FirstOrDefault(x => x.station == id && x.index >= taskIndex) ?? M.tasks.FirstOrDefault(x => x.station == id);
             if (t != null) selTask = t.index; Refresh();
         }
-        public void SelectTask(int i)
+        /// <param name="settling">More selections are about to follow (the timer is being turned): the big panels wait until it stops.</param>
+        public void SelectTask(int i, bool settling = false)
         {
-            selTask = i; sel = M.tasks[i].station; Refresh();
+            selTask = i; sel = M.tasks[i].station; Refresh(settling);
             if (followTasks && stage == Stage.Table && introDone && !busy) TableTo(FramingFor(M.tasks[i]));   // bring its leg or station onto the table
         }
 
@@ -317,7 +318,7 @@ namespace MissionLens
         }
 
         public void ToggleHeight() { if (!busy) StartCoroutine(CoHeight()); }
-        IEnumerator CoHeight() { busy = true; tableEx = tableEx > 1 ? 1 : 2; yield return FlyTo(TableView(), .6f); busy = false; Refresh(); }
+        IEnumerator CoHeight() { busy = true; tableEx = tableEx > 1 ? 1 : 2; yield return FlyTo(TableView(), .6f); busy = false; Refresh(); DrawLegend(); }
 
         public void SetLayer(string name) { layer = layer == name ? "none" : name; sfx.Play("toggle", .7f); Refresh(); }
         public void CompleteTask()
@@ -459,6 +460,7 @@ namespace MissionLens
 
             // Each of these is kept apart: on a headset this code has not been run on, a fault in one of them
             // should cost that part and be logged once, not stop the frame for the others.
+            if (heavyDue > 0 && Time.time >= heavyDue) { heavyDue = 0; if (stage == Stage.Table) { DrawBoard(); DrawStrip(); } }
             Guard(0, () => UpdateFx(dt)); Guard(1, () => UpdateSurfaces(dt)); Guard(2, Point); Guard(3, () => UpdateTools(dt)); Guard(4, () => UpdateTable(dt));
             if (flashMsg.Length > 0 && Time.time > flashUntil) { flashMsg = ""; DrawHud(); }
         }

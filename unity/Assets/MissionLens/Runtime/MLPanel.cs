@@ -159,7 +159,7 @@ namespace MissionLens
         }
 
         /// <summary>A straight stroke from one point to another.</summary>
-        public void Stroke(float x0, float y0, float x1, float y1, float thickness, Color c)
+        public Image Stroke(float x0, float y0, float x1, float y1, float thickness, Color c)
         {
             EnsureSprites();
             var im = New<Image>("line"); float len = Vector2.Distance(new Vector2(x0, y0), new Vector2(x1, y1));
@@ -167,6 +167,7 @@ namespace MissionLens
             im.rectTransform.localRotation = Quaternion.Euler(0, 0, -Mathf.Atan2(y1 - y0, x1 - x0) * Mathf.Rad2Deg);
             im.sprite = sRound; im.type = Image.Type.Sliced; im.pixelsPerUnitMultiplier = 24f / Mathf.Max(1f, thickness / 2); im.color = c; im.raycastTarget = false;
             if (overlay) im.material = OverlayImage();
+            return im;
         }
 
         /// <summary>A tick mark inside the box (x, y, size).</summary>

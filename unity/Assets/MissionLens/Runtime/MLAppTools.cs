@@ -47,32 +47,47 @@ namespace MissionLens
             return M.tasks.Length - 1;
         }
 
+        // The dial is built when the Marswalk moves on; turning it only recolours the arcs and rewrites the middle,
+        // so that it stays light while it is being turned.
+        readonly System.Collections.Generic.List<UnityEngine.UI.Image>[] dialArcs = new System.Collections.Generic.List<UnityEngine.UI.Image>[32];
+        readonly TMPro.TextMeshProUGUI[] dialLetters = new TMPro.TextMeshProUGUI[32]; TMPro.TextMeshProUGUI dialTime, dialWhat, dialMin; int dialBuiltFor = -1;
         void DrawDial()
         {
-            var s = dial; s.Clear(); const float C = 300; var T = M.tasks[selTask];
+            var s = dial; s.Clear(); const float C = 300;
             s.Box(6, 6, 588, 588, 294, Back, Line);
             foreach (var t in M.tasks)
             {   // each task is an arc of short strokes, as long as its planned time
-                float a0 = TimeToDeg(t.startMin) + 1.2f, a1 = TimeToDeg(t.endMin) - 1.2f; bool on = t.index == selTask;
-                var col = on ? Cyan : t.index == taskIndex && !Finished ? Amber : new Color(1, 1, 1, t.index < taskIndex ? .5f : .22f);
+                float a0 = TimeToDeg(t.startMin) + 1.2f, a1 = TimeToDeg(t.endMin) - 1.2f; var arc = dialArcs[t.index] = new System.Collections.Generic.List<UnityEngine.UI.Image>();
                 int n = Mathf.Max(1, Mathf.CeilToInt((a1 - a0) / 2.5f));
                 for (int i = 0; i < n; i++)
                 {
                     float b0 = Mathf.Lerp(a0, a1, i / (float)n) * Mathf.Deg2Rad, b1 = Mathf.Lerp(a0, a1, (i + 1f) / n) * Mathf.Deg2Rad;
-                    s.Stroke(C + Mathf.Sin(b0) * 250, C - Mathf.Cos(b0) * 250, C + Mathf.Sin(b1) * 250, C - Mathf.Cos(b1) * 250, on ? 34 : 24, col);
+                    arc.Add(s.Stroke(C + Mathf.Sin(b0) * 250, C - Mathf.Cos(b0) * 250, C + Mathf.Sin(b1) * 250, C - Mathf.Cos(b1) * 250, 28, Color.white));
                 }
+                dialLetters[t.index] = null;
                 if (t.plannedMin >= 15)
                 {
                     float m = (TimeToDeg(t.startMin) + TimeToDeg(t.endMin)) / 2 * Mathf.Deg2Rad;
-                    s.Text((t.leg >= 0 ? "→" : "") + t.station, C + Mathf.Sin(m) * 198, C - Mathf.Cos(m) * 198 + 9, 24, on ? Cyan : Soft, true, 0);
+                    dialLetters[t.index] = s.Text((t.leg >= 0 ? "→" : "") + t.station, C + Mathf.Sin(m) * 198, C - Mathf.Cos(m) * 198 + 9, 24, Soft, true, 0);
                 }
             }
             s.Text("MISSION TIMER · PLANNED", C, 212, 17, Gray, true, 0);
-            s.Text("T+ " + MLData.Hm(T.startMin), C, 286, 62, Ink, true, 0);
-            s.Text($"{T.station} · {ShortPhase(T)}", C, 328, 26, Cyan, true, 0);
-            s.Text($"{T.plannedMin} min", C, 362, 22, Soft, false, 0);
+            dialTime = s.Text("", C, 286, 62, Ink, true, 0); dialWhat = s.Text("", C, 328, 26, Cyan, true, 0); dialMin = s.Text("", C, 362, 22, Soft, false, 0);
             s.Text(rig.xr ? "take hold and turn" : "drag around the dial", C, 536, 19, Dim, false, 0);
             s.Hit("timer", 0, 0, 600, 600, () => { }, 294, true);   // so the pointer rests on it instead of taking hold of the map behind
+            dialBuiltFor = Finished ? -2 : taskIndex;
+        }
+        void DialShowSelection()
+        {
+            if (dialBuiltFor != (Finished ? -2 : taskIndex) || dialTime == null) DrawDial();
+            var T = M.tasks[selTask];
+            foreach (var t in M.tasks)
+            {
+                bool on = t.index == selTask; var col = on ? Cyan : t.index == taskIndex && !Finished ? Amber : new Color(1, 1, 1, t.index < taskIndex ? .5f : .22f);
+                foreach (var im in dialArcs[t.index]) im.color = col;
+                if (dialLetters[t.index] != null) dialLetters[t.index].color = on ? Cyan : Soft;
+            }
+            dialTime.text = "T+ " + MLData.Hm(T.startMin); dialWhat.text = $"{T.station} · {ShortPhase(T)}"; dialMin.text = $"{T.plannedMin} min";
         }
 
         // Where on the dial a pointer is, as degrees clockwise from the top: under the hand when the hand is at
@@ -176,14 +191,14 @@ namespace MissionLens
             if (dialBy != null && DialDeg(dialBy, out float deg))
             {
                 needleDeg = Mathf.Clamp(deg, -DialSweep / 2, DialSweep / 2); int i = TaskAtDeg(needleDeg);
-                if (i != selTask) { SelectTask(i); sfx.Play("hover", 1); rig.Haptic(dialBy, .5f, .02f); }
+                if (i != selTask) { SelectTask(i, true); sfx.Play("hover", 1); rig.Haptic(dialBy, .5f, .02f); }
             }
             else
             {
                 var T = M.tasks[selTask]; float rest = TimeToDeg((T.startMin + T.endMin) / 2f);
                 needleDeg = Mathf.LerpAngle(needleDeg, rest, 1 - Mathf.Exp(-10 * dt));
             }
-            if (dialTask != selTask * 100 + taskIndex) { dialTask = selTask * 100 + taskIndex; DrawDial(); }
+            if (dialTask != selTask * 100 + taskIndex) { dialTask = selTask * 100 + taskIndex; DialShowSelection(); }
             var dt_ = dial.go.transform; needleT.SetPositionAndRotation(dt_.position, dt_.rotation * Quaternion.Euler(0, 0, -needleDeg)); needleT.localScale = Vector3.one * (dial.alpha * (2 - dial.alpha));
         }
         bool LensOverModel => OnPatch(new Vector2(lensPos.x, lensPos.z), -.02f) && lensPos.y < .45f;
