@@ -119,6 +119,23 @@ $U command console status --project-path "$P" --result-only     # コンパイ�
 $U recompile --project-path "$P"                                # スクリプトを書いたあと。コンパイルエラーを返す
 ```
 
+Unity 版の作り方と確認(Editor が開いている状態で):
+
+```sh
+.venv/bin/python tools/build_unity_data.py eva01_hawksbill_gap      # データを unity/Assets/MissionLens/Resources/ML/ へ
+$U command script eval --project-path "$P" --result-only -- --code 'return MissionLens.EditorTools.MLSetup.ConfigureAll();'   # XR・プレイヤー・描画の設定をかけ直す
+$U command script eval --project-path "$P" --result-only -- --code 'return MissionLens.EditorTools.MLBuild.PrepareText() + MissionLens.EditorTools.MLBuild.CreateScene();'
+$U command editor set_auto_tick --project-path "$P" && $U command editor.playmode start --project-path "$P"                    # Play(デスクトップ用のカメラで動く)
+$U command script eval --project-path "$P" --result-only -- --code 'return MissionLens.MLApp.I.State();'                      # 状態を読む
+$U command script eval --project-path "$P" --result-only -- --code 'return MissionLens.MLApp.I.Press("Stand at");'            # 画面上のボタンを押す(前方一致)
+$U command capture game_view --project-path "$P" --result-only -- --source camera --output-path <絶対パス.png> --width 1600 --height 1000
+$U command editor.playmode stop --project-path "$P"
+$U command build run --project-path "$P" --result-only -- --target Android --output-path Builds/MissionLens.apk --confirm true  # Quest 向け。build status で完了を待つ(約 4.5 分)
+ADB=/Applications/Unity/Hub/Editor/6000.3.6f1/PlaybackEngines/AndroidPlayer/SDK/platform-tools/adb
+$ADB install -r unity/Builds/MissionLens.apk && $ADB shell am start -n com.missionlens.eva01/com.unity3d.player.UnityPlayerGameActivity
+$ADB exec-out screencap -p > shot.png ; $ADB logcat -d -s Unity | tail -50      # ヘッドセットの画面とログ
+```
+
 - **もう一方の AI セッションの Editor(`mission-lens-codex/unity`)が同時に開いていることがある。`--project-path` を省くと、そちらを操作してしまうおそれがある。**
 - Editor 側の引数は `--` の後ろに書く(CLI 自身の `--timeout` などと衝突するため)。
 - 起動時にコンパイルエラーがあると Safe Mode になり、CLI から接続できない。エラーを直して Editor を開き直す。

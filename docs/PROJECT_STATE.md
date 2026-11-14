@@ -1,6 +1,6 @@
 # PROJECT STATE
 
-最終更新: 2026-11-14 19:30 JST(Unity の実装に入る方針と、Unity の操作方法を反映)
+最終更新: 2026-11-14 20:35 JST(Unity 版が Editor で動き、Quest 向けの APK ができた。実機は未確認)
 
 ## コンセプト
 
@@ -66,6 +66,7 @@ git の管理対象は `NASASpaceAppsChallenge/MissionLens/`(このリポジト�
 **技術**
 - **Unity のバージョンは 6000.3.6f1(Unity 6.3 LTS)。** インストール済みのものをそのまま使う。Meta XR Core SDK 209.0.0 の要求(6000.0.66f2 以上)を満たす。(2026-11-14 ユーザー確定)
 - **主となる形は Quest 3 の MR / VR の空間 UI**(2026-11-14 ユーザー確定)。机上の模型は MR(現実の机の上)、地形の中と地点の実画像は VR。道具の本体は手元(手首)のパネルと視界への重ね表示。
+- **Quest 向けの XR は Unity 公式の OpenXR 系で組む**(2026-11-14 ユーザー確定): Unity OpenXR: Meta 2.7.0、AR Foundation 6.6.0、XR Hands 1.10.0、XR Interaction Toolkit 3.7.0(入れてあるが、いまは使っていない)。Meta XR SDK は使わない。
 - **本開発は、できる限り Unity で行う。** Web + Three.js は実験の位置づけだが、「触れる版」として同じ工程・同じ機能を入れて作り込む。
 - 実行時は事前加工した静的データのみを使う(NASA サーバーへ問い合わせない)。Unity 版と Web 版で同じデータとミッション定義を共有する。
 - データ加工は Python(`tools/`)、成果物は `assets/data/`。
@@ -113,7 +114,7 @@ git の管理対象は `NASASpaceAppsChallenge/MissionLens/`(このリポジト�
 
 1. **放射線データの扱い**: Gale の RAD 実測を参考値として示すか、扱わないか。出どころは回答済み(Curiosity の RAD、PDS 公開、数値は未取得)。Claude の推奨は扱わない(別の地点の計測で、局所という軸から外れる)。
 2. **触れる版(ヘッドセットなしで触れる公開物)の作り方**: ユーザーが後で決める。候補は、いまある Three.js の表示を整えたデータビューア。
-3. **Quest 向けの XR パッケージ構成**: Unity 公式の OpenXR 系(Unity OpenXR: Meta + AR Foundation + XR Interaction Toolkit + XR Hands)か、Meta XR SDK(v209)か。Claude の推奨は前者(下の「開発環境」参照)。どちらも、この環境と実機では未検証。
+3. (決定済みに移動: XR パッケージは OpenXR 系)
 4. **画像からワールドを生成する AI を、擬似現地モードとして使うか(要検討)**。ユーザーは「擬似モードとしてはありかもしれない」との感触。Claude の推奨は今回は入れない(再整理の「観測データが不足している場所を実測の 3D 空間として表現しない」「スコープを広げない」に当たる)。
 5. デモの形式(最後に決める)。
 
@@ -155,12 +156,16 @@ git の管理対象は `NASASpaceAppsChallenge/MissionLens/`(このリポジト�
 - **空間 UI の擬似版**(`experiments/spatial/index.html`、19:15 に作り直し): PLAN は机上の模型(約 1 : 570)+ 奥のブリーフィングボード + 手前の時間割。FIELD は公式パノラマ + 視界下の帯 + 上げたときだけの手首パネル + 指して候補を記録。1 : 25 の下見と実寸の地形も残してある。マウスとキーの実イベントで 25 項目の動作を自動確認済み(`experiments/spatial/drive.mjs`、画面は `experiments/spatial/out/`)。人の手と実機では未確認。
 - CRISM の地図レイヤー(`tools/build_crism.py` → `assets/data/jezero_delta_front/crism_phy.png`)と、地点ごとの公式パノラマの切り抜き(`tools/build_station_views.py` → `assets/data/pano/view_mcz_*.jpg`)。
 - 現地気象(MEDA)の集計(`tools/build_meda.py` → `assets/data/conditions/meda_sol0502.json`)と確認用グラフ(`experiments/meda/`)。アプリには未組み込み。
-- 本開発(Unity 版、Web 版): なし。
+- **Unity 版**(`unity/Assets/MissionLens/`、2026-11-14 20:30): 擬似版と同じ内容を Unity に移した。机上の模型(約 1 : 570)、ブリーフィングボード、時間割、公式パノラマ、視界下の帯、手首パネル、指して記録、地点間の移動。シーンには何も置かず、実行時にデータから組み立てる。
+  - Editor の Play(デスクトップ用のカメラとマウス)で、机上・傾斜レイヤー・地点 B の実画像を画像で確認した。コンソールのエラーは 0。
+  - Quest 向けの APK をビルドできた(`unity/Builds/MissionLens.apk`、91 MB、ビルド 264 秒、結果 Succeeded)。マニフェストにパススルー、ハンドトラッキング、OpenXR の項目が入っている。
+  - **実機では一度も動かしていない。** パススルー、手とコントローラーの指し示し、左手を見ると出る手首パネル、帯の追従、机の位置、描画速度、移動時の酔いやすさは未確認。
+- Unity 用のデータ書き出し(`tools/build_unity_data.py` → `unity/Assets/MissionLens/Resources/ML/`)。
+- Web 版(触れる版): なし。
 
 ## 次に取り組むこと
 
-1. XR パッケージ構成(未決定 3)をユーザーと確定する。
-2. Unity で地形メッシュを表示する(`TERRAIN_RENDERING.md` の 10 章)。Editor を CLI で操作し、画像で確認しながら進める。
-3. 擬似版の流れ(PLAN のボードと時間割、FIELD の帯と手首パネル、記録)を Unity に移す。仕様は擬似版と `UI_DECISIONS.md`。
-4. Quest 向けのビルドと実機確認(実機はユーザー)。
-5. 本家フォームの文面(`SUBMISSION.md`)を埋める。
+1. **Quest 実機での最初の確認**(ユーザー。USB でつなげば、インストールと画面の取得は Claude 側でもできる)。見る点: パススルーが出るか、机上の模型が目の前の机の高さに出るか、指し示しの線が出て押せるか。
+2. 実機の結果を受けて直す。
+3. 擬似版にあって Unity 版でまだ見ていない操作(記録、取り消し、下見、机へ戻る)を Editor で通しで確認する。
+4. 本家フォームの文面(`SUBMISSION.md`)を埋める。
