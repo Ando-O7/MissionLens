@@ -1,0 +1,103 @@
+{
+  "id": "jezero_delta_front",
+  "title": "Jezero Crater \u2014 Delta (Fan) Front: Skinner Ridge / Wildcat Ridge",
+  "bounds": {
+    "lon_min": 77.392,
+    "lon_max": 77.415,
+    "lat_min": 18.445,
+    "lat_max": 18.465
+  },
+  "context_bounds": {
+    "lon_min": 77.25,
+    "lon_max": 77.55,
+    "lat_min": 18.32,
+    "lat_max": 18.6
+  },
+  "size_m": [
+    1293.20610415707,
+    1185.493950466099
+  ],
+  "ortho": {
+    "file": "ortho.jpg",
+    "size": [
+      4288,
+      3931
+    ],
+    "zoom": 18,
+    "tiles_ok": 272,
+    "tiles_total": 272,
+    "source": "MRO HiRISE colour + CTX mosaic, 25 cm (Mars 2020 mission basemap, NASA/JPL-Caltech/University of Arizona)",
+    "m_per_px": 0.3016392218351939
+  },
+  "dtm": {
+    "file": "dtm_2m_f32.bin",
+    "slope_file": "slope_2m_f32.bin",
+    "grid": [
+      682,
+      593
+    ],
+    "dtype": "float32 LE, row 0 = north",
+    "elev_min": -2552.95068359375,
+    "elev_max": -2452.099853515625,
+    "slope_overlay": "slope.png",
+    "hillshade": "hillshade.jpg",
+    "source": "MRO HiRISE DTM mosaic, 1 m, MOLA-referenced (USGS Astrogeology, Mars 2020 TRN products)",
+    "slope_baseline_m": 5,
+    "slope_classes_deg": [
+      10,
+      15,
+      20
+    ],
+    "slope_pct_over_15": 0.10586290479861066,
+    "slope_pct_over_20": 0.0495246586240949
+  },
+  "themis": {
+    "source": "Mars Odyssey THEMIS IR controlled mosaics, 100 m (USGS / ASU, via NASA Mars Trek WMTS)",
+    "deg_per_px": 0.001373291015625,
+    "m_per_px": 81.40140956264587,
+    "day_context": {
+      "file": "themis_day_context.png",
+      "size": [
+        218,
+        204
+      ],
+      "tiles_ok": 2,
+      "tiles_total": 2,
+      "dn_min": 0,
+      "dn_max": 252
+    },
+    "day_aoi": {
+      "file": "themis_day_aoi.png",
+      "size": [
+        17,
+        15
+      ],
+      "tiles_ok": 1,
+      "tiles_total": 1,
+      "dn_min": 90,
+      "dn_max": 201
+    },
+    "night_context": {
+      "file": "themis_night_context.png",
+      "size": [
+        218,
+        204
+      ],
+      "tiles_ok": 2,
+      "tiles_total": 2,
+      "dn_min": 1,
+      "dn_max": 241
+    },
+    "night_aoi": {
+      "file": "themis_night_aoi.png",
+      "size": [
+        17,
+        15
+      ],
+      "tiles_ok": 1,
+      "tiles_total": 1,
+      "dn_min": 45,
+      "dn_max": 134
+    }
+  }
+}

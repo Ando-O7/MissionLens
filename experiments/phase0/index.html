@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mission Lens — Phase 0 data preview</title>
+<style>
+  :root { --bg:#0b0d10; --panel:rgba(14,17,22,.82); --line:rgba(255,255,255,.14); --fg:#e9e6df; --dim:#9aa0a8; --acc:#5fd4ff; --warn:#ffb347; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:13px/1.45 -apple-system,"Helvetica Neue",Arial,sans-serif; overflow:hidden; }
+  canvas { display:block; }
+  .panel { position:absolute; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px 14px; backdrop-filter:blur(8px); }
+  #head { top:14px; left:14px; width:300px; }
+  #head h1 { margin:0 0 2px; font-size:14px; letter-spacing:.12em; }
+  #head p { margin:0; color:var(--dim); font-size:11.5px; }
+  #layers { top:104px; left:14px; width:300px; }
+  #layers h2, #card h2 { margin:0 0 8px; font-size:11px; letter-spacing:.14em; color:var(--dim); font-weight:600; }
+  label.row { display:flex; gap:8px; align-items:flex-start; padding:4px 0; cursor:pointer; }
+  label.row small { display:block; color:var(--dim); font-size:11px; }
+  #mode { top:14px; right:14px; display:flex; gap:6px; padding:6px; }
+  button { background:transparent; color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:6px 12px; font:inherit; cursor:pointer; }
+  button.on { background:var(--acc); color:#04121a; border-color:var(--acc); font-weight:600; }
+  #card { right:14px; top:70px; width:300px; display:none; }
+  #card h3 { margin:0 0 6px; font-size:15px; }
+  #card dl { margin:0 0 10px; display:grid; grid-template-columns:96px 1fr; gap:2px 8px; }
+  #card dt { color:var(--dim); } #card dd { margin:0; }
+  #hud { left:50%; top:14px; transform:translateX(-50%); text-align:center; display:none; min-width:260px; }
+  #hud b { font-size:20px; letter-spacing:.06em; font-variant-numeric:tabular-nums; }
+  #note { left:14px; bottom:14px; max-width:560px; font-size:11.5px; color:var(--dim); }
+  #note b { color:var(--warn); font-weight:600; }
+</style>
+</head>
+<body>
+<div id="head" class="panel">
+  <h1>MISSION LENS · PHASE 0</h1>
+  <p>Data feasibility preview — Jezero delta front (Skinner Ridge / Wildcat Ridge). Throwaway experiment, not the product UI.</p>
+</div>
+<div id="layers" class="panel">
+  <h2>LAYERS (ALL CO-REGISTERED)</h2>
+  <label class="row"><input type="checkbox" checked disabled><span>Optical — HiRISE colour ortho<small>MRO · 0.3 m/px as fetched</small></span></label>
+  <label class="row"><input type="checkbox" data-layer="oSlope"><span>Slope classes 10 / 15 / 20°<small>derived from MRO HiRISE DTM 1 m · class breaks are ours</small></span></label>
+  <label class="row"><input type="checkbox" data-layer="oHill"><span>Hillshade<small>derived from MRO HiRISE DTM 1 m</small></span></label>
+  <label class="row"><input type="checkbox" data-layer="oThN"><span>Thermal — THEMIS night IR<small>Mars Odyssey · 81 m/px (regional scale only)</small></span></label>
+  <label class="row"><input type="checkbox" data-layer="oThD"><span>Thermal — THEMIS day IR<small>Mars Odyssey · 81 m/px (regional scale only)</small></span></label>
+  <label class="row"><input type="checkbox" data-obj="route" checked><span>Perseverance traverse, sols 408–713<small>Mars 2020 localisation</small></span></label>
+  <label class="row"><input type="checkbox" data-obj="sites" checked><span>Sample sites<small>Mars 2020 sampling record</small></span></label>
+  <label class="row" style="align-items:center"><span style="width:118px">Vertical ×<span id="exv">1.0</span></span><input id="ex" type="range" min="1" max="3" step="0.1" value="1" style="flex:1"></label>
+</div>
+<div id="mode" class="panel"><button id="b2d">2D</button><button id="b3d" class="on">3D</button><button id="bpov">SURFACE VIEW</button></div>
+<div id="card" class="panel"></div>
+<div id="hud" class="panel"><div style="color:var(--dim);font-size:11px;letter-spacing:.14em">HEADING</div><b id="hdg">000°</b><div id="hudsub" style="color:var(--dim);font-size:11px"></div></div>
+<div id="note" class="panel"></div>
+
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from './vendor/OrbitControls.js';
+
+const DATA = '../../assets/data/jezero_delta_front/';
+const PANO = '../../assets/data/pano/wildcat_ridge_sol502';
+const q = new URLSearchParams(location.search);
+
+THREE.ColorManagement.enabled = false;  // textures are shown as stored; no tone/colour transforms on NASA imagery
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+document.body.prepend(renderer.domElement);
+
+const [L, V, P, dtmBuf] = await Promise.all([
+  fetch(DATA + 'layers.json').then(r => r.json()),
+  fetch(DATA + 'vectors.json').then(r => r.json()),
+  fetch(PANO + '.json').then(r => r.json()),
+  fetch(DATA + 'dtm_2m_f32.bin').then(r => r.arrayBuffer()),
+]);
+const dtm = new Float32Array(dtmBuf);
+const [gw, gh] = L.dtm.grid, [sx, sy] = L.size_m, B = L.bounds, zMin = L.dtm.elev_min;
+
+// Local frame: metres, +x east, +z south, origin at the AOI centre; y = elevation above the AOI minimum.
+const toXZ = (lon, lat) => [((lon - B.lon_min) / (B.lon_max - B.lon_min) - .5) * sx, ((B.lat_max - lat) / (B.lat_max - B.lat_min) - .5) * sy];
+function elevAt(x, z) {
+  const fc = Math.min(Math.max((x / sx + .5) * (gw - 1), 0), gw - 1.001), fr = Math.min(Math.max((z / sy + .5) * (gh - 1), 0), gh - 1.001);
+  const c = Math.floor(fc), r = Math.floor(fr), u = fc - c, v = fr - r, i = r * gw + c;
+  return (dtm[i] * (1 - u) + dtm[i + 1] * u) * (1 - v) + (dtm[i + gw] * (1 - u) + dtm[i + gw + 1] * u) * v;
+}
+
+const tl = new THREE.TextureLoader();
+const tex = (f, filter = THREE.LinearFilter) => { const t = tl.load(DATA + f); t.minFilter = filter === THREE.LinearFilter ? THREE.LinearMipmapLinearFilter : filter; t.magFilter = filter; t.anisotropy = 8; return t; };
+
+// ---------- map scene ----------
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0d10);
+const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 1, 20000);
+const ctl = new OrbitControls(cam, renderer.domElement);
+ctl.enableDamping = true; ctl.maxPolarAngle = Math.PI * .49; ctl.minDistance = 20; ctl.maxDistance = 4000;
+
+const step = 2, nw = Math.floor((gw - 1) / step) + 1, nh = Math.floor((gh - 1) / step) + 1;
+const pos = new Float32Array(nw * nh * 3), uv = new Float32Array(nw * nh * 2), idx = new Uint32Array((nw - 1) * (nh - 1) * 6);
+for (let r = 0, k = 0; r < nh; r++) for (let c = 0; c < nw; c++, k++) {
+  const u = c * step / (gw - 1), v = r * step / (gh - 1);
+  pos[k * 3] = (u - .5) * sx; pos[k * 3 + 1] = dtm[r * step * gw + c * step] - zMin; pos[k * 3 + 2] = (v - .5) * sy;
+  uv[k * 2] = u; uv[k * 2 + 1] = 1 - v;
+}
+for (let r = 0, k = 0; r < nh - 1; r++) for (let c = 0; c < nw - 1; c++) {
+  const a = r * nw + c, b = a + 1, d = a + nw, e = d + 1;
+  idx.set([a, d, b, b, d, e], k); k += 6;
+}
+const geo = new THREE.BufferGeometry();
+geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+geo.setIndex(new THREE.BufferAttribute(idx, 1));
+const uni = {
+  tOrtho: { value: tex('ortho.jpg') }, tSlope: { value: tex('slope.png') }, tHill: { value: tex('hillshade.jpg') },
+  tThN: { value: tex('themis_night_aoi.png') }, tThD: { value: tex('themis_day_aoi.png') },
+  rN: { value: new THREE.Vector2(L.themis.night_aoi.dn_min, L.themis.night_aoi.dn_max) },
+  rD: { value: new THREE.Vector2(L.themis.day_aoi.dn_min, L.themis.day_aoi.dn_max) },
+  oSlope: { value: 0 }, oHill: { value: 0 }, oThN: { value: 0 }, oThD: { value: 0 }, ex: { value: 1 },
+};
+const terrain = new THREE.Mesh(geo, new THREE.ShaderMaterial({
+  uniforms: uni,
+  vertexShader: `uniform float ex; varying vec2 vUv; void main(){ vUv = uv; vec3 p = position; p.y *= ex; gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.); }`,
+  fragmentShader: `
+    uniform sampler2D tOrtho, tSlope, tHill, tThN, tThD; uniform vec2 rN, rD; uniform float oSlope, oHill, oThN, oThD; varying vec2 vUv;
+    vec3 ramp(float t){ return mix(mix(vec3(.06,.04,.32), vec3(.82,.22,.45), smoothstep(0.,.5,t)), vec3(1.,.92,.45), smoothstep(.5,1.,t)); }
+    void main(){
+      vec3 c = texture2D(tOrtho, vUv).rgb;
+      float l = dot(c, vec3(.3,.6,.1));
+      c = mix(c, vec3(texture2D(tHill, vUv).r), oHill);
+      float n = clamp((texture2D(tThN, vUv).r * 255. - rN.x) / (rN.y - rN.x), 0., 1.);
+      float d = clamp((texture2D(tThD, vUv).r * 255. - rD.x) / (rD.y - rD.x), 0., 1.);
+      c = mix(c, ramp(n) * (.45 + 1.1 * l), oThN * .85);
+      c = mix(c, ramp(d) * (.45 + 1.1 * l), oThD * .85);
+      vec4 s = texture2D(tSlope, vUv);
+      c = mix(c, s.rgb, s.a * oSlope);
+      gl_FragColor = vec4(c, 1.);
+    }`,
+}));
+scene.add(terrain);
+
+// Draped vectors live in a group scaled with the vertical exaggeration.
+const drape = new THREE.Group(); scene.add(drape);
+const route = new THREE.Group(); drape.add(route);
+for (const seg of V.traverse) {
+  const pts = seg.coords.map(c => { const [x, z] = toXZ(c[0], c[1]); return new THREE.Vector3(x, elevAt(x, z) - zMin + .6, z); });
+  if (pts.length > 1) route.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x5fd4ff })));
+}
+function labelSprite(text, color = '#ffffff', sub = '') {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 128; const g = c.getContext('2d');
+  g.font = '600 40px -apple-system,Helvetica,Arial'; g.textBaseline = 'middle';
+  g.fillStyle = 'rgba(8,10,14,.72)'; const w = Math.max(g.measureText(text).width, sub ? g.measureText(sub).width * .7 : 0) + 96;
+  g.beginPath(); g.roundRect(0, 16, w, 96, 20); g.fill();
+  g.strokeStyle = color; g.lineWidth = 6; g.beginPath(); g.arc(46, 64, 18, 0, 7); g.stroke();
+  g.fillStyle = color; g.fillText(text, 80, sub ? 48 : 64);
+  if (sub) { g.font = '28px -apple-system,Helvetica,Arial'; g.fillStyle = '#b8bec6'; g.fillText(sub, 80, 88); }
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, sizeAttenuation: false }));
+  s.center.set(46 / 512, .5); s.scale.set(.13, .0325, 1); s.renderOrder = 10; return s;
+}
+const sites = new THREE.Group(); drape.add(sites);
+for (const s of V.samples) {
+  const [x, z] = toXZ(s.lon, s.lat), sp = labelSprite(s.outcrop_name, '#ffffff');
+  sp.position.set(x, elevAt(x, z) - zMin + 2, z); sp.userData = s; sites.add(sp);
+}
+
+// ---------- surface (panorama) scene ----------
+const pScene = new THREE.Scene(); pScene.background = new THREE.Color(0x3a3d42);  // flat fill where no frame exists
+const pCam = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, .1, 100); pCam.rotation.order = 'YXZ';
+const dir = (az, el, R = 10) => { const a = az * Math.PI / 180, e = el * Math.PI / 180; return new THREE.Vector3(R * Math.cos(e) * Math.sin(a), R * Math.sin(e), -R * Math.cos(e) * Math.cos(a)); };
+{
+  const na = 180, ne = 60, p = [], t = [], ix = [];
+  for (let j = 0; j <= ne; j++) for (let i = 0; i <= na; i++) {
+    const az = i / na * 360, el = P.el_max - j / ne * (P.el_max - P.el_min), d = dir(az, el);
+    p.push(d.x, d.y, d.z); t.push(i / na, 1 - j / ne);
+  }
+  for (let j = 0; j < ne; j++) for (let i = 0; i < na; i++) { const a = j * (na + 1) + i, b = a + 1, c = a + na + 1, d = c + 1; ix.push(a, b, c, b, d, c); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(t, 2)); g.setIndex(ix);
+  const pt = tl.load(PANO + '.jpg'); pt.minFilter = THREE.LinearFilter; pt.generateMipmaps = false;
+  // Pixels no frame covers are stored as black; drop them so the "not imaged" fill shows through.
+  pScene.add(new THREE.Mesh(g, new THREE.ShaderMaterial({
+    uniforms: { map: { value: pt } }, side: THREE.DoubleSide,
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
+    fragmentShader: 'uniform sampler2D map; varying vec2 vUv; void main(){ vec3 c = texture2D(map, vUv).rgb; if (c.r + c.g + c.b < .045) discard; gl_FragColor = vec4(c, 1.); }',
+  })));
+}
+// Observer = the rover waypoint the frames were taken from, eye ~2 m above ground (Navcam height).
+const wp = V.waypoints.find(w => w.rmc === `${P.site}_${P.drive}`);
+const [ox, oz] = toXZ(wp.lon, wp.lat), eye = elevAt(ox, oz) + 2.0;
+// Terrain skyline predicted from the orbital DTM, drawn over the surface image as a registration check.
+const sky = []; const skyEl = [];
+for (let az = 0; az <= 360; az += .5) {
+  const a = az * Math.PI / 180; let best = -90;
+  for (let r = 3; r < 1200; r += 1.5) {
+    const x = ox + r * Math.sin(a), z = oz - r * Math.cos(a);
+    if (Math.abs(x) > sx / 2 || Math.abs(z) > sy / 2) break;
+    best = Math.max(best, Math.atan2(elevAt(x, z) - eye, r) * 180 / Math.PI);
+  }
+  sky.push(dir(az, best, 9.9)); skyEl.push(best);
+}
+const skyline = new THREE.Line(new THREE.BufferGeometry().setFromPoints(sky), new THREE.LineBasicMaterial({ color: 0x5fd4ff, transparent: true, opacity: .9 }));
+pScene.add(skyline);
+function sight(x, z, h = 0) {  // az/el/range from the observer, plus line of sight against the DTM
+  const de = x - ox, dn = oz - z, r = Math.hypot(de, dn), az = (Math.atan2(de, dn) * 180 / Math.PI + 360) % 360;
+  const el = Math.atan2(elevAt(x, z) + h - eye, r) * 180 / Math.PI;
+  let vis = true;
+  for (let s = 3; s < r - 3; s += 1.5) { const k = s / r; if (Math.atan2(elevAt(ox + de * k, oz - dn * k) - eye, s) * 180 / Math.PI > el + .3) { vis = false; break; } }
+  return { az, el, r, vis };
+}
+for (const s of V.samples) {
+  const [x, z] = toXZ(s.lon, s.lat), g = sight(x, z);
+  const sp = labelSprite(s.outcrop_name, g.vis ? '#ffffff' : '#ffb347', `${g.r.toFixed(0)} m · ${s.rock_type}${g.vis ? '' : ' · behind terrain'}`);
+  sp.position.copy(dir(g.az, g.el, 9.5)); pScene.add(sp);
+}
+{ // the rover's own later track, projected onto the ground it was driven over
+  let run = [];
+  const flush = () => { if (run.length > 1) pScene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(run), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: .75 }))); run = []; };
+  for (const seg of V.traverse) { for (const c of seg.coords) { const [x, z] = toXZ(c[0], c[1]), g = sight(x, z, .05); if (g.r > 4 && g.r < 250 && g.vis) run.push(dir(g.az, g.el, 9.7)); else flush(); } flush(); }
+}
+
+// ---------- UI ----------
+let mode = '3d', hdg = +(q.get('hdg') ?? 20), pitch = +(q.get('pitch') ?? -8);
+const $ = s => document.querySelector(s);
+const target = {}; for (const k of ['oSlope', 'oHill', 'oThN', 'oThD']) target[k] = 0;
+document.querySelectorAll('[data-layer]').forEach(el => el.onchange = () => target[el.dataset.layer] = el.checked ? 1 : 0);
+document.querySelectorAll('[data-obj]').forEach(el => el.onchange = () => ({ route, sites })[el.dataset.obj].visible = el.checked);
+$('#ex').oninput = e => { uni.ex.value = drape.scale.y = +e.target.value; $('#exv').textContent = (+e.target.value).toFixed(1); };
+const view3 = { p: new THREE.Vector3(-650, 620, 980), t: new THREE.Vector3(60, 40, -60) }, view2 = { p: new THREE.Vector3(0, 1950, .01), t: new THREE.Vector3(0, 0, 0) };
+let fly = null;
+function setMode(m) {
+  mode = m;
+  for (const [id, k] of [['#b2d', '2d'], ['#b3d', '3d'], ['#bpov', 'pov']]) $(id).classList.toggle('on', k === m);
+  $('#layers').style.display = m === 'pov' ? 'none' : ''; $('#hud').style.display = m === 'pov' ? 'block' : 'none'; $('#card').style.display = 'none';
+  ctl.enabled = m !== 'pov'; ctl.enableRotate = m === '3d';
+  if (m !== 'pov') fly = { ...(m === '2d' ? view2 : view3), k: 0, p0: cam.position.clone(), t0: ctl.target.clone() };
+  $('#note').innerHTML = m === 'pov'
+    ? `<b>Reconstruction.</b> ${P.frames.length} raw Perseverance Navcam frames (sol ${P.sol}, ${P.frames[0].credit}) reprojected with the camera model and rover attitude published with each frame. Cyan line: terrain skyline predicted independently from the MRO HiRISE DTM. Flat colour = not imaged. Markers and track are placed from map coordinates, not drawn by hand.`
+    : `<b>Sources.</b> ${L.ortho.source}. ${L.dtm.source}. ${L.themis.source}. Vectors: ${V.source}.`;
+}
+$('#b2d').onclick = () => setMode('2d'); $('#b3d').onclick = () => setMode('3d'); $('#bpov').onclick = () => setMode('pov');
+cam.position.copy(view3.p); ctl.target.copy(view3.t);
+
+const ray = new THREE.Raycaster(), m = new THREE.Vector2(); let down = null;
+renderer.domElement.addEventListener('pointerdown', e => down = { x: e.clientX, y: e.clientY, hdg, pitch });
+addEventListener('pointerup', () => down = null);
+renderer.domElement.addEventListener('pointermove', e => {
+  if (mode === 'pov' && down) { const k = pCam.fov / innerHeight; hdg = (down.hdg - (e.clientX - down.x) * k + 360) % 360; pitch = Math.max(-60, Math.min(30, down.pitch + (e.clientY - down.y) * k)); }
+});
+renderer.domElement.addEventListener('click', e => {
+  if (mode === 'pov' || (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4)) return;
+  m.set(e.clientX / innerWidth * 2 - 1, -e.clientY / innerHeight * 2 + 1); ray.setFromCamera(m, cam);
+  const hit = ray.intersectObjects(sites.children)[0]; if (hit) showCard(hit.object.userData);
+});
+function showCard(s) {
+  const here = Math.hypot(...toXZ(s.lon, s.lat).map((v, i) => v - [ox, oz][i])) < 30;
+  $('#card').style.display = 'block';
+  $('#card').innerHTML = `<h2>SAMPLE SITE · MARS 2020 RECORD</h2><h3>${s.outcrop_name}</h3><dl>
+    <dt>Cores</dt><dd>${s.sample_name}</dd><dt>Rock type</dt><dd>${s.rock_type}</dd><dt>Sampled</dt><dd>${s.date} (sol ${s.sol})</dd>
+    <dt>Region</dt><dd>${s.sample_location}</dd><dt>Position</dt><dd>${s.lat.toFixed(5)}°N ${s.lon.toFixed(5)}°E</dd><dt>Elevation</dt><dd>${s.elev.toFixed(1)} m (MOLA)</dd></dl>
+    ${here ? '<button id="go">Surface view from here →</button>' : '<span style="color:var(--dim)">No surface panorama built for this site yet.</span>'}`;
+  if (here) $('#go').onclick = () => setMode('pov');
+}
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); for (const c of [cam, pCam]) { c.aspect = innerWidth / innerHeight; c.updateProjectionMatrix(); } });
+
+// URL presets so states can be captured headlessly: ?mode=2d|3d|pov&layers=oSlope,oThN&hdg=300&pitch=-5&site=Wildcat%20Ridge
+(q.get('layers') || '').split(',').filter(Boolean).forEach(k => { uni[k].value = target[k] = 1; const el = document.querySelector(`[data-layer=${k}]`); if (el) el.checked = true; });
+if (q.get('ex')) { $('#ex').value = q.get('ex'); $('#ex').oninput({ target: $('#ex') }); }
+setMode(q.get('mode') || '3d'); if (fly) { cam.position.copy(fly.p); ctl.target.copy(fly.t); fly = null; }
+if (q.get('site')) showCard(V.samples.find(s => s.outcrop_name === q.get('site')));
+
+renderer.setAnimationLoop(() => {
+  for (const k in target) uni[k].value += (target[k] - uni[k].value) * .12;
+  if (mode === 'pov') {
+    pCam.rotation.set(pitch * Math.PI / 180, -hdg * Math.PI / 180, 0);
+    $('#hdg').textContent = String(Math.round(hdg) % 360).padStart(3, '0') + '°';
+    $('#hudsub').textContent = `Perseverance waypoint ${wp.rmc} · sol ${P.sol} · ${wp.lat.toFixed(5)}°N ${wp.lon.toFixed(5)}°E`;
+    renderer.render(pScene, pCam);
+  } else {
+    if (fly) { fly.k = Math.min(1, fly.k + .03); const e = fly.k * fly.k * (3 - 2 * fly.k); cam.position.lerpVectors(fly.p0, fly.p, e); ctl.target.lerpVectors(fly.t0, fly.t, e); if (fly.k === 1) fly = null; }
+    ctl.update(); renderer.render(scene, cam);
+  }
+});
+</script>
+</body>
+</html>
