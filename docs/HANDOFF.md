@@ -8,7 +8,7 @@ NASA Space Apps Challenge 2026「Interplanetary Survival Guide: Martian Map」�
 
 ## 2. 直近で完了した作業
 
-Unity 版を Quest 3 で 4 回動かしてもらい、そのたびに直した(2026-11-15 01:30〜04:40)。直近(04:40)は、大きいパネルを置く型から手元で操作する型への最初の変更: 左手に持つメニュー(指先で押せる)、近づけた desk、手でつかむ地図、歩行の演出。その前(03:45)に日本語 / English の切り替えと手に持つタイマー。そのあと、品質ベンチマーク(受賞作と参考 4 作の水準)を受けて 1 回目の見直し(常時の等高線、机の縁の方位と縮尺、指した点の標高と傾斜、パネルの枠の統一)。さらに 5 回目の実行を受けて、机へ戻る動きの修正、壁の配置を既定に、メニューの向きと出し入れ、歩行の途中のルートの確認(05:35)。所見と判断は `UI_DECISIONS.md` の 39〜84、参考作との差と達成・未達は `QUALITY_REVIEW.md`、経過は `WORKLOG.md`。端末に入っているのは「2026-11-15 05:29 · 9beb07b」(タイトル画面の右上に出る。ただしいま入っている APK は履歴の書き換え前に作ったので、表示は旧 ID の bc904a0)。
+東京会場に向けた発表版を固定した(2026-11-15 07:50)。コミット `348304c`、タグ `tokyo-v1`、端末のビルド表示「2026-11-15 07:41 · 348304c」。内容は、候補記録を机まで持ち帰る往復、作業中心に並べ直した左のパネル、作業の種類で決まる地図の表示、足元に来る現地の画像、出しやすくした左手のメニュー。企画側に渡す報告は `TOKYO_REPORT.md`、所見と判断は `UI_DECISIONS.md` の 39〜94、参考作との差は `QUALITY_REVIEW.md`、経過は `WORKLOG.md`。動画は `demo/`(東京向けは `MissionLens_tokyo_ja.mp4` / `_en.mp4`、各 44.2 秒)。
 
 ## 3. 現時点で動くもの
 
@@ -32,7 +32,7 @@ Unity 版を Quest 3 で 4 回動かしてもらい、そのたびに直した(2
 
 **実機で確認済み**(Quest 3、ユーザーの所見と端末のログ): パススルーで部屋が見える。手のピンチでボタンを押せる。手の形のモデルが出る。机のレイアウト、スタジオの部屋、タイマーを手に持つ、FIELD で確認・作業の完了・次の地点へ歩く。72 fps 前後。
 
-**未検証**(実機): 05:29 のビルドで入れたものすべて。とくに左手の形の認識(メニューと FIELD のパネルが手に出るか)、指先で押す操作、両手での地図の伸縮、足音の聞こえ方。日本語の表示。コントローラー、視線での選択、音量。
+**未検証**(実機): 07:41 のビルドで入れたものすべて。とくに左手の形の認識(メニューと FIELD のパネルが手に出るか)、指先で押す操作、両手での地図の伸縮、足音の聞こえ方。日本語の表示。コントローラー、視線での選択、音量。
 
 ## 6. NASA データの利用状況
 
@@ -56,7 +56,7 @@ Unity 版を Quest 3 で 4 回動かしてもらい、そのたびに直した(2
 
 ## 8. 次に実施すべき作業(優先順)
 
-1. 05:29 のビルドをかぶってもらい、所見とログで直す(左手のメニュー、両手の伸縮、歩行の演出)。
+1. 07:41 のビルドをかぶってもらい、所見とログで直す(左手のメニュー、両手の伸縮、歩行の演出)。
 2. 本家フォームの文面(英語)とデモ。東京会場は日本語で見せられる(アプリを日本語に切り替え)。
 3. 余裕があれば、`UI_DECISIONS.md` の検討中の項目(読み物のパネルも手元へ)。
 
@@ -119,6 +119,7 @@ $U command script eval --project-path "$P" --result-only -- --code 'return Missi
 $U command script eval --project-path "$P" --result-only -- --code 'MissionLens.MLApp.I.Aim(0.36f, 0.345f, true); return 1;'  # マウスの代わりにその位置を指す(true でクリック)。Aim(-1,-1) で戻す
 $U command script eval --project-path "$P" --result-only -- --code 'MissionLens.MLApp.I.LookAt(60, -38); return 1;'            # デスクトップ用カメラの向き(方位, 仰角)
 # ヘッドセットでしか出ないものをデスクトップで見るフラグ: MLApp.I.debugGaze(視線で選ぶ)、MLApp.I.debugVignette(視野周辺の暗転)
+# 途中から始める: MLApp.I.Press("task:5") → Press("Start here") → Press("Marswalk")。候補の記録: PressAt(vx, vy)。机上の印: Press("mark:1")。収録の進行: demo / demo30 / full / tokyo
 # 手に持つメニューの模擬: MLApp.I.DebugHand(70)(左手を出す。0 で戻す)、DebugHand(70, x, y, mm) で右手の指先をメニューの画素 (x, y) の手前 mm に置く。状態は MLApp.I.MenuState()
 # デモ動画の収録(Editor、手はスクリプト): FFMPEG=<ffmpeg のパス> tools/record_demo.sh <demo|demo30|full> <en|ja> <出力.mp4> [最長の秒数]
 #   例: tools/record_demo.sh demo30 en demo/MissionLens_demo_30s_en.mp4 29.8   流れは MLAppDirector.cs、手と頭は MLRigSim.cs。収録後は PlayerPrefs "ml.sim" が 0 に戻る
