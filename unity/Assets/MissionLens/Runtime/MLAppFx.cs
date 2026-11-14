@@ -163,7 +163,7 @@ namespace MissionLens
             floorT.localPosition = new Vector3(0, -tableFrame.position.y, 0);
             plinthT.localScale = new Vector3(FootHx * 2 + .03f, h, FootHz * 2 + .03f); plinthT.localPosition = new Vector3(0, -.004f - h / 2, 0);
         }
-        public void ToggleStudio() { studio = !studio; sfx.Play("toggle", .7f); Refresh(); }
+        public void ToggleStudio() { studio = !studio; sfx.Play("toggle", .7f); Log("room " + (studio ? "studio" : "passthrough")); Refresh(); }
 
         /// <summary>A ring that spreads once from a point on the ground (where a mark was placed).</summary>
         void Ripple(Vector3 at, Color col, float size)

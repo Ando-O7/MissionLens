@@ -18,18 +18,13 @@ namespace MissionLens
 
         void BuildPanels()
         {
-            // PLAN, in the room: a briefing wall just behind the model, close enough that its text is read without
-            // strain: two board panels turned slightly inward (left: the objective and why this station; right: the
-            // NASA evidence) with the task timeline under them. About 1.3 m from the eyes and 50 degrees across.
-            board = new MLPanel("Board left", 1100, 900, .625f, tableFrame);
-            board.go.transform.localPosition = new Vector3(-.308f, .75f, .465f); board.go.transform.localRotation = Quaternion.Euler(2, -13, 0);
-            boardR = new MLPanel("Board right", 1100, 900, .625f, tableFrame);
-            boardR.go.transform.localPosition = new Vector3(.308f, .75f, .465f); boardR.go.transform.localRotation = Quaternion.Euler(2, 13, 0);
-            strip = new MLPanel("Timeline", 1600, 270, 1.25f, tableFrame);
-            strip.go.transform.localPosition = new Vector3(0, .365f, .5f); strip.go.transform.localRotation = Quaternion.Euler(11, 0, 0);
-            // A sign at the model's near left corner: north, a scale bar, and the controls for the table itself.
-            legend = new MLPanel("Map legend", 600, rig.xr ? 452 : 376, .3f, tableFrame);
-            legend.go.transform.localPosition = new Vector3(-.6f, .075f, -.2f); legend.go.transform.localRotation = Quaternion.Euler(46, -24, 0);
+            // PLAN, in the room: two briefing panels (left: the objective and why this station; right: the NASA
+            // evidence), the task timeline, and a sign with the table's controls. Where they sit is a layout that
+            // can be switched (ApplyLayout): spread on the desk around the model, or as a wall behind it.
+            board = new MLPanel("Board left", 1100, 900, .5f, tableFrame);
+            boardR = new MLPanel("Board right", 1100, 900, .5f, tableFrame);
+            strip = new MLPanel("Timeline", 1600, 270, .78f, tableFrame);
+            legend = new MLPanel("Map legend", 600, rig.xr ? 532 : 454, .3f, tableFrame);
             // FIELD: a wrist panel for details, raised on demand, and a head-up strip that stays out of the scenery.
             wrist = new MLPanel("Wrist", 600, 860, rig.xr ? .26f : .215f, rig.xr ? null : rig.Head);
             hud = new MLPanel("HUD", 1200, 170, rig.xr ? .7f : .5f, rig.xr ? null : rig.Head);
@@ -55,11 +50,36 @@ namespace MissionLens
             DrawTitle();
         }
 
+        /// <summary>"desk": the panels lie spread on the desk around the model. "wall": they stand behind it.</summary>
+        public string layout = "desk";
+        void ApplyLayout()
+        {
+            void Put(MLPanel p, float width, Vector3 at, Vector3 euler) { p.SetWorldWidth(width); p.go.transform.localPosition = at; p.go.transform.localRotation = Quaternion.Euler(euler); }
+            if (layout == "wall")
+            {   // about 1.3 m from the eyes and 50 degrees across, the timeline under the two panels
+                Put(board, .625f, new Vector3(-.308f, .75f, .465f), new Vector3(2, -13, 0)); Put(boardR, .625f, new Vector3(.308f, .75f, .465f), new Vector3(2, 13, 0));
+                Put(strip, 1.25f, new Vector3(0, .365f, .5f), new Vector3(11, 0, 0));
+                Put(legend, .3f, new Vector3(-.6f, .075f, -.2f), new Vector3(46, -24, 0));
+            }
+            else
+            {   // like papers on a desk: a panel either side of the model leaning toward the person, the timeline along the near edge
+                Put(board, .5f, new Vector3(-.72f, .24f, -.14f), new Vector3(40, -32, 0)); Put(boardR, .5f, new Vector3(.72f, .24f, -.14f), new Vector3(40, 32, 0));
+                Put(strip, .7f, new Vector3(-.07f, .05f, -.515f), new Vector3(60, 0, 0));
+                Put(legend, .3f, new Vector3(-.63f, .08f, -.5f), new Vector3(48, -28, 0));
+            }
+            Put(dial, .2f, new Vector3(.62f, .07f, -.47f), new Vector3(50, 26, 0));
+        }
+        public void ToggleLayout()
+        {
+            layout = layout == "desk" ? "wall" : "desk"; sfx.Play("toggle", .7f); Log("layout " + layout); ApplyLayout(); DrawLegend();
+            if (!rig.xr) StartCoroutine(Look(.6f, rig.lookYaw, TableLookPitch));
+        }
+
         // Surfaces a pointer can act on right now.
         IEnumerable<MLPanel> Surfaces()
         {
             if (stage == Stage.Title) { yield return title; yield break; }
-            if (stage == Stage.Table) { yield return board; yield return boardR; yield return strip; yield return legend; }
+            if (stage == Stage.Table) { yield return board; yield return boardR; yield return strip; yield return legend; if (tools) yield return dial; }
             else { yield return wrist; yield return hud; }
             if (banner.Show && bannerHasButton) yield return banner;
             foreach (var p in pins) yield return p.label;
@@ -282,12 +302,14 @@ namespace MissionLens
             float bw = (W - 14) / 2;
             s.Button("Whole route", X, 190, bw, 64, WholeRoute, px: 25);
             s.Button(followTasks ? "Follow tasks: on" : "Follow tasks: off", X + bw + 14, 190, bw, 64, ToggleFollow, followTasks, px: 25, key: "Follow tasks");
-            float y = 286;
+            s.Button(layout == "desk" ? "Layout: desk" : "Layout: wall", X, 268, bw, 64, ToggleLayout, px: 25, key: "Layout");
+            s.Button(tools ? "Tools: on" : "Tools: off", X + bw + 14, 268, bw, 64, ToggleTools, tools, px: 25, key: "Tools");
+            float y = 364;
             if (rig.xr)
             {
-                s.Button("Bring table here", X, 268, bw, 64, PlaceTable, px: 25);
-                s.Button(studio ? "Room: studio" : "Room: yours", X + bw + 14, 268, bw, 64, ToggleStudio, studio, px: 25, key: "Room");
-                y = 364;
+                s.Button("Bring table here", X, 346, bw, 64, PlaceTable, px: 25);
+                s.Button(studio ? "Room: studio" : "Room: yours", X + bw + 14, 346, bw, 64, ToggleStudio, studio, px: 25, key: "Room");
+                y = 442;
             }
             s.Wrap(rig.xr ? "Pinch the model and move to slide it. Pinch with both hands to stretch and turn it. \"Follow tasks\" brings each task's place onto the table."
                           : "Drag the model to slide it, wheel to zoom, Q / E to turn. \"Follow tasks\" brings each task's place onto the table.", X, y, W, 24, 19, Gray);
@@ -427,7 +449,7 @@ namespace MissionLens
                 var st = St(At); int mine = marks.Count(m => m.station == At); bool rec = CanMark;
                 s.Text($"{st.id}  {st.name}", 34, y, 30, Ink, true); y += 32;
                 s.Text($"Mastcam-Z, {st.panoSols} · {st.panoCredit}", 34, y, 19, Soft); y += 25;
-                y = s.Wrap("Ours: its direction, the sky above it, and the terrain model with a 1 m grid where it has no pixels.", 34, y, PW - 68, 24, 19, Gray) + 3;
+                y = s.Wrap("Ours: its direction, the sky above it, and the dull blur filling the parts it has no pixels for.", 34, y, PW - 68, 24, 19, Gray) + 3;
                 if (st.hasSample) y = s.Wrap($"NASA record: rock cores {st.sampleName} were taken within about {Mathf.CeilToInt(st.sampleDistM)} m of this stop.", 34, y, PW - 68, 26, 20, Soft);
                 if (st.id == M.medaStation) { s.Text(M.medaLine, 34, y, 20, Soft); y += 26; }
                 y += 20;

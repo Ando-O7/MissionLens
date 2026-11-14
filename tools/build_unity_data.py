@@ -7,7 +7,9 @@ files the other tools wrote under assets/data/.
 - mission.json   the Marswalk in a flat shape JsonUtility can read (no nested arrays, no dictionaries)
 - dtm.bytes      heights above the lowest point of the area, float32 little-endian, row 0 = north
 - ortho.jpg      HiRISE image, stretched to 4096 x 4096 (power of two, so it compresses with mipmaps)
-- slope.png, crism_phy.png, pano_<ID>.jpg, view_<ID>.jpg   copied as they are
+- slope.png, crism_phy.png, view_<ID>.jpg   copied as they are
+- pano_<ID>.jpg       the Mastcam-Z mosaic with its uncovered parts filled in (see fill_gaps; the fill is ours)
+- panomask_<ID>.png   which parts of that mosaic were observed (white) and which are our fill (black)
 
 Each station also gets panoSky, the mean colour of its panorama's top rows, which the app uses for the sky
 it fills in above the mosaic (a fill of ours, not an observation).
@@ -20,11 +22,51 @@ import shutil
 import sys
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFilter
 
 from common import ROOT
 
 Image.MAX_IMAGE_PIXELS = None
+
+
+def fill_gaps(path):
+    """A panorama with its uncovered (black) parts filled in, and a mask of what was really observed.
+
+    The mosaics have no pixels where the rover's own deck was masked out and at a few missing frames. Shown
+    as they are, those parts are black holes in the scene. Here each hole is filled with a smooth blend of the
+    image around it (a push-pull fill: averages of the valid pixels at coarser and coarser scales, pulled back
+    up into the holes). The fill is ours, not an observation; the mask lets the app draw it differently
+    (duller and darker) so it does not pass for image. Returns (filled RGB image, mask L image: 255 = observed).
+    """
+    im = Image.open(path).convert("RGB")
+    full = np.asarray(im).astype(np.float32)
+    # A hole is a large black area. Small black specks are real shadows between rocks and are left alone: holes
+    # are eroded until specks vanish, then grown back, plus a little more so the dark fringe JPEG leaves around
+    # a hole is filled too.
+    hole_im = Image.fromarray(((full.sum(axis=2) <= 30) * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(21)).filter(ImageFilter.MaxFilter(31))
+    valid_im = Image.eval(hole_im, lambda p: 255 - p)
+    w, h = im.size
+    half = np.asarray(im.resize((w // 2, h // 2), Image.BOX)).astype(np.float32)
+    # Bright rover hardware at a hole's edge would bleed into the fill as pale blobs: cap what the fill may pick up.
+    half = np.minimum(half, np.percentile(half[half.sum(axis=2) > 30], 80, axis=0))
+    v = np.asarray(valid_im.resize((w // 2, h // 2), Image.NEAREST)) > 127
+    levels, a, wt = [], half * v[..., None], v.astype(np.float32)
+    while min(a.shape[:2]) > 4:
+        levels.append((a, wt))
+        hh, ww = a.shape[0] // 2 * 2, a.shape[1] // 2 * 2
+        a = a[:hh, :ww].reshape(hh // 2, 2, ww // 2, 2, 3).sum(axis=(1, 3))
+        wt = wt[:hh, :ww].reshape(hh // 2, 2, ww // 2, 2).sum(axis=(1, 3))
+    col = a / np.maximum(wt, 1e-6)[..., None]
+    col[wt <= 0] = col[wt > 0].mean(axis=0) if (wt > 0).any() else 0
+    for a, wt in reversed(levels):
+        up = np.asarray(Image.fromarray(np.clip(col, 0, 255).astype(np.uint8)).resize((a.shape[1], a.shape[0]), Image.BILINEAR)).astype(np.float32)
+        col = np.where(wt[..., None] > 0, a / np.maximum(wt, 1e-6)[..., None], up)
+    filled_half = Image.fromarray(np.clip(col, 0, 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(14))
+    filled = filled_half.resize((w, h), Image.BILINEAR)
+    out = Image.composite(im, filled, valid_im.filter(ImageFilter.GaussianBlur(3)))   # observed pixels stay exactly as they are away from the edge
+    mask = valid_im.resize((1024, max(1, round(1024 * h / w))), Image.BOX).filter(ImageFilter.GaussianBlur(1.2))
+    low = np.asarray(out).astype(np.float32)[-max(4, h // 40):].reshape(-1, 3).mean(axis=0)   # colour of the lowest rows, for straight down
+    return out, mask, 1 - float((np.asarray(valid_im) > 127).mean()), [round(float(c) / 255, 3) for c in low]
 
 
 def main():
@@ -63,7 +105,9 @@ def main():
     stations = []
     for s in M["stations"]:
         pm = json.loads((data / "pano" / f"{s['pano']}.json").read_text())
-        shutil.copyfile(data / "pano" / f"{s['pano']}.jpg", out / f"pano_{s['id']}.jpg")
+        filled, mask, gap, ground = fill_gaps(data / "pano" / f"{s['pano']}.jpg")
+        filled.save(out / f"pano_{s['id']}.jpg", quality=92); mask.save(out / f"panomask_{s['id']}.png")
+        print(f"  pano {s['id']}: {gap * 100:.1f}% of the mosaic had no pixels and is filled in")
         shutil.copyfile(data / "pano" / f"view_{s['pano']}.jpg", out / f"view_{s['id']}.jpg")
         ns = s.get("nasa_sample")
         sols = pm["sols"]
@@ -79,7 +123,7 @@ def main():
             "crismRank": crism_rank(s),
             "panoSols": f"sol {sols[0]}" if sols[0] == sols[1] else f"sols {sols[0]}–{sols[1]}",
             "panoCredit": pm["credit"], "panoElMax": pm["el_max"], "panoElMin": pm["el_min"],
-            "panoSky": top_colour(data / "pano" / f"{s['pano']}.jpg"),
+            "panoSky": top_colour(data / "pano" / f"{s['pano']}.jpg"), "panoGround": ground,
         })
 
     meda = json.loads((data / "conditions" / "meda_sol0502.json").read_text())["series"]

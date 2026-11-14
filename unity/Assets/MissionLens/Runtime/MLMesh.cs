@@ -41,14 +41,16 @@ namespace MissionLens
 
         /// <summary>
         /// A sphere seen from its centre, for a panorama: uv.x = bearing from north (clockwise); uv.y runs 0..1
-        /// from elMin to elMax (the mosaic) and goes on above 1 up to topDeg, where the shader fills in sky.
+        /// from elMin to elMax (the mosaic), goes on above 1 up to topDeg, where the shader fills in sky, and
+        /// below 0 down to bottomDeg, where it carries the lowest rows on.
         /// </summary>
-        public static Mesh PanoSphere(float elMaxDeg, float elMinDeg, float radius, float topDeg)
+        public static Mesh PanoSphere(float elMaxDeg, float elMinDeg, float radius, float topDeg, float bottomDeg = float.NaN)
         {
+            if (float.IsNaN(bottomDeg)) bottomDeg = elMinDeg;
             const int na = 180, ne = 80; var v = new Vector3[(na + 1) * (ne + 1)]; var uv = new Vector2[v.Length]; var t = new int[na * ne * 6];
             for (int j = 0, k = 0; j <= ne; j++) for (int i = 0; i <= na; i++, k++)
             {
-                float az = i / (float)na * 2 * Mathf.PI, elDeg = topDeg - j / (float)ne * (topDeg - elMinDeg), el = elDeg * Mathf.Deg2Rad;
+                float az = i / (float)na * 2 * Mathf.PI, elDeg = topDeg - j / (float)ne * (topDeg - bottomDeg), el = elDeg * Mathf.Deg2Rad;
                 v[k] = new Vector3(Mathf.Cos(el) * Mathf.Sin(az), Mathf.Sin(el), Mathf.Cos(el) * Mathf.Cos(az)) * radius;
                 uv[k] = new Vector2(i / (float)na, (elDeg - elMinDeg) / (elMaxDeg - elMinDeg));
             }
@@ -111,6 +113,23 @@ namespace MissionLens
                 }
             }
             m.Clear(); m.SetVertices(v); m.SetUVs(0, uv); m.SetTriangles(t, 0); m.RecalculateBounds();
+        }
+
+        /// <summary>A ball seen from outside, with normals (for the rim-lit glass look).</summary>
+        public static Mesh Ball(float radius)
+        {
+            const int na = 40, ne = 20; var v = new Vector3[(na + 1) * (ne + 1)]; var n = new Vector3[v.Length]; var t = new int[na * ne * 6];
+            for (int j = 0, k = 0; j <= ne; j++) for (int i = 0; i <= na; i++, k++)
+            {
+                float az = i / (float)na * 2 * Mathf.PI, el = (90 - j / (float)ne * 180) * Mathf.Deg2Rad;
+                n[k] = new Vector3(Mathf.Cos(el) * Mathf.Sin(az), Mathf.Sin(el), Mathf.Cos(el) * Mathf.Cos(az)); v[k] = n[k] * radius;
+            }
+            for (int j = 0, k = 0; j < ne; j++) for (int i = 0; i < na; i++)
+            {
+                int a = j * (na + 1) + i, b = a + 1, c = a + na + 1, d = c + 1;
+                t[k++] = a; t[k++] = c; t[k++] = b; t[k++] = b; t[k++] = c; t[k++] = d;
+            }
+            var m = new Mesh { name = "Ball" }; m.SetVertices(v); m.SetNormals(n); m.SetTriangles(t, 0); m.RecalculateBounds(); return m;
         }
 
         /// <summary>An eight-sided dot.</summary>

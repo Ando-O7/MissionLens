@@ -21,6 +21,7 @@ namespace MissionLens
         TView tv, tvDefault; float SMin, tableEx = 1; bool followTasks = true;
         readonly List<Grab> grabs = new List<Grab>();
         Coroutine framing; Mesh skirtMesh; TView skirtFor; float skirtBaseY = float.NaN; int scaleShown;
+        Vector2 glide, glideNow, lastHold; MLRig.Pointer lastHoldBy;
 
         string ScaleText => "1 : " + Mathf.RoundToInt(1 / tv.S / 10) * 10;
 
@@ -61,7 +62,7 @@ namespace MissionLens
         void UpdateTable(float dt)
         {
             bool live = stage == Stage.Table && introDone && !busy;
-            if (!live) { grabs.Clear(); rig.lookLocked = false; }
+            if (!live) { grabs.Clear(); rig.lookLocked = false; glide = Vector2.zero; lastHoldBy = null; }
             else
             {
                 if (framing == null) Manipulate(dt);
@@ -97,9 +98,9 @@ namespace MissionLens
         {
             grabs.RemoveAll(g => !g.p.active || !g.p.held);
             foreach (var p in rig.xr ? new[] { rig.right, rig.left } : new[] { rig.mouse })
-                if (p.active && p.grabDown && !p.overSurface && grabs.All(g => g.p != p) && HoldPoint(p, out var t0) && OnPatch(t0, -.03f))
-                { grabs.Add(new Grab { p = p, map = TableToMap(t0, tv) }); sfx.Play("hover", .7f); rig.Haptic(p, .3f, .03f); }
-            rig.lookLocked = grabs.Count > 0;
+                if (p.active && p.grabDown && !p.overSurface && p.tool == null && grabs.All(g => g.p != p) && HoldPoint(p, out var t0) && OnPatch(t0, -.03f))
+                { grabs.Add(new Grab { p = p, map = TableToMap(t0, tv) }); glide = Vector2.zero; sfx.Play("hover", .7f); rig.Haptic(p, .3f, .03f); Log("map taken (" + grabs.Count + ")"); }
+            rig.lookLocked = grabs.Count > 0 || lensBy != null || dialBy != null;
 
             var v = tv; bool changed = false;
             if (grabs.Count >= 2 && HoldPoint(grabs[0].p, out var a) && HoldPoint(grabs[1].p, out var b) && (b - a).magnitude > .03f)
@@ -112,7 +113,21 @@ namespace MissionLens
                     Hold(ref v, m1, a); changed = true;
                 }
             }
-            else if (grabs.Count >= 1 && HoldPoint(grabs[0].p, out var h)) { Hold(ref v, grabs[0].map, h); changed = true; }
+            else if (grabs.Count >= 1 && HoldPoint(grabs[0].p, out var h))
+            {
+                Hold(ref v, grabs[0].map, h); changed = true;
+                // how fast the map is being slid, for the glide after letting go
+                if (lastHoldBy == grabs[0].p && dt > 0) glideNow = Vector2.Lerp(glideNow, (h - lastHold) / dt, .35f);
+                lastHold = h; lastHoldBy = grabs[0].p;
+            }
+            else if (grabs.Count == 0)
+            {   // let go while sliding: the map carries on and comes to rest
+                if (lastHoldBy != null) { glide = Vector2.ClampMagnitude(glideNow, 1.2f); lastHoldBy = null; glideNow = Vector2.zero; }
+                if (glide.sqrMagnitude > .0004f)
+                {
+                    var centre = TableToMap(Vector2.zero, v); Hold(ref v, centre, glide * dt); glide *= Mathf.Exp(-3.5f * dt); changed = true;
+                }
+            }
 
             // Desktop: wheel to zoom about the pointer, Q / E to turn.
             if (!rig.xr && (rig.wheel != 0 || rig.turn != 0) && HoldPoint(rig.mouse, out var w))

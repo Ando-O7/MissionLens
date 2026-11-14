@@ -28,6 +28,7 @@ namespace MissionLens
             public bool controller;              // a held controller rather than a bare hand
             public bool grabDown;                // began holding this frame (a pinch or trigger; on a desktop, the mouse button going down)
             public bool overSurface;             // set by the app: the pointer is on a panel or label
+            public object tool;                  // set by the app: the thing on the desk this pointer has hold of, if any
             internal LineRenderer line; internal Transform dot; internal InputAction haptic; internal float heldSince;
             // What the pointer has rested on for a moment. A pinch or a trigger pull jerks the ray; the press goes
             // to what was being pointed at just before it.
@@ -68,7 +69,7 @@ namespace MissionLens
 
         // The tracked hands are drawn as hand models (from Unity's XR Hands sample, driven by the tracked joints).
         // If the models cannot be set up, thin finger outlines are drawn instead once the real hands are out of sight.
-        class HandModel { public GameObject go; public Renderer r; public Material mat; public XRHandTrackingEvents events; }
+        class HandModel { public GameObject go; public Renderer r; public Material mat; public XRHandTrackingEvents events; public int joints; }
         readonly HandModel[] handModels = new HandModel[2];   // right, left
         XRHandSubsystem handSystem; float nextHandSearch; bool handsFailed;
         readonly LineRenderer[] handLines = new LineRenderer[10];   // five fingers per hand, right hand first
@@ -198,26 +199,46 @@ namespace MissionLens
         void HideHands(int from, int count) { for (int i = from; i < from + count; i++) if (handLines[i] != null && handLines[i].enabled) handLines[i].enabled = false; }
 
         // A hand model whose joints follow the tracked hand. side: 0 right, 1 left.
+        // The driver component is set up while the object is switched off: added to a live object it would run
+        // before it has its list of joints, fail, and then throw on every hand update. (That happened on the
+        // first try; on a Quest the exception also stopped the passthrough layer from being submitted.)
         void MakeHandModel(int side)
         {
+            GameObject go = null;
             try
             {
                 var prefab = Resources.Load<GameObject>("MLHands/" + (side == 0 ? "RightHand" : "LeftHand")); var shader = Resources.Load<Shader>("MLShaders/MLHand");
                 if (prefab == null || shader == null) return;
-                var go = Instantiate(prefab, space); go.name = side == 0 ? "Right hand" : "Left hand";
+                go = Instantiate(prefab, space); go.SetActive(false); go.name = side == 0 ? "Right hand" : "Left hand";
                 go.transform.localPosition = Vector3.zero; go.transform.localRotation = Quaternion.identity;
                 Transform wrist = null;
-                foreach (var t in go.GetComponentsInChildren<Transform>()) if (t.name.EndsWith("Wrist")) { wrist = t; break; }
-                var skin = go.GetComponentInChildren<SkinnedMeshRenderer>();
-                if (wrist == null || skin == null) { Destroy(go); return; }
+                foreach (var t in go.GetComponentsInChildren<Transform>(true)) if (t.name.EndsWith("Wrist")) { wrist = t; break; }
+                var skin = go.GetComponentInChildren<SkinnedMeshRenderer>(true);
+                if (wrist == null || skin == null) throw new System.InvalidOperationException("hand model has no wrist joint or no skinned mesh");
                 var events = go.AddComponent<XRHandTrackingEvents>(); events.handedness = side == 0 ? Handedness.Right : Handedness.Left; events.updateType = XRHandTrackingEvents.UpdateTypes.BeforeRender;
-                var driver = go.AddComponent<XRHandSkeletonDriver>(); driver.handTrackingEvents = events; driver.rootTransform = wrist;
-                driver.FindJointsFromRoot(new List<string>()); driver.InitializeFromSerializedReferences();
+                var driver = go.AddComponent<XRHandSkeletonDriver>();
+                driver.jointTransformReferences = new List<JointToTransformReference>(); driver.rootTransform = wrist; driver.handTrackingEvents = events;
+                var missing = new List<string>(); driver.FindJointsFromRoot(missing); driver.InitializeFromSerializedReferences();
+                if (driver.jointTransformReferences.Count < 20) throw new System.InvalidOperationException("only " + driver.jointTransformReferences.Count + " hand joints found; missing " + string.Join(", ", missing));
                 var mat = new Material(shader); var mats = new Material[skin.sharedMaterials.Length]; for (int i = 0; i < mats.Length; i++) mats[i] = mat;
                 skin.sharedMaterials = mats; skin.updateWhenOffscreen = true; skin.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; skin.receiveShadows = false; skin.enabled = false;
-                handModels[side] = new HandModel { go = go, r = skin, mat = mat, events = events };
+                go.SetActive(true);
+                handModels[side] = new HandModel { go = go, r = skin, mat = mat, events = events, joints = driver.jointTransformReferences.Count };
             }
-            catch (System.Exception e) { handModels[side] = null; Debug.LogWarning("Hand model not available, using outlines: " + e.Message); }
+            catch (System.Exception e)
+            {
+                handModels[side] = null; if (go != null) Destroy(go);   // leave nothing behind that still listens to the hands
+                Debug.LogWarning("Hand model not available, using outlines: " + e.Message);
+            }
+        }
+        /// <summary>For checks from the Editor, where there is no hand tracking: build the two hand models and report what was wired up.</summary>
+        public string TestHandModels()
+        {
+            if (space == null) return "no rig";
+            MakeHandModel(0); MakeHandModel(1);
+            string r = ""; for (int i = 0; i < 2; i++) r += (i == 0 ? "right: " : " | left: ") + (handModels[i] == null ? "not built" : handModels[i].joints + " joints, mesh " + handModels[i].r.name);
+            for (int i = 0; i < 2; i++) if (handModels[i] != null) { Destroy(handModels[i].go); handModels[i] = null; }
+            return r;
         }
 
         // Faint with a bright edge while the real hand is visible behind it; more solid once it is not. Turns

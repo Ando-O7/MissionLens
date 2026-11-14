@@ -81,6 +81,8 @@ namespace MissionLens
             BuildWorld();
             BuildPanels();
             BuildFx();
+            BuildTools();
+            ApplyLayout();
             view = TableView();
             ApplyView();
             Refresh();
@@ -208,7 +210,8 @@ namespace MissionLens
             if (OnTable) { view = TableView(); ApplyView(); }
             placed = true; lastPlaced = Time.time; PlaceStudio(); Refresh();
         }
-        const float EyeAboveTable = .64f, TableAhead = .84f, TableLookPitch = -21;   // the last: where the desktop camera looks at the table
+        const float EyeAboveTable = .64f, TableAhead = .84f;
+        float TableLookPitch => layout == "desk" ? -36 : -21;   // where the desktop camera looks at the table
 
         // ---------- stage changes ----------
         public void SelectStation(string id)
@@ -384,11 +387,13 @@ namespace MissionLens
         void ShowPano(string id)
         {
             var st = St(id);
-            if (!panoMeshes.TryGetValue(id, out var mesh)) { mesh = MLMesh.PanoSphere(st.panoElMax, st.panoElMin, 400, 90); panoMeshes[id] = mesh; }
+            if (!panoMeshes.TryGetValue(id, out var mesh)) { mesh = MLMesh.PanoSphere(st.panoElMax, st.panoElMin, 400, 90, -90); panoMeshes[id] = mesh; }
             panoF.sharedMesh = mesh; panoMat.SetTexture("_MainTex", panoTex.TryGetValue(id, out var tex) && tex != null ? tex : Resources.Load<Texture2D>("ML/pano_" + id));
+            panoMat.SetTexture("_Mask", Resources.Load<Texture2D>("ML/panomask_" + id));
             panoMat.SetFloat("_VTop", (90 - st.panoElMin) / (st.panoElMax - st.panoElMin));
             var top = st.panoSky != null && st.panoSky.Length == 3 ? new Color(st.panoSky[0], st.panoSky[1], st.panoSky[2]) : MarsSky;
             panoMat.SetColor("_SkyTop", top * .86f);
+            if (st.panoGround != null && st.panoGround.Length == 3) panoMat.SetColor("_Ground", new Color(st.panoGround[0], st.panoGround[1], st.panoGround[2]));
             shownPano = id; panoR.enabled = true;
         }
 
@@ -454,10 +459,10 @@ namespace MissionLens
 
             // Each of these is kept apart: on a headset this code has not been run on, a fault in one of them
             // should cost that part and be logged once, not stop the frame for the others.
-            Guard(0, () => UpdateFx(dt)); Guard(1, () => UpdateSurfaces(dt)); Guard(2, Point); Guard(3, () => UpdateTable(dt));
+            Guard(0, () => UpdateFx(dt)); Guard(1, () => UpdateSurfaces(dt)); Guard(2, Point); Guard(3, () => UpdateTools(dt)); Guard(4, () => UpdateTable(dt));
             if (flashMsg.Length > 0 && Time.time > flashUntil) { flashMsg = ""; DrawHud(); }
         }
-        readonly bool[] guardLogged = new bool[4];
+        readonly bool[] guardLogged = new bool[5];
         void Guard(int i, Action step)
         {
             try { step(); }
@@ -504,7 +509,11 @@ namespace MissionLens
                     if (btn != null && !busy)
                     {
                         hovered[hit] = btn;
-                        if (p.down) { hit.Pressed(); sfx.Play("press"); rig.Haptic(p, .6f, .05f); btn.fn(); }
+                        if (p.down)
+                        {
+                            if (!btn.quiet) { hit.Pressed(); sfx.Play("press"); rig.Haptic(p, .6f, .05f); Log("press " + btn.key + (gaze ? " (gaze)" : p == rig.mouse ? "" : p.controller ? " (controller)" : " (hand)")); }
+                            btn.fn();
+                        }
                     }
                     continue;
                 }
@@ -559,6 +568,7 @@ namespace MissionLens
             return CanMark ? "no terrain" : "marking not active";
         }
         public void LookAt(float yaw, float pitch) { rig.lookYaw = yaw; rig.lookPitch = pitch; }
+        public string TestHandModels() => rig.TestHandModels();
         /// <summary>Desktop check: aim the pointer through a viewport point as the mouse would, and optionally click. Aim(-1, -1) gives the mouse back.</summary>
         public void Aim(float vx, float vy, bool click = false) { rig.debugAim = vx < 0 ? (Vector2?)null : new Vector2(vx, vy); rig.debugClick = click; if (vx < 0) rig.debugHold = false; }
         /// <summary>Desktop check: hold (or let go of) the pointer's button while it is aimed with Aim, to drag the table's map.</summary>

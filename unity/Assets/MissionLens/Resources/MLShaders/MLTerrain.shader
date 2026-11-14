@@ -15,6 +15,8 @@ Shader "MissionLens/Terrain"
         _Fog ("Distance haze", Range(0, 1)) = 0
         _FogColor ("Haze colour", Color) = (0.79, 0.65, 0.49, 1)
         _InvS ("Map metres per room metre", Float) = 1
+        _LensSlope ("Lens shows slope", Range(0, 1)) = 0
+        _LensCrism ("Lens shows CRISM", Range(0, 1)) = 0
     }
     SubShader
     {
@@ -34,7 +36,7 @@ Shader "MissionLens/Terrain"
             TEXTURE2D(_Slope); SAMPLER(sampler_Slope);
             TEXTURE2D(_Crism); SAMPLER(sampler_Crism);
             CBUFFER_START(UnityPerMaterial)
-                float _OSlope, _OCrism, _Dim, _Contour, _Fog, _InvS;
+                float _OSlope, _OCrism, _Dim, _Contour, _Fog, _InvS, _LensSlope, _LensCrism;
                 half4 _FogColor;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -52,14 +54,18 @@ Shader "MissionLens/Terrain"
             half4 frag(Varyings i) : SV_Target
             {
                 MLTableCut(i.t);
+                // The lens: inside its circle on the table the ground shows the lens's layer, whatever the rest shows.
+                float ld = distance(i.t, _MLLens.xy), inLens = _MLLens.w * (1 - smoothstep(_MLLens.z - 0.003, _MLLens.z, ld));
+                float oSlope = lerp(_OSlope, _LensSlope, inLens), oCrism = lerp(_OCrism, _LensCrism, inLens), contour = lerp(_Contour, _LensSlope, inLens);
                 half3 c = SAMPLE_TEXTURE2D(_Ortho, sampler_Ortho, i.uv).rgb;
-                half4 s = SAMPLE_TEXTURE2D(_Slope, sampler_Slope, i.uv); c = lerp(c, s.rgb, s.a * _OSlope);
-                half4 k = SAMPLE_TEXTURE2D(_Crism, sampler_Crism, i.uv); c = lerp(c, k.rgb, k.a * _OCrism * 0.72);
+                half4 s = SAMPLE_TEXTURE2D(_Slope, sampler_Slope, i.uv); c = lerp(c, s.rgb, s.a * oSlope);
+                half4 k = SAMPLE_TEXTURE2D(_Crism, sampler_Crism, i.uv); c = lerp(c, k.rgb, k.a * oCrism * 0.72);
 
                 // Elevation lines every 5 m, stronger every 25 m (from the terrain model).
                 float shown = smoothstep(0.0, 36.0, i.fd.x), nearFront = exp(-abs(i.fd.x) / 16.0);
                 float line5 = MLLine(i.p.y / 5.0, 1.0), line25 = MLLine(i.p.y / 25.0, 1.6), lines = max(line5 * 0.5, line25);
-                c = lerp(c, half3(0.07, 0.04, 0.03), lines * _Contour * 0.5);
+                c = lerp(c, half3(0.07, 0.04, 0.03), lines * contour * 0.5);
+                c = lerp(c, half3(1, 1, 1), _MLLens.w * (1 - smoothstep(0.0012, 0.0026, abs(ld - _MLLens.z))) * 0.9);   // the lens's edge
 
                 // Opening: ahead of the front only a dark plate with a 50 m grid; the image arrives with the front.
                 float2 g = i.p.xz / 50.0, gw = max(fwidth(g), 1e-5);

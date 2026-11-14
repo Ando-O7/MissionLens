@@ -30,6 +30,7 @@ namespace MissionLens.EditorTools
             // at their own size without mipmaps: they are seen at about one texel per display pixel.
             if (name == "ortho") { max = 4096; mips = true; aniso = 8; }
             else if (name.StartsWith("pano_")) { max = 8192; aniso = 2; ti.wrapModeU = TextureWrapMode.Repeat; ti.wrapModeV = TextureWrapMode.Clamp; }
+            else if (name.StartsWith("panomask_")) { max = 1024; format = TextureImporterFormat.R8; ti.sRGBTexture = false; ti.wrapModeU = TextureWrapMode.Repeat; ti.wrapModeV = TextureWrapMode.Clamp; }   // observed / filled
             else if (name == "slope") { max = 2048; format = TextureImporterFormat.RGBA32; }
             else if (name.StartsWith("crism")) { max = 128; format = TextureImporterFormat.RGBA32; filter = FilterMode.Point; }  // show the 18 m cells as they are
             ti.maxTextureSize = max; ti.mipmapEnabled = mips; ti.filterMode = filter; ti.anisoLevel = aniso;
