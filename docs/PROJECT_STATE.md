@@ -23,7 +23,7 @@ git の管理対象は `NASASpaceAppsChallenge/MissionLens/`(このリポジト�
 | `tools/` | データ加工(Python) |
 | `assets/data/` | 加工済みの NASA データ |
 | `experiments/` | 検証用の試作。捨てる前提 |
-| `unity/` | 本開発(Unity)。未作成 |
+| `unity/` | 本開発(Unity 6000.3.6f1、Universal 3D テンプレート、URP 17.3.0)。作成直後の状態 |
 | `web/` | 触れる版(Web + Three.js)。未作成 |
 | `data_cache/` `.venv/` | 取得物のキャッシュと Python 環境。git 管理外 |
 
