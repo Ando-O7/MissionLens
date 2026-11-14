@@ -456,10 +456,16 @@ namespace MissionLens
                 foreach (var r in mockRoom.GetComponentsInChildren<MeshRenderer>()) { var c = r.sharedMaterial.GetColor("_Color"); c.a = Ease(roomO); r.sharedMaterial.SetColor("_Color", c); }
             }
 
-            UpdateFx(dt);
-            UpdateSurfaces(dt);
-            Point();
+            // Each of these is kept apart: on a headset this code has not been run on, a fault in one of them
+            // should cost that part and be logged once, not stop the frame for the others.
+            Guard(0, () => UpdateFx(dt)); Guard(1, () => UpdateSurfaces(dt)); Guard(2, Point);
             if (flashMsg.Length > 0 && Time.time > flashUntil) { flashMsg = ""; DrawHud(); }
+        }
+        readonly bool[] guardLogged = new bool[3];
+        void Guard(int i, Action step)
+        {
+            try { step(); }
+            catch (Exception e) { if (!guardLogged[i]) { guardLogged[i] = true; Debug.LogException(e); } }
         }
 
         // What each pointer is aimed at, nearest surface first; a press acts on it.

@@ -62,7 +62,7 @@ namespace MissionLens
 
         /// <summary>Draw the tracked hands as thin outlines. Wanted once the room is gone and the real hands with it.</summary>
         public bool showHands;
-        XRHandSubsystem handSystem; float nextHandSearch;
+        XRHandSubsystem handSystem; float nextHandSearch; bool handsFailed;
         readonly LineRenderer[] handLines = new LineRenderer[10];   // five fingers per hand, right hand first
         static readonly List<XRHandSubsystem> handSystems = new List<XRHandSubsystem>();
         static readonly XRHandJointID[][] Fingers =
@@ -147,7 +147,9 @@ namespace MissionLens
         {
             if (xr)
             {
-                ReadHand(right, true); ReadHand(left, false); DrawHands();
+                ReadHand(right, true); ReadHand(left, false);
+                // The outlines are a nicety; if the hand data misbehaves on some runtime, drop them rather than the frame.
+                if (!handsFailed) try { DrawHands(); } catch (System.Exception e) { handsFailed = true; HideHands(0, 10); Debug.LogWarning("Hand outlines switched off: " + e.Message); }
                 if (right.active || left.active) lastHandTime = Time.time;
                 if (right.down || left.down) everPressed = true;
                 gaze.active = !everPressed && Time.time - lastHandTime > 2.5f; gaze.origin = Head.position; gaze.rotation = Head.rotation;
