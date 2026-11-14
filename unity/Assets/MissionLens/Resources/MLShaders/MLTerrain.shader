@@ -10,7 +10,7 @@ Shader "MissionLens/Terrain"
         _Crism ("CRISM overlay", 2D) = "black" {}
         _OSlope ("Slope amount", Range(0, 1)) = 0
         _OCrism ("CRISM amount", Range(0, 1)) = 0
-        _Dim ("Dim under the surface image", Range(0, 1)) = 0
+        _Dim ("Under the surface image: dark, with a metre grid", Range(0, 1)) = 0
         _ClipG ("Window to whole area", Range(0, 1)) = 1
         _Win ("Window: centre x, centre z, half x, half z", Vector) = (0, 0, 1000, 1000)
         _Full ("Whole area: half x, half z", Vector) = (650, 600, 0, 0)
@@ -73,7 +73,12 @@ Shader "MissionLens/Terrain"
                 c = lerp(plate, c, shown) + cyan * nearFront * (0.55 + lines * 0.6);
 
                 c = lerp(c, _FogColor.rgb, _Fog * (1 - exp(-i.fd.y * 0.0011)));
-                c = lerp(c, half3(0.03, 0.018, 0.011) + c * 0.06, _Dim);
+                // Under the surface image the model only shows where the mosaic has no pixels. There it is drawn
+                // dark with a 1 m grid (5 m lines stronger), so it reads as the model and not as part of the image.
+                float2 m1 = abs(frac(i.p.xz - 0.5) - 0.5) / max(fwidth(i.p.xz), 1e-5), m5 = abs(frac(i.p.xz / 5.0 - 0.5) - 0.5) / max(fwidth(i.p.xz / 5.0), 1e-5);
+                float mesh = max((1 - saturate(min(m1.x, m1.y))) * 0.45 * saturate(1 - i.fd.y / 30.0), (1 - saturate(min(m5.x, m5.y) - 0.3)) * 0.8 * saturate(1 - i.fd.y / 120.0));
+                half3 under = c * 0.2 + half3(0.02, 0.016, 0.014) + cyan * mesh * 0.5;
+                c = lerp(c, under, _Dim);
                 return half4(c, 1);   // alpha 1: opaque over passthrough
             }
             ENDHLSL

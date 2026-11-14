@@ -82,6 +82,7 @@ namespace MissionLens
             view = TableView();
             ApplyView();
             Refresh();
+            StartCoroutine(Preload());
         }
 
         // ---------- terrain ----------
@@ -205,8 +206,9 @@ namespace MissionLens
         public void PlaceTable()
         {
             var h = rig.Head; var fwd = Vector3.ProjectOnPlane(h.forward, Vector3.up); if (fwd.sqrMagnitude < .01f) fwd = Vector3.forward; fwd.Normalize();
-            float y = rig.xr ? Mathf.Clamp(h.position.y - .72f, .62f, .95f) : .762f;
-            tableFrame.position = new Vector3(h.position.x, y, h.position.z) + fwd * (rig.xr ? .95f : 1.05f);
+            // High enough that the model and the timeline are seen without bending the neck far down.
+            float y = rig.xr ? Mathf.Clamp(h.position.y - .64f, .68f, 1.02f) : .762f;
+            tableFrame.position = new Vector3(h.position.x, y, h.position.z) + fwd * 1.05f;
             tableFrame.rotation = Quaternion.LookRotation(fwd, Vector3.up);
             if (OnTable) { view = TableView(); ApplyView(); }
             placed = true; lastPlaced = Time.time; Refresh();
@@ -370,11 +372,18 @@ namespace MissionLens
         }
 
         // ---------- surface image ----------
+        // The panoramas are large; they are read in the background while the title is up, so that standing at a
+        // station does not stall a frame in the headset.
+        readonly Dictionary<string, Texture2D> panoTex = new Dictionary<string, Texture2D>();
+        IEnumerator Preload()
+        {
+            foreach (var s in M.stations) { var r = Resources.LoadAsync<Texture2D>("ML/pano_" + s.id); yield return r; panoTex[s.id] = r.asset as Texture2D; }
+        }
         void ShowPano(string id)
         {
             var st = St(id);
             if (!panoMeshes.TryGetValue(id, out var mesh)) { mesh = MLMesh.PanoSphere(st.panoElMax, st.panoElMin, 400, 90); panoMeshes[id] = mesh; }
-            panoF.sharedMesh = mesh; panoMat.SetTexture("_MainTex", Resources.Load<Texture2D>("ML/pano_" + id));
+            panoF.sharedMesh = mesh; panoMat.SetTexture("_MainTex", panoTex.TryGetValue(id, out var tex) && tex != null ? tex : Resources.Load<Texture2D>("ML/pano_" + id));
             panoMat.SetFloat("_VTop", (90 - st.panoElMin) / (st.panoElMax - st.panoElMin));
             var top = st.panoSky != null && st.panoSky.Length == 3 ? new Color(st.panoSky[0], st.panoSky[1], st.panoSky[2]) : MarsSky;
             panoMat.SetColor("_SkyTop", top * .86f);
@@ -427,7 +436,7 @@ namespace MissionLens
             string lay = stage == Stage.Table ? layer : "none";
             oSlope = Mathf.MoveTowards(oSlope, lay == "slope" ? 1 : 0, dt * 3); oCrism = Mathf.MoveTowards(oCrism, lay == "crism" ? 1 : 0, dt * 3);
             clipG = Mathf.MoveTowards(clipG, OnTable ? 0 : 1, dt * 1.6f);
-            terrainMat.SetFloat("_OSlope", oSlope); terrainMat.SetFloat("_OCrism", oCrism); terrainMat.SetFloat("_ClipG", clipG); terrainMat.SetFloat("_Dim", panoOpacity * .85f);
+            terrainMat.SetFloat("_OSlope", oSlope); terrainMat.SetFloat("_OCrism", oCrism); terrainMat.SetFloat("_ClipG", clipG); terrainMat.SetFloat("_Dim", panoOpacity);
             terrainMat.SetFloat("_Contour", oSlope);
             terrainMat.SetFloat("_Fog", clipG * (1 - panoOpacity)); terrainMat.SetFloat("_InvS", 1 / world.localScale.x);
             panoMat.SetFloat("_Opacity", panoOpacity); panoR.enabled = shownPano != null && panoOpacity > .01f;
@@ -447,11 +456,14 @@ namespace MissionLens
 
         // What each pointer is aimed at, nearest surface first; a press acts on it.
         readonly Dictionary<MLPanel, MLPanel.Btn> hovered = new Dictionary<MLPanel, MLPanel.Btn>();
+        const float GazeDwell = 1.4f; bool gazeArmed = true;
         void Point()
         {
             hovered.Clear(); bool reticle = false; float reach = rig.xr ? 16 : 0;
-            foreach (var p in rig.xr ? new[] { rig.right, rig.left } : new[] { rig.mouse })
+            if (debugGaze && !rig.xr) { rig.gaze.active = true; rig.gaze.origin = rig.Head.position; rig.gaze.rotation = rig.Head.rotation; }
+            foreach (var p in rig.xr ? new[] { rig.right, rig.left, rig.gaze } : debugGaze ? new[] { rig.gaze } : new[] { rig.mouse })
             {
+                bool gaze = p == rig.gaze;
                 p.hitDistance = -1; if (!p.active) { p.hoverPanel = null; p.hoverKey = null; continue; }
                 var ray = p.Ray; MLPanel hit = null; MLPanel.Btn btn = null; float best = float.MaxValue;
                 foreach (var s in Surfaces())
@@ -463,9 +475,15 @@ namespace MissionLens
                 // Where the pointer has rested for a moment. In the headset a press goes there even if the pinch
                 // itself knocked the ray off it.
                 string key = btn?.key;
-                if (!ReferenceEquals(hit, p.hoverPanel) || key != p.hoverKey) { p.hoverPanel = hit; p.hoverKey = key; p.hoverSince = Time.time; }
+                if (!ReferenceEquals(hit, p.hoverPanel) || key != p.hoverKey) { p.hoverPanel = hit; p.hoverKey = key; p.hoverSince = Time.time; gazeArmed = true; }
                 if (btn != null && Time.time - p.hoverSince > .1f) { p.restPanel = hit; p.restKey = key; p.restAt = Time.time; }
-                if (p.down && rig.xr && Time.time - p.restAt < .35f && p.restPanel is MLPanel rp && (!ReferenceEquals(hit, rp) || key != p.restKey) && rp.alpha >= .6f)
+                if (gaze)
+                {   // looking at a button for a moment presses it, once
+                    float dwell = btn != null && !btn.quiet && !busy && gazeArmed ? Mathf.Clamp01((Time.time - p.hoverSince) / GazeDwell) : 0;
+                    p.down = dwell >= 1; if (p.down) gazeArmed = false;
+                    PlaceGazeDot(ray.GetPoint(hit != null ? best : 1.5f), hit != null ? best : 1.5f, dwell);
+                }
+                else if (p.down && rig.xr && Time.time - p.restAt < .35f && p.restPanel is MLPanel rp && (!ReferenceEquals(hit, rp) || key != p.restKey) && rp.alpha >= .6f)
                 {
                     var rb = rp.buttons.Find(x => x.key == p.restKey);
                     if (rb != null) { hit = rp; btn = rb; if (rp.Raycast(ray, out float rd, out _)) best = rd; }
@@ -489,6 +507,7 @@ namespace MissionLens
                 else if (CanMark && p.down && !busy) { sfx.Play("deny"); Flash("No terrain model in that direction"); }
             }
             if (!reticle) HideReticle();
+            if (!rig.gaze.active) HideGazeDot();
             foreach (var s in panels)
             {
                 hovered.TryGetValue(s, out var b);
@@ -530,5 +549,7 @@ namespace MissionLens
         public void Aim(float vx, float vy, bool click = false) { rig.debugAim = vx < 0 ? (Vector2?)null : new Vector2(vx, vy); rig.debugClick = click; }
         /// <summary>Desktop check: show the headset's comfort vignette, which a desktop never triggers.</summary>
         public bool debugVignette;
+        /// <summary>Desktop check: point with the direction of the camera and press by waiting, as the headset does when no hand is tracked.</summary>
+        public bool debugGaze;
     }
 }

@@ -22,12 +22,12 @@ namespace MissionLens
             board = new MLPanel("Board", 2200, 860, 2.2f, tableFrame);
             board.go.transform.localPosition = new Vector3(0, .52f, .63f); board.go.transform.localRotation = Quaternion.Euler(15, 0, 0);
             strip = new MLPanel("Timeline", 1600, 270, 1.0f, tableFrame);
-            strip.go.transform.localPosition = new Vector3(0, .048f, -.52f); strip.go.transform.localRotation = Quaternion.Euler(55.6f, 0, 0);
+            strip.go.transform.localPosition = new Vector3(0, rig.xr ? .075f : .048f, -.52f); strip.go.transform.localRotation = Quaternion.Euler(rig.xr ? 48 : 55.6f, 0, 0);
             // A small sign to the left of the model: north, a scale bar and the model's scale.
             legend = new MLPanel("Map legend", 520, 300, .26f, tableFrame);
             legend.go.transform.localPosition = new Vector3(-.6f, .05f, -.24f); legend.go.transform.localRotation = Quaternion.Euler(58, 0, 0);
             // FIELD: a wrist panel for details, raised on demand, and a head-up strip that stays out of the scenery.
-            wrist = new MLPanel("Wrist", 600, 780, rig.xr ? .26f : .215f, rig.xr ? null : rig.Head);
+            wrist = new MLPanel("Wrist", 600, 860, rig.xr ? .26f : .215f, rig.xr ? null : rig.Head);
             hud = new MLPanel("HUD", 1200, 170, rig.xr ? .7f : .5f, rig.xr ? null : rig.Head);
             // Before the briefing: what this is and where its contents come from.
             title = new MLPanel("Title", 1500, 880, rig.xr ? 1.05f : 1.5f, rig.xr ? null : tableFrame);
@@ -35,7 +35,7 @@ namespace MissionLens
             banner = new MLPanel("Banner", 1400, 400, rig.xr ? .95f : .74f, rig.xr ? null : rig.Head, true);
             if (!rig.xr)
             {
-                wrist.go.transform.localPosition = new Vector3(-.33f, -.1f, .46f); wrist.go.transform.localRotation = Quaternion.Euler(5.7f, -28.6f, 0);
+                wrist.go.transform.localPosition = new Vector3(-.33f, -.075f, .46f); wrist.go.transform.localRotation = Quaternion.Euler(5.7f, -28.6f, 0);
                 hud.go.transform.localPosition = new Vector3(0, -.262f, .6f);
                 title.go.transform.localPosition = new Vector3(0, .68f, .3f); title.go.transform.localRotation = Quaternion.Euler(5, 0, 0);
                 banner.go.transform.localPosition = new Vector3(0, .1f, 1.0f);
@@ -83,15 +83,16 @@ namespace MissionLens
             if (rig.xr)
             {
                 // Title: in front of the person, following their turn loosely until the briefing begins.
-                if (stage == Stage.Title) Follow(title, head + yaw * new Vector3(0, -.06f, 1.3f), head, title.alpha < .05f ? 1 : 1 - Mathf.Exp(-2.5f * dt));
+                if (stage == Stage.Title) Chase(title, ref titleChasing, head + yaw * new Vector3(0, -.06f, 1.3f), head, 30, 3, dt);
                 // Wrist panel: floats just above the left hand and shows while you look at it; or, asked for from
                 // the head-up strip, stays where it was called up, low and to the left.
                 var l = rig.left; bool looking = l.active && Vector3.Distance(l.origin, head) < .75f && Vector3.Angle(rig.Head.forward, l.origin - head) < 34;
                 wrist.Show = !OnTable && (wristUp || looking);
                 if (wristUp) { if (!wristPlaced) { wristPlaced = true; Follow(wrist, head + yaw * new Vector3(-.3f, -.2f, .55f), head, 1); } }
                 else if (looking) Follow(wrist, l.origin + Vector3.up * .17f, head, 1);
-                // Head-up strip: low in view, following the head's turn without being glued to it.
-                Follow(hud, head + yaw * new Vector3(0, -.38f, .93f), head, hud.alpha < .05f ? 1 : 1 - Mathf.Exp(-6 * dt));
+                // Head-up strip: low in view. It stays put while you look around a little, so it can be pointed
+                // at, and comes round once you have turned away from it.
+                Chase(hud, ref hudChasing, head + yaw * new Vector3(0, -.38f, .93f), head, 20, 5, dt);
             }
             else wrist.Show = !OnTable && wristUp;
 
@@ -155,6 +156,21 @@ namespace MissionLens
         }
         int hudSide;
         readonly List<Pin> placedPins = new List<Pin>();
+        bool titleChasing, hudChasing;
+        // Keeps a surface in front of the person without tying it to every small movement of the head: it starts
+        // to move only once it is `startDeg` off to the side (or left behind), and then glides until it is back.
+        static void Chase(MLPanel p, ref bool chasing, Vector3 want, Vector3 head, float startDeg, float rate, float dt)
+        {
+            var t = p.go.transform;
+            if (p.alpha < .05f) { t.position = want; chasing = false; }
+            else
+            {
+                float off = Vector3.Angle(Vector3.ProjectOnPlane(t.position - head, Vector3.up), Vector3.ProjectOnPlane(want - head, Vector3.up));
+                if (off > startDeg || Vector3.Distance(t.position, want) > .4f) chasing = true;
+                if (chasing) { t.position = Vector3.Lerp(t.position, want, 1 - Mathf.Exp(-rate * dt)); if (Vector3.Distance(t.position, want) < .015f) chasing = false; }
+            }
+            t.rotation = Quaternion.LookRotation(t.position - head, Vector3.up);
+        }
         static void Follow(MLPanel p, Vector3 want, Vector3 head, float k)
         {
             var t = p.go.transform; t.position = Vector3.Lerp(t.position, want, k); t.rotation = Quaternion.LookRotation(t.position - head, Vector3.up);
@@ -228,7 +244,8 @@ namespace MissionLens
                 y = s.Wrap(text, X + 312, y, W - 312, 38, 28, Soft) + 22;
             }
             s.Button("Begin briefing", X, 724, 440, 92, Begin, primary: true, px: 38);
-            s.Text(rig.xr ? "Point with a hand and pinch, or pull a controller trigger" : "Click, or press Enter · drag to look around", X + 476, 782, 26, Gray);
+            s.Text(rig.xr ? "Point with a hand and pinch, or pull a controller trigger" : "Click, or press Enter · drag to look around", X + 476, rig.xr ? 764 : 782, 26, Gray);
+            if (rig.xr) s.Text("No hand or controller in view? Look at a button and hold still.", X + 476, 800, 22, Dim);
             s.Text("Data: NASA/JPL-Caltech/UArizona (HiRISE) · NASA/JPL-Caltech/ASU/MSSS (Mastcam-Z) · NASA/JPL-Caltech/JHUAPL (CRISM) · NASA/JPL-Caltech/CAB (MEDA)", X, 850, 19, Dim);
         }
 
@@ -343,7 +360,7 @@ namespace MissionLens
 
         void DrawWrist()
         {
-            var s = wrist; s.Clear(); const float PW = 600, PH = 780; var T = Task; float y = 54, yb = PH - 196;
+            var s = wrist; s.Clear(); const float PW = 600, PH = 860; var T = Task; float y = 54, yb = PH - 196;
             s.Box(1.5f, 1.5f, PW - 3, PH - 3, 34, new Color(12 / 255f, 15 / 255f, 20 / 255f, .9f), new Color(1, 1, 1, .22f));
             s.Text("MISSION LENS", 34, y, 20, Gray, true); s.Text(stage == Stage.Giant ? "PLAN · ROUTE PREVIEW" : stage == Stage.Field && preview != null ? "PLAN · LOOKING AHEAD" : "FIELD", PW - 34, y, 20, Cyan, true, 1); y += 44;
             s.Text(M.title, 34, y, 34, Ink, true); y += 36;
@@ -362,9 +379,11 @@ namespace MissionLens
             {
                 var st = St(At); int mine = marks.Count(m => m.station == At); bool rec = CanMark;
                 s.Text($"{st.id}  {st.name}", 34, y, 30, Ink, true); y += 32;
-                y = s.Wrap($"Mastcam-Z panorama, {st.panoSols}. {st.panoCredit}. Direction assigned by us; sky above the image is our fill.", 34, y, PW - 68, 26, 20, Gray);
+                s.Text($"Mastcam-Z, {st.panoSols} · {st.panoCredit}", 34, y, 19, Soft); y += 25;
+                y = s.Wrap("Ours: its direction, the sky above it, and the terrain model with a 1 m grid where it has no pixels.", 34, y, PW - 68, 24, 19, Gray) + 3;
                 if (st.hasSample) y = s.Wrap($"NASA record: rock cores {st.sampleName} were taken within about {Mathf.CeilToInt(st.sampleDistM)} m of this stop.", 34, y, PW - 68, 26, 20, Soft);
-                y += 22;
+                if (st.id == M.medaStation) { s.Text(M.medaLine, 34, y, 20, Soft); y += 26; }
+                y += 20;
                 if (preview != null)
                 {   // looking ahead from the briefing: what is planned here, and nothing to do yet
                     s.Text("PLANNED HERE", 34, y, 21, Gray, true); y += 34;
@@ -374,7 +393,6 @@ namespace MissionLens
                         s.Text(t.plannedMin + " min", PW - 34, y, 22, Soft, false, 1); y += 30;
                     }
                     s.Wrap($"Looking ahead from the briefing. The Marswalk is at {here} {St(here).name}; nothing is recorded here yet.", 34, y + 24, PW - 68, 26, 20, Amber);
-                    if (st.id == M.medaStation) s.Text(M.medaLine, 34, PH - 222, 20, Gray);
                     s.Button("Back to the table", 34, yb, PW - 68, 62, ToTable, primary: true);
                     string ph = st.id; s.Button("Step out to terrain", 34, yb + 76, PW - 68, 62, () => EnterTerrain(ph, 1));
                 }
@@ -383,7 +401,9 @@ namespace MissionLens
                     if (Finished) { s.Text("All tasks complete", 34, y, 26, Cyan, true); s.Wrap("Go back to the table to review what was recorded.", 34, y + 36, PW - 68, 28, 21, Soft); }
                     else if (T.station == here && T.leg < 0)
                     {
-                        s.Text($"TASK · {T.plannedMin} MIN", 34, y, 21, Gray, true); y += 36; s.Text(T.phase, 34, y, 28, Ink, true); y += 22;
+                        s.Text($"TASK · {T.plannedMin} MIN", 34, y, 21, Gray, true);
+                        if (rec) s.Text(mine > 0 ? $"{mine} marked · simulated record" : rig.xr ? "point and pinch to mark" : "point and click to mark", PW - 34, y, 20, Amber, mine > 0, 1);
+                        y += 36; s.Text(T.phase, 34, y, 28, Ink, true); y += 22;
                         for (int i = 0; i < T.checks.Length; i++)
                         {
                             bool on = done.Contains(i); float y0 = y; int ci = i;
@@ -391,7 +411,7 @@ namespace MissionLens
                             y = s.Wrap(T.checks[i], 84, y + 30, PW - 124, 28, 22, on ? Hex("8b9097") : Ink) + 6;
                             s.Hit("check:" + i, 28, y0 - 2, PW - 56, y - y0, () => ToggleCheck(ci), 10);
                         }
-                        if (rec) s.Wrap(mine > 0 ? $"{mine} candidate{(mine > 1 ? "s" : "")} marked here. Simulated record; position from the terrain model, approximate." : (rig.xr ? "Point at the scene and pinch to mark a candidate." : "Lower this panel (Space), then point at the scene and click to mark a candidate."), 34, y + 26, PW - 68, 26, 20, Amber);
+                        if (rec) s.Wrap("A mark's position comes from the terrain model and is approximate.", 34, y + 22, PW - 68, 24, 19, Gray);
                     }
                     else
                     {
@@ -401,7 +421,6 @@ namespace MissionLens
                         var leg = M.legs.FirstOrDefault(l => (l.from == here && l.to == T.station) || (l.to == here && l.from == T.station));
                         if (leg != null) s.Wrap($"Planned route {leg.distM:0} m, steepest {leg.slopeMaxDeg:0}°, about {Mathf.RoundToInt(leg.estWalkMin)} min at {M.walkSpeed} m/s (our assumption).", 34, y, PW - 68, 26, 20, Soft);
                     }
-                    if (here == M.medaStation) s.Text(M.medaLine, 34, PH - 222, 20, Gray);
                     bool go = !Finished && T.station != here; float cw = rec && mine > 0 ? 350 : PW - 68; string to = T.station;
                     if (Finished) s.Button("Review at the table", 34, yb, PW - 68, 62, ToTable, primary: true);
                     else if (go) s.Button($"Walk to {to} {St(to).name}", 34, yb, PW - 68, 62, () => Travel(to), primary: true);

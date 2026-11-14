@@ -37,6 +37,12 @@ namespace MissionLens
         public Camera cam;
         public bool xr;
         public readonly Pointer right = new Pointer(), left = new Pointer(), mouse = new Pointer();
+        /// <summary>
+        /// In the headset, when no hand or controller has been tracked for a few seconds: the direction of the
+        /// head, so the app can still be worked by looking at a button and waiting.
+        /// </summary>
+        public readonly Pointer gaze = new Pointer();
+        float lastHandTime;
         public Transform Head => cam.transform;
         public float HeadYaw => cam.transform.eulerAngles.y;
 
@@ -137,7 +143,12 @@ namespace MissionLens
 
         void Update()
         {
-            if (xr) { ReadHand(right, true); ReadHand(left, false); DrawHands(); }
+            if (xr)
+            {
+                ReadHand(right, true); ReadHand(left, false); DrawHands();
+                if (right.active || left.active) lastHandTime = Time.time;
+                gaze.active = Time.time - lastHandTime > 2.5f; gaze.origin = Head.position; gaze.rotation = Head.rotation;
+            }
             else ReadDesktop();
         }
 

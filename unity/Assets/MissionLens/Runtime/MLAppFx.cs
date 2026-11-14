@@ -17,7 +17,7 @@ namespace MissionLens
         float frontR, routeDraw, plateK, tableBaseO = 1, revealMax, vig;
         Transform plateT, skyT, vigT;
         Material skirtMat, plateMat, frameMat, skyMat, vigMat, beaconMat, reticleMat;
-        MeshRenderer skirtR, skyR, vigR, beaconR, reticleR;
+        MeshRenderer skirtR, skyR, vigR, beaconR, reticleR, gazeR; Material gazeMat;
         Shader ringShader;
         readonly List<RippleFx> ripples = new List<RippleFx>();
         float bannerUntil; bool bannerHasButton;
@@ -58,6 +58,8 @@ namespace MissionLens
             beaconMat = new Material(Sh("MLBeam")); beaconR = Add("Beacon", MLMesh.Cross(), beaconMat, world); beaconR.enabled = false;
             reticleMat = new Material(ringShader); reticleMat.SetColor("_Color", Amber); reticleMat.SetFloat("_Radius", .62f); reticleMat.SetFloat("_Width", .1f); reticleMat.SetFloat("_Fill", .35f);
             reticleR = Add("Reticle", MLMesh.Quad(false), reticleMat, null); reticleR.enabled = false;
+            gazeMat = new Material(ringShader); gazeMat.SetFloat("_Radius", .6f); gazeMat.SetFloat("_Width", .16f); gazeMat.renderQueue = 4005;
+            gazeR = Add("Gaze dot", MLMesh.Quad(false), gazeMat, null); gazeR.enabled = false;
         }
 
         // ---------- the opening ----------
@@ -145,6 +147,15 @@ namespace MissionLens
             t.rotation = Quaternion.LookRotation(at - rig.Head.position, Vector3.up); t.localScale = Vector3.one * Mathf.Clamp(distance * .035f, .03f, 4f);
         }
         void HideReticle() { if (reticleR.enabled) reticleR.enabled = false; }
+
+        // Where the person is looking, when looking is the pointer. It fills as the wait to press runs out.
+        void PlaceGazeDot(Vector3 at, float distance, float dwell)
+        {
+            gazeR.enabled = true; var t = gazeR.transform; t.position = at;
+            t.rotation = Quaternion.LookRotation(at - rig.Head.position, Vector3.up); t.localScale = Vector3.one * distance * (.022f + .012f * dwell);
+            gazeMat.SetColor("_Color", Color.Lerp(new Color(1, 1, 1, .75f), Cyan, dwell)); gazeMat.SetFloat("_Fill", dwell * 2);
+        }
+        void HideGazeDot() { if (gazeR.enabled) gazeR.enabled = false; }
 
         // ---------- short messages in front of the person ----------
         void ShowBanner(string top, string main, string sub, float seconds, string button = null, Action fn = null)
