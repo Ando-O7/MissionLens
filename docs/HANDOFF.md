@@ -8,7 +8,7 @@ NASA Space Apps Challenge 2026「Interplanetary Survival Guide: Martian Map」�
 
 ## 2. 直近で完了した作業
 
-Unity 版を、開始から終了まで通るアプリとして作り込んだ(2026-11-14 21:30〜22:30)。タイトル、オープニング、PLAN、先の地点の下見、FIELD、終了と振り返り、やり直し。演出・操作の反応・音・ヘッドセット向けの保険を足した。APK を作り直した。内容は `PROJECT_STATE.md` の「実装済み」、判断と理由は `UI_DECISIONS.md` の 23〜38。
+Unity 版を Quest 3 で 3 回動かしてもらい、そのたびに直した(2026-11-15 01:30〜03:45)。直近(03:45)は、日本語 / English の切り替え、手に持って回すタイマー(作業カード付き)、レンズの改良、パノラマの画素が無い部分の描き方の変更。所見と判断は `UI_DECISIONS.md` の 39〜60、経過は `WORKLOG.md`。端末に入っているのは「2026-11-15 03:37 · 7d0125a」(タイトル画面の右上に出る)。
 
 ## 3. 現時点で動くもの
 
@@ -30,7 +30,9 @@ Unity 版を、開始から終了まで通るアプリとして作り込んだ(2
 
 **検証済み**(Unity 版、Editor のデスクトップ用カメラで): タイトルから全 13 作業、終了、振り返り、やり直しまでの通し。下見の地点間の移動。記録と取り消し。レイヤー、高さ 2 倍、1 : 25 と実寸の地形。実際のポインター経路でのホバーとクリック。視線での選択と視野周辺の暗転(確認用フラグで)。コンソールのエラー 0。Android ビルドの成功。
 
-**未検証**: Quest 実機のすべて(パススルー、手・コントローラー・視線の指し示し、手の輪郭線、振動、手首パネル、帯の追従、机の位置と高さ、描画速度、酔いやすさ、音量)。音が耳でどう聞こえるか。人の手での操作感。
+**実機で確認済み**(Quest 3、ユーザーの所見と端末のログ): パススルーで部屋が見える。手のピンチでボタンを押せる。手の形のモデルが出る。机のレイアウト(desk / wall)、スタジオの部屋への切り替え、レンズを手でつかむ、タイマーを回す。通常 72 fps。
+
+**未検証**(実機): 03:37 のビルドで入れたものすべて(日本語の表示、手に持つタイマーのひねりの感度と位置、レンズの札を押す切り替え、FIELD の床の格子)。03:02 に入れた描画の軽量化の効果。FIELD の大半、コントローラー、視線での選択、音量。
 
 ## 6. NASA データの利用状況
 
@@ -46,15 +48,16 @@ Unity 版を、開始から終了まで通るアプリとして作り込んだ(2
 
 ## 7. 現在の課題・リスク
 
-- 実機で一度も動かしていない。会場で初めて動かすのは避けたい。
-- 手の指し示しが効かない場合の保険は入れたが(視線での選択)、それも実機では未確認。
+- 実機で見てもらえているのは机の場面が中心。FIELD を通して歩いた確認はまだ無い。
+- 手首のひねりで回すタイマーは、実機でしか感度を決められない(`MLAppTools.cs` の `TimerGain`、持つ位置は `UpdateTools` の `gripAt + up * .21`)。
+- 日本語のフォントは実行時に文字を作る。初めて日本語にした瞬間に引っかかる可能性がある。
 - 本家フォームの文面とデモ(スライド 7 枚以内または動画 30 秒以内)がまだ無い。
 - 既知の問題の一覧は `PROJECT_STATE.md`。
 
 ## 8. 次に実施すべき作業(優先順)
 
-1. Quest 実機での確認と、その結果による修正。
-2. 本家フォームの文面(英語)とデモ。
+1. 03:37 のビルドをかぶってもらい、所見で直す(タイマーの感度、日本語の読みやすさ、FIELD の床)。
+2. 本家フォームの文面(英語)とデモ。東京会場は日本語で見せられる(アプリを日本語に切り替え)。
 3. 余裕があれば、`UI_DECISIONS.md` の検討中の項目。
 
 ## 9. ユーザーに相談したい判断事項
@@ -116,6 +119,7 @@ $U command script eval --project-path "$P" --result-only -- --code 'return Missi
 $U command script eval --project-path "$P" --result-only -- --code 'MissionLens.MLApp.I.Aim(0.36f, 0.345f, true); return 1;'  # マウスの代わりにその位置を指す(true でクリック)。Aim(-1,-1) で戻す
 $U command script eval --project-path "$P" --result-only -- --code 'MissionLens.MLApp.I.LookAt(60, -38); return 1;'            # デスクトップ用カメラの向き(方位, 仰角)
 # ヘッドセットでしか出ないものをデスクトップで見るフラグ: MLApp.I.debugGaze(視線で選ぶ)、MLApp.I.debugVignette(視野周辺の暗転)
+# 言語: MLApp.I.SetLanguage("ja" | "en")。道具の状態: MLApp.I.ToolState()。手のひねりの代用: MLRig の debugRoll(度。Aim と Hold でタイマーを持ってから変える)
 $U command capture game_view --project-path "$P" --result-only -- --source camera --output-path <絶対パス.png> --width 1600 --height 1000
 $U command editor.playmode stop --project-path "$P"
 $U command build run --project-path "$P" --result-only -- --target Android --output-path Builds/MissionLens.apk --confirm true  # Quest 向け。build status で完了を待つ(初回約 4.5 分、2 回目以降は 1〜2 分)
