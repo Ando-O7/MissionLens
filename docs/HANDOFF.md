@@ -1,10 +1,10 @@
 # HANDOFF
 
-最終更新: 2026-11-14 16:30 JST / 更新者: Claude Code セッション。**この文書の 2〜9 章は Phase 0 完了時点の内容で古い。決定事項と未決定事項の最新は `PROJECT_STATE.md`、経緯は `WORKLOG.md` を見ること。**
+最終更新: 2026-11-14 18:45 JST / 更新者: Claude Code セッション。**この文書の 2〜9 章は Phase 0 完了時点の内容で古い(モード名 TRAIN / REPLAN も旧称)。決定事項と未決定事項の最新は `PROJECT_STATE.md`、経緯は `WORKLOG.md` を見ること。**
 
 ## 1. プロジェクト概要
 
-NASA Space Apps Challenge 2026「Interplanetary Survival Guide: Martian Map」向けの **Mission Lens**。1 回の Marswalk を、科学目標の理解(TRAIN)から現地での実行(FIELD)まで同じ地図・同じ座標でつなぐインターフェース。締切は東京会場の審査が 2026-11-15 14:00 JST(途中可)、本家フォームが同日 23:59。提出物の型は `docs/SUBMISSION.md`。1 人開発。
+NASA Space Apps Challenge 2026「Interplanetary Survival Guide: Martian Map」向けの **Mission Lens**。1 回の Marswalk を、計画の理解・確認(PLAN)から現地での活動(FIELD)まで、同じミッション情報・同じ座標でつなぐ探査支援アプリケーション。主となる形は Quest 3 の MR / VR の空間 UI。コンセプト、提供価値、判断基準、今回の中心と将来構想の区別は `PROJECT_STATE.md` の冒頭にある(2026-11-14 18:45 に企画セッションの再整理を反映)。締切は東京会場の審査が 2026-11-15 14:00 JST(途中可)、本家フォームが同日 23:59。提出物の型は `docs/SUBMISSION.md`。1 人開発。
 
 ## 2. 直近で完了した作業
 

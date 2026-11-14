@@ -51,9 +51,9 @@ Mission Lens
 
 ## 2. Summary(必須、1500 字まで、50〜200 語を推奨)**[仮]**
 
-> Mission Lens turns NASA's Mars data into one continuous Marswalk, from the science objective to the outcrop. Existing tools layer data at regional scale; an astronaut on a single excursion needs it at the scale of a few hundred metres, in the order the work happens. We co-register orbital imagery and terrain from Mars Reconnaissance Orbiter with Perseverance's own track, sampling record and surface images at [SITE], and show them in two linked modes. TRAIN is a 3D map of the route, slopes and stations. FIELD puts the same route and targets into the real view from the ground, reconstructed from rover camera frames. Because both modes share one coordinate frame, what the crew rehearses is what they see when they arrive.
+> Mission Lens turns NASA's Mars data into one continuous Marswalk, from the science objective to the outcrop. Existing tools layer data at regional scale; an astronaut on a single excursion needs it at the scale of a few hundred metres, in the order the work happens. We co-register orbital imagery and terrain from Mars Reconnaissance Orbiter with Perseverance's own track, sampling record and surface images at the front of Jezero Crater's fan, and show them in two linked modes. PLAN is a tabletop 3D terrain model of the route, slopes and stations. FIELD puts the same route, stations and tasks into the real view from the ground, in Mastcam-Z panoramas taken at each station. Because both modes share one coordinate frame and one mission state, what the crew plans is what they see when they arrive.
 
-(約 125 語。地域の確定後に [SITE] を埋め、実装した機能に合わせて直す)
+(約 135 語。実装した機能に合わせて直す。2026-11-14 18:45 に、モード名 TRAIN → PLAN、地域名、地上画像の出どころ(自前の再構成 → 公式 Mastcam-Z パノラマ)を現状に合わせた)
 
 ## 3. Project Demonstration(必須)**[未]**
 
