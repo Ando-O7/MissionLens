@@ -380,8 +380,8 @@ namespace MissionLens
         void DrawWrist()
         {
             var s = wrist; s.Clear(); const float PW = 600, PH = 860; var T = Task; float y = 54, yb = PH - 196;
-            s.Box(1.5f, 1.5f, PW - 3, PH - 3, 34, new Color(12 / 255f, 15 / 255f, 20 / 255f, .9f), new Color(1, 1, 1, .22f));
-            s.Text("MISSION LENS", 34, y, 20, Gray, true); s.Text(stage == Stage.Giant ? "PLAN · ROUTE PREVIEW" : stage == Stage.Field && preview != null ? "PLAN · LOOKING AHEAD" : "FIELD", PW - 34, y, 20, Cyan, true, 1); y += 44;
+            s.Box(1.5f, 1.5f, PW - 3, PH - 3, 34, new Color(12 / 255f, 15 / 255f, 20 / 255f, .95f), new Color(1, 1, 1, .22f));
+            s.Text("MISSION LENS", 34, y, 20, Gray, true); s.Text(stage == Stage.Giant ? "PLAN · ROUTE PREVIEW" : stage == Stage.Walk ? "TERRAIN MODEL" : preview != null ? "PLAN · LOOKING AHEAD" : "FIELD", PW - 34, y, 20, Cyan, true, 1); y += 44;
             s.Text(M.title, 34, y, 34, Ink, true); y += 36;
             s.Text($"T+ {MLData.Hm(Pet)} of {MLData.Hm(M.plannedTotalMin)} planned · task {Mathf.Min(taskIndex + 1, M.tasks.Length)}/{M.tasks.Length}", 34, y, 22, Soft); y += 18;
             s.Box(34, y, PW - 68, 6, 3, new Color(1, 1, 1, .12f)); if (Pet > 0) s.Box(34, y, (PW - 68) * Pet / M.plannedTotalMin, 6, 3, Cyan); y += 44;
