@@ -51,7 +51,7 @@ Unity 版を Quest 3 で 4 回動かしてもらい、そのたびに直した(2
 - 左手の形の認識は実際の手で試していない。認識されなくても、メニューは模型の左に浮かんだまま使える(時間割の「メニュー」でも出せる)。角度のしきい値は `MLAppMenu.cs` の `HandAsks`(出す 50°、消す 34°)。端末のログの「thumb opened up to N deg」で合わせる。
 - 手首のひねりで回すタイマーの感度(`MLAppTools.cs` の `TimerGain`)は実機でしか決められない。
 - 日本語のフォントは実行時に文字を作る。初めて日本語にした瞬間に引っかかる可能性がある。
-- 本家フォームの文面とデモ(スライド 7 枚以内または動画 30 秒以内)がまだ無い。
+- 本家フォームの文面がまだ無い。デモは、Editor で収録した動画が `demo/` にある(30 秒の英語版ほか。手の動きはスクリプト、と画面に明記)。これを提出に使うか、実機で撮り直すか、スライドにするかはユーザーが決める。
 - 既知の問題の一覧は `PROJECT_STATE.md`。
 
 ## 8. 次に実施すべき作業(優先順)
@@ -120,6 +120,8 @@ $U command script eval --project-path "$P" --result-only -- --code 'MissionLens.
 $U command script eval --project-path "$P" --result-only -- --code 'MissionLens.MLApp.I.LookAt(60, -38); return 1;'            # デスクトップ用カメラの向き(方位, 仰角)
 # ヘッドセットでしか出ないものをデスクトップで見るフラグ: MLApp.I.debugGaze(視線で選ぶ)、MLApp.I.debugVignette(視野周辺の暗転)
 # 手に持つメニューの模擬: MLApp.I.DebugHand(70)(左手を出す。0 で戻す)、DebugHand(70, x, y, mm) で右手の指先をメニューの画素 (x, y) の手前 mm に置く。状態は MLApp.I.MenuState()
+# デモ動画の収録(Editor、手はスクリプト): FFMPEG=<ffmpeg のパス> tools/record_demo.sh <demo|demo30|full> <en|ja> <出力.mp4> [最長の秒数]
+#   例: tools/record_demo.sh demo30 en demo/MissionLens_demo_30s_en.mp4 29.8   流れは MLAppDirector.cs、手と頭は MLRigSim.cs。収録後は PlayerPrefs "ml.sim" が 0 に戻る
 # 言語: MLApp.I.SetLanguage("ja" | "en")。道具の状態: MLApp.I.ToolState()。手のひねりの代用: MLRig の debugRoll(度。Aim と Hold でタイマーを持ってから変える)
 $U command capture game_view --project-path "$P" --result-only -- --source camera --output-path <絶対パス.png> --width 1600 --height 1000
 $U command editor.playmode stop --project-path "$P"

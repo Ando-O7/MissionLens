@@ -17,7 +17,7 @@ namespace MissionLens
     /// camera you turn by dragging and a pointer under the mouse, so the same app can be checked on a screen.
     /// The rig itself never moves: the terrain is placed around the person.
     /// </summary>
-    public class MLRig : MonoBehaviour
+    public partial class MLRig : MonoBehaviour
     {
         public class Pointer
         {
@@ -46,6 +46,8 @@ namespace MissionLens
 
         public Camera cam;
         public bool xr;
+        /// <summary>Editor only (MLRigSim.cs): no headset, but the rig behaves as on one, with a head and hands placed by a script.</summary>
+        public bool sim;
         public readonly Pointer right = new Pointer(), left = new Pointer(), mouse = new Pointer();
         /// <summary>
         /// In the headset, a fallback for when pointing does not work: the direction of the head, so the app can be
@@ -110,11 +112,14 @@ namespace MissionLens
         void Build()
         {
             xr = XRGeneralSettings.Instance != null && XRGeneralSettings.Instance.Manager != null && XRGeneralSettings.Instance.Manager.activeLoader != null;
+#if UNITY_EDITOR
+            if (!xr && PlayerPrefs.GetInt("ml.sim", 0) == 1) { sim = true; xr = true; }
+#endif
             space = new GameObject("Camera Offset").transform; space.SetParent(transform, false);
             var camGo = new GameObject("Main Camera") { tag = "MainCamera" }; camGo.transform.SetParent(space, false);
             cam = camGo.AddComponent<Camera>(); camGo.AddComponent<AudioListener>();
             cam.nearClipPlane = .03f; cam.farClipPlane = 8000; cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = Color.clear;
-            if (xr)
+            if (xr && !sim)
             {
                 var origin = gameObject.AddComponent<XROrigin>();
                 origin.Camera = cam; origin.CameraFloorOffsetObject = space.gameObject; origin.RequestedTrackingOriginMode = XROrigin.TrackingOriginMode.Floor;
@@ -128,8 +133,11 @@ namespace MissionLens
                 // Render the eyes at a higher resolution than the default: thin text and distant edges crawl less.
                 // The first run on a Quest 3 used about a third of the GPU at the default, so there is room.
                 UnityEngine.XR.XRSettings.eyeTextureResolutionScale = 1.3f;
-                MakeVisual(right, "Right pointer"); MakeVisual(left, "Left pointer");
                 MakeHandModel(0); MakeHandModel(1);
+            }
+            if (xr)
+            {
+                MakeVisual(right, "Right pointer"); MakeVisual(left, "Left pointer");
                 var handMat = new Material(Resources.Load<Shader>("MLShaders/MLColor")); handMat.SetColor("_Color", new Color(.92f, .96f, 1f, .5f)); handMat.SetFloat("_ZTest", (float)UnityEngine.Rendering.CompareFunction.Always); handMat.renderQueue = 3995;
                 for (int i = 0; i < handLines.Length; i++)
                 {
@@ -138,6 +146,9 @@ namespace MissionLens
                 }
                 right.haptic = new InputAction("haptic right", InputActionType.PassThrough, "<XRController>{RightHand}/{Haptic}"); right.haptic.Enable();
                 left.haptic = new InputAction("haptic left", InputActionType.PassThrough, "<XRController>{LeftHand}/{Haptic}"); left.haptic.Enable();
+#if UNITY_EDITOR
+                if (sim) BuildSim();
+#endif
             }
             else
             {
@@ -161,7 +172,7 @@ namespace MissionLens
         public void SetBackground(bool seeRoom, Color mockRoom)
         {
             if (passthrough != null && passthrough.enabled != seeRoom) passthrough.enabled = seeRoom;
-            cam.backgroundColor = xr ? Color.clear : mockRoom;
+            cam.backgroundColor = xr && !sim ? Color.clear : mockRoom;
         }
 
         /// <summary>A short buzz on a held controller. Bare hands have nothing to buzz.</summary>
@@ -174,6 +185,9 @@ namespace MissionLens
 
         void Update()
         {
+#if UNITY_EDITOR
+            if (sim) { ReadSim(); return; }
+#endif
             if (xr)
             {
                 ReadHand(right, true); ReadHand(left, false);
@@ -190,6 +204,9 @@ namespace MissionLens
         public bool Joint(int side, XRHandJointID id, out Vector3 at)
         {
             at = default;
+#if UNITY_EDITOR
+            if (sim) return SimJoint(side, id, out at);
+#endif
             if (debugJoints != null) return debugJoints.TryGetValue((side, id), out at);
             if (!xr || handsFailed || handSystem == null || !handSystem.running) return false;
             var hand = side == 0 ? handSystem.rightHand : handSystem.leftHand;

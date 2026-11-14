@@ -32,3 +32,7 @@ __pycache__/
 # written by each build (MLBuildStamp)
 /unity/Assets/MissionLens/Resources/ML/build.txt
 /unity/Assets/MissionLens/Resources/ML/build.txt.meta
+
+# Demonstration videos recorded with tools/record_demo.sh (frames and encoded files are not kept in git)
+/demo/frames/
+/demo/*.mp4

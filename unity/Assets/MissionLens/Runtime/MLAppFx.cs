@@ -116,7 +116,7 @@ namespace MissionLens
             float studioA = Ease(roomO) * studioK; bool studioOn = studioA > .01f && placed;
             if (studioT.gameObject.activeSelf != studioOn) studioT.gameObject.SetActive(studioOn);
             if (studioOn) { floorMat.SetFloat("_A", studioA); var pc = plinthMat.GetColor("_Color"); pc.a = studioA * Mathf.Clamp01(1 - clipG * 3); plinthMat.SetColor("_Color", pc); }   // the plinth too waits for the model to come down
-            vig = Mathf.MoveTowards(vig, (rig.xr && moving) || debugVignette ? 1 : 0, dt * 3.5f);
+            vig = Mathf.MoveTowards(vig, (rig.xr && !rig.sim && moving) || debugVignette ? 1 : 0, dt * 3.5f);   // a comfort aid for the headset; not drawn in an Editor recording
             vigR.enabled = vig > .01f; vigMat.SetFloat("_Amount", vig * .94f); vigT.position = head;
 
             // Route ribbons: half a metre wide on the ground at true scale; on the table about 5.6 mm wide and lifted
