@@ -95,4 +95,5 @@
 - `src/MissionLens/` で `git init`。`data_cache/`(374 MB)と `.venv/` は管理外。`requirements.txt` を追加。
 - コミットは 3 つに分けた: (1) Phase 0 の検証済み成果と docs、(2) CRISM の入手確認、(3) 了承前に作った Phase 1 の下書き。(3) は採用しない場合に単独で取り消せる。
 - 本開発用のフォルダ(`web/` または `unity/`)は、技術スタックが未確定なので作っていない。
+- 13:55 追記: リポジトリを `src/MissionLens/` から `NASASpaceAppsChallenge/MissionLens/` へ 1 階層上げ、空になった `src/` を削除した。`src/` が MissionLens だけを入れる空の階層になっていたため。履歴と動作に影響なし。
 - 開発体制: 設計を Claude、実装を Codex に分ける案を検討したが、当面は Claude Code 1 本で進める(引き継ぎの手間と混乱を避けるため)。

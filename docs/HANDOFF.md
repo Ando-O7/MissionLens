@@ -82,7 +82,7 @@ Phase 0(データ実現性の検証)。公式課題の確認、Jezero と Gale �
 ## 10. 再現・起動・確認方法
 
 ```sh
-# リポジトリのルート(src/MissionLens)で実行する
+# リポジトリのルート(MissionLens)で実行する
 # 初回のみ: python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
 
 # データ再生成(キャッシュがあれば数秒、無ければ DTM 取得に約 1 分)

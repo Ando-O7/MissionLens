@@ -1,10 +1,10 @@
 # PROJECT STATE
 
-最終更新: 2026-11-14 13:50 JST(git 化とフォルダ再編の時点)
+最終更新: 2026-11-14 13:55 JST(git 化とフォルダ再編の時点)
 
 ## フォルダ構成
 
-git の管理対象は `src/MissionLens/`(このリポジトリのルート)。
+git の管理対象は `NASASpaceAppsChallenge/MissionLens/`(このリポジトリのルート)。その外側は、リポジトリに入れない素材(スライドの元ファイル、録画など)の置き場として使える。
 
 | 場所 | 中身 |
 |---|---|
@@ -32,7 +32,7 @@ NASA Space Apps Challenge 2026 課題「Interplanetary Survival Guide: Martian M
 - データ加工は Python(`tools/`)、成果物は `assets/data/`。
 - 検証用の試作は `experiments/`、本開発は別フォルダ(`web/` か `unity/`)に分ける。
 - 実データ / NASA の解釈 / 自前の再構成・計算 / 仮想 Marswalk / 模擬イベントの 5 区分を画面上でも区別する。
-- `src/MissionLens/` を git で管理する。`docs/` もその中に置く。
+- `MissionLens/` を git で管理する。`docs/` もその中に置く。
 - 開発は Claude Code 1 本で進める(設計と実装を別のエージェントに分けない)。
 - 本家の公開デモは「スライド 7 枚以内」または「動画 30 秒以内」。コア体験は 30 秒で伝わる 1 本に絞る。
 - 本家への提出物(フォーム、デモ、アプリ画面、README)は英語。東京会場の発表は日本語でよい。
