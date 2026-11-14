@@ -25,10 +25,12 @@ uc editor.playmode start >/dev/null 2>&1; sleep 2
 
 chk "title" "$(st)" 'stage\":\"Title'
 press Begin; s=$(st); chk "table after the opening" "$s" 'stage\":\"Table'; chk "opening finished" "$s" 'intro\":true'
-press Slope; chk "slope layer" "$(st)" 'layer\":\"slope'
-press Spectral; chk "spectral layer" "$(st)" 'layer\":\"crism'; press Spectral
-press NextTask; chk "next task" "$(st)" 'selTask\":1'
+chk "the first task, a walk, opens with the slope layer" "$(st)" 'layer\":\"slope'
+press Spectral; chk "spectral layer by hand" "$(st)" 'layer\":\"crism'
+press NextTask; s=$(st); chk "next task" "$s" 'selTask\":1'; chk "work at a station opens with the plain image" "$s" 'layer\":\"none'
 press "task:5"; chk "task 5 selects station B" "$(st)" 'sel\":\"B'
+press Slope; press "task:5"; chk "a layer set by hand stays while the same task is looked at" "$(st)" 'layer\":\"slope'
+press "task:3"; press "task:5"; chk "choosing another task puts its own layer back" "$(st)" 'layer\":\"none'
 press "pin:C"; chk "label selects station C" "$(st)" 'sel\":\"C'
 press "Stand at"; s=$(st); chk "looking ahead at C" "$s" 'preview\":\"C'; chk "the Marswalk stays at BASE" "$s" 'here\":\"BASE'
 press "pin:B"; chk "hop to B while looking ahead" "$(st)" 'preview\":\"B'
@@ -50,6 +52,18 @@ chk "closing message" "$s" 'banner\":true'; chk "one mark per record task" "$s" 
 press "Review at the table"; s=$(st); chk "review at the table" "$s" 'stage\":\"Table'; chk "start over offered" "$s" 'Start over'
 press "Start over"; sleep 1.3; s=$(st); chk "title again" "$s" 'stage\":\"Title'; chk "marks cleared" "$s" 'marks\":0'
 press Begin; chk "second opening" "$(st)" 'intro\":true'
+
+# The round trip the demonstration shows: start the simulated Marswalk at B's candidate search, record two
+# candidates in FIELD, come back to the table and pick one of them on the map.
+press "task:5"; s=$(st); chk "looking at a task does not move the Marswalk" "$s" 'taskIndex\":0'
+press "Start here"; s=$(st); chk "simulated start at task 6" "$s" 'taskIndex\":5'; chk "the Marswalk is at B" "$s" 'here\":\"B'
+press Marswalk; s=$(st); chk "FIELD at B" "$s" 'stage\":\"Field'; chk "at B, live" "$s" 'here\":\"B'
+r=$(e 'var a = MissionLens.MLApp.I; return a.PressAt(0.5f, 0.45f) + " / " + a.PressAt(0.3f, 0.42f) + " / " + a.PressAt(0.5f, 0.45f);')
+chk "two candidates recorded" "$(st)" 'marks\":2'; chk "the same place is not recorded twice" "$r" 'refused'
+chk "recording a candidate completes nothing" "$(st)" 'taskIndex\":5'
+press HudTable; s=$(st); chk "back at the table with the records" "$s" 'marks\":2'; chk "still at B" "$s" 'here\":\"B'
+press "mark:1"; s=$(st); chk "a candidate picked on the map" "$s" 'selMark\":1'; chk "its task comes up" "$s" 'selTask\":5'
+press Marswalk; press HudTable; chk "the records are kept across another visit" "$(st)" 'marks\":2'
 
 errors=$(uc --timeout 30 console get -- --types error,exception --limit 20 2>/dev/null | python3 -c "
 import sys, json

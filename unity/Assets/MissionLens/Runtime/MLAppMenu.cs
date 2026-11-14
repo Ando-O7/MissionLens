@@ -103,8 +103,9 @@ namespace MissionLens
 
         // What the left hand says about a panel now: +1 it asks for it (back of the hand toward the eyes, thumb
         // opened wide, in view), -1 it plainly does not (thumb closed, hand turned or lowered), 0 it cannot be seen.
-        // Opened wide to call it; it stays until the thumb has come clearly back. (Measured on the headset: an opened
-        // thumb stands at about 90 degrees from the line of the hand, a closed one under 50.)
+        // Opened wide to call it; it stays until the thumb has come clearly back. (Measured on the headset against
+        // the line of the hand: an opened thumb stands at 60 to 75 degrees, a closed or resting one at 25 to 40.
+        // Calling it at 66 degrees was too strict.)
         // With a controller in the left hand, which has no fingers to read: raised and looked at.
         int HandAsks(Dock d, out Vector3 corner, out Quaternion rot)
         {
@@ -115,9 +116,9 @@ namespace MissionLens
                 if (toEyes && inView)
                 {   // for the device log: how far thumbs really open
                     thumbMax = Mathf.Max(thumbMax, thumbDeg);
-                    if (Time.time > thumbLogAt) { thumbLogAt = Time.time + 6; Log($"back of the left hand shown: thumb opened up to {thumbMax:0} deg (a panel comes at 66, goes at 54)"); thumbMax = 0; }
+                    if (Time.time > thumbLogAt) { thumbLogAt = Time.time + 6; Log($"back of the left hand shown: thumb opened up to {thumbMax:0} deg (a panel comes at 50, goes at 40)"); thumbMax = 0; }
                 }
-                if (!(toEyes && inView && !l.held && thumbDeg > (d.on ? 54 : 66))) return -1;
+                if (!(toEyes && inView && !l.held && thumbDeg > (d.on ? 40 : 50))) return -1;
                 corner = hc; rot = hr; return 1;
             }
             if (!l.active || !l.controller) return 0;
@@ -131,7 +132,7 @@ namespace MissionLens
         {
             d.askFor = asks > 0 ? d.askFor + dt : 0; d.refuseFor = asks < 0 ? d.refuseFor + dt : 0; d.lostFor = asks == 0 ? d.lostFor + dt : 0; bool was = d.on;
             if (!d.on && allowed && d.askFor > .1f) d.on = true;
-            if (d.on && (!allowed || d.refuseFor > .08f || d.lostFor > .5f)) d.on = false;
+            if (d.on && (!allowed || d.refuseFor > .14f || d.lostFor > .5f)) d.on = false;
             d.grow = Mathf.MoveTowards(d.grow, d.on ? 1 : 0, dt / (d.on ? .22f : .14f));
             return d.on == was ? 0 : d.on ? 1 : -1;
         }
@@ -235,7 +236,7 @@ namespace MissionLens
         // Desktop: at the left of the view, where a raised left hand would be.
         void PlaceDesktopMenu()
         {
-            menu.SetWorldWidth(MenuW); menu.go.transform.localPosition = new Vector3(-.36f, -.1f, .5f); menu.go.transform.localRotation = Quaternion.Euler(0, -22, 0);
+            menu.SetWorldWidth(MenuW); menu.go.transform.localPosition = new Vector3(-.43f, -.2f, .5f); menu.go.transform.localRotation = Quaternion.Euler(0, -24, 0);
         }
     }
 }

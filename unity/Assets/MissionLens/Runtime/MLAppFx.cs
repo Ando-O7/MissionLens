@@ -90,7 +90,7 @@ namespace MissionLens
                 foreach (var p in pins) if (!p.shown && k > .34f && p.routeM <= routeDraw) { p.shown = true; sfx.Play("toggle", .45f); }
             });
             frontR = 1e6f; routeDraw = 1e9f; introDone = true; foreach (var p in pins) p.shown = true;
-            sfx.Play("ready"); busy = false; Refresh(); DrawMenu();
+            sfx.Play("ready"); busy = false; TaskLayer(true); Refresh(); DrawMenu();
         }
 
         // ---------- per frame ----------

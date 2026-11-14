@@ -25,7 +25,7 @@ namespace MissionLens
         // of that point; yaw turns the terrain so that map north points along room bearing `yaw`.
         struct View { public float S, ex, ax, az, yaw; public bool ground; public Vector3 w; }
 
-        class Mark { public int n; public string station, task; public float x, z, d, az, el, born; public Vector3 local; public MLPanel label; }
+        class Mark { public int n, ti; public string station, task; public float x, z, d, az, el, born; public Vector3 local; public MLPanel label; }   // ti: index of the task it was recorded in
         class LegObj { public int index; public Leg leg; public Material mat; public GameObject go; public bool back; }
         class Pin
         {
@@ -34,7 +34,8 @@ namespace MissionLens
             public string text = "", sub = ""; public Color col = Color.white; public int side = 1; public float boxW = 640, dist, az, el0, el, lo, hi, hA;
         }
 
-        const float SGiant = 1f / 25f, EyeAbovePano = 2.0f;
+        const float SGiant = 1f / 25f, MastHeight = 2.0f;   // MastHeight: how high above the ground the surface images were taken from (the rover's mast)
+        float FloorY => rig.transform.position.y;            // the floor the person stands on; in FIELD the terrain's ground at the station is put there
         static readonly Color MarsSky = new Color(.79f, .65f, .49f), MockRoom = new Color(.137f, .149f, .169f);
 
         MLData D; Mission M; MLRig rig; MLAudio sfx;
@@ -44,7 +45,7 @@ namespace MissionLens
         readonly List<LegObj> legs = new List<LegObj>();
         readonly List<Pin> pins = new List<Pin>();
         readonly List<Mark> marks = new List<Mark>();
-        int markSeq;
+        int markSeq, selMark = -1, layerTask = -1; float lastMarkAt = -10;   // selMark: the candidate picked on the map. layerTask: the task whose own layer was last put on the map
 
         // height of the model's base in map metres (follows what is on the table), and the route's length
         float baseY, routeTotal;
@@ -224,12 +225,56 @@ namespace MissionLens
         public void SelectStation(string id)
         {
             sel = id; var t = M.tasks.FirstOrDefault(x => x.station == id && x.index >= taskIndex) ?? M.tasks.FirstOrDefault(x => x.station == id);
-            if (t != null) selTask = t.index; Refresh();
+            if (t != null) selTask = t.index; selMark = -1; TaskLayer(); Refresh();
+        }
+
+        // Each kind of task opens with what serves it on the map, so the person does not have to go looking for it:
+        // a walk shows the slope classes; work at a station shows the plain image with contours, so that the ground
+        // to be looked at is not covered (the evidence for the station is on the panel beside it). It is put on when
+        // another task is chosen. A layer changed by hand stays as it was set for as long as the same task is looked at.
+        // The spectral layer is not put on by itself: at 18 m per pixel it would bury the image of an outcrop under a
+        // few coloured squares. Its reading for the station is on the evidence panel, and the layer is on the menu.
+        static string LayerFor(MTask t) => t.leg >= 0 ? "slope" : "none";
+        void TaskLayer(bool force = false)
+        {
+            if (selTask == layerTask && !force) return;
+            layerTask = selTask; string want = LayerFor(M.tasks[selTask]);
+            if (want != layer) { layer = want; if (introDone && stage == Stage.Table) DrawMenu(); }
+        }
+        static string LayerNote(string l) => l == "slope" ? L("slope classes on the route and around it (10° / 15° / 20°, from the terrain model; a reading aid, not a clearance to walk)", "ルートとその周りの傾斜の区分(10° / 15° / 20°。地形モデルから計算。読み取りの補助で、通行の可否の判定ではありません)")
+            : l == "crism" ? L("CRISM spectral context, 18 m per pixel (context only: it does not identify the minerals of any one rock)", "CRISM の分光データ(1 画素 18 m。周辺の状況で、個々の岩石の鉱物の特定ではありません)")
+            : L("the HiRISE image with contour lines, so the ground itself can be read; the NASA record, the surface image and the spectral reading for this station are on the other panel", "HiRISE の画像と等高線(地面そのものを見るため)。NASA の記録、現地の画像、この地点の分光の読み取りは、もう 1 枚のパネルに");
+
+        /// <summary>
+        /// Sets the simulated Marswalk to begin at the task that is being looked at (for a demonstration that starts
+        /// part way through). This is the only way looking at a task changes where the Marswalk is; records are kept.
+        /// </summary>
+        public void StartFromSelected()
+        {
+            if (busy || stage != Stage.Table) return;
+            var t = M.tasks[selTask]; taskIndex = selTask; done.Clear(); here = t.leg >= 0 ? M.legs[t.leg].from : t.station; preview = null;
+            sfx.Play("ready", .6f); Log($"simulated start at task {selTask} ({t.station} {t.phase}), station {here}"); Refresh();
+        }
+
+        /// <summary>A candidate picked on the table's map: its station and the task it was recorded in come up, and the map makes room for it.</summary>
+        public void SelectMark(int n)
+        {
+            var m = marks.Find(x => x.n == n); if (m == null || stage != Stage.Table) return;
+            selMark = n; selTask = Mathf.Clamp(m.ti, 0, M.tasks.Length - 1); sel = m.station; TaskLayer(); sfx.Play("toggle", .6f); Log("candidate " + n + " selected"); Refresh();
+            foreach (var x in marks) DrawMarkLabel(x);
+            if (introDone && !busy) TableTo(FramingMarks(m.station));
+        }
+        // The view that holds a station and the candidates recorded from it.
+        TView FramingMarks(string station)
+        {
+            var s = St(station); var pts = new List<Vector2> { new Vector2(s.x, s.z) }; pts.AddRange(marks.Where(m => m.station == station).Select(m => new Vector2(m.x, m.z)));
+            return Framing(pts, 28);
         }
         /// <param name="settling">More selections are about to follow (the timer is being turned): the big panels wait until it stops.</param>
         public void SelectTask(int i, bool settling = false)
         {
-            selTask = i; sel = M.tasks[i].station; Refresh(settling);
+            selTask = i; sel = M.tasks[i].station; if (selMark >= 0) { selMark = -1; foreach (var x in marks) DrawMarkLabel(x); }
+            TaskLayer(); Refresh(settling);
             if (followTasks && stage == Stage.Table && introDone && !busy) TableTo(FramingFor(M.tasks[i]));   // bring its leg or station onto the table
         }
 
@@ -241,17 +286,26 @@ namespace MissionLens
             // under the feet to its spot on the table. (It used to shrink around the map point at the table's centre,
             // which at true scale can be hundreds of metres away: the model then stayed a speck in the distance and
             // arrived all at once at the end.) The table shows the part of the map the person is coming back from.
-            var standing = new Vector3(view.ax, D.Elev(view.ax, view.az), -view.az); var from = new Vector2(view.ax, view.az);
+            var standing = new Vector3(view.ax, D.Elev(view.ax, view.az), -view.az); var from = new Vector2(view.ax, view.az); string At0 = At;
             panoTarget = 0; roomTarget = 1; stage = Stage.Table; preview = null; selTask = Mathf.Min(taskIndex, M.tasks.Length - 1); sel = M.tasks[selTask].station;
             if (framing != null) { StopCoroutine(framing); framing = null; }
-            if (followTasks) { tv = FramingFor(M.tasks[selTask]); if (!OnPatch(from.x, from.y, .03f)) tv = Framing(new[] { from }, 60); }
-            baseY = BaseFor(tv); Refresh();
+            string cameFrom = At0; var brought = marks.Where(m => m.station == cameFrom).ToList();
+            if (followTasks) { tv = brought.Count > 0 ? FramingMarks(cameFrom) : FramingFor(M.tasks[selTask]); if (!OnPatch(from.x, from.y, .03f)) tv = Framing(new[] { from }, 60); }
+            baseY = BaseFor(tv); selMark = -1; TaskLayer(true); Refresh();
             if (!rig.xr) StartCoroutine(Look(2.2f, tableFrame.eulerAngles.y, TableLookPitch));
             clipHold = 1;   // the table's edge closes in on the model as it lands, not before
             yield return FlyTo(TableView(), 2.6f, standing, e => clipHold = 1 - e);
             clipHold = -1; clipG = 0;
             busy = moving = false; Refresh();
             if (Finished) sfx.Play("ready", .7f);
+            else if (brought.Count > 0)
+            {   // what was recorded out there is on the map now: say so, and let each mark show itself
+                foreach (var m in brought) { m.born = Time.time; Ripple(world.TransformPoint(m.local), MLPanel.Amber, .09f); }
+                sfx.Play("mark", .7f);
+                ShowBanner(L("SIMULATED RECORD · APPROXIMATE POSITIONS", "模擬の記録 · 概略位置"),
+                    L($"{brought.Count} candidate{(brought.Count > 1 ? "s" : "")} on the map", $"候補 {brought.Count} 件を地図に記録"),
+                    L($"Recorded at {cameFrom} {St(cameFrom).name}: {string.Join(", ", brought.Select(m => "#" + m.n.ToString("00")))}. Pick a mark on the map to see its task.", $"{cameFrom} {St(cameFrom).name} で記録: {string.Join("、", brought.Select(m => "#" + m.n.ToString("00")))}。地図の印を選ぶと、その作業が出ます。"), 3.2f);
+            }
         }
 
         public void EnterTerrain(string id, float S) { if (!busy) StartCoroutine(CoEnterTerrain(id, S)); }
@@ -282,7 +336,7 @@ namespace MissionLens
             // table you arrive facing the same way as the picture on the briefing board.
             float yaw = fromTable ? rig.HeadYaw - St(id).viewAz : view.yaw;
             if (!rig.xr) StartCoroutine(Look(dur, rig.lookYaw, -6));
-            yield return FlyTo(AtStation(id, rig.Head.position.y - EyeAbovePano, yaw), dur);
+            yield return FlyTo(AtStation(id, FloorY, yaw), dur);
             if (pendingPano != null) { ShowPano(pendingPano); pendingPano = null; }
             panoTarget = 1; busy = moving = false; Refresh(); Arrived(id);
         }
@@ -359,7 +413,7 @@ namespace MissionLens
                 moving = true; Refresh();
                 yield return Walk(dStop, total);
             }
-            float g1 = eye - EyeAbovePano;
+            float g1 = FloorY;
             yield return Tween(.6f, k => { view.w.y = Mathf.Lerp(0, g1, k); ApplyView(); });
             here = to; sel = to; stage = Stage.Field; panoTarget = 1; travelling = null;
             if (!Finished && Task.leg >= 0 && Task.station == to) { taskIndex++; done.Clear(); }   // an Approach task ends on arrival
@@ -395,7 +449,7 @@ namespace MissionLens
             if (busy) return;
             StopAllCoroutines(); HideBanner();
             foreach (var m in marks) Destroy(m.label.go);
-            marks.Clear(); markSeq = 0; done.Clear(); taskIndex = 0; selTask = 0; sel = M.tasks[0].station; here = "BASE"; layer = "none";
+            marks.Clear(); markSeq = 0; selMark = -1; layerTask = -1; done.Clear(); taskIndex = 0; selTask = 0; sel = M.tasks[0].station; here = "BASE"; layer = "none";
             wristUp = false; travelling = null; pendingPano = null; preview = null; flashMsg = ""; restartArmedUntil = 0; checkpoint = null; clipHold = -1;
             panoTarget = 0; roomTarget = 1; introDone = false; frontR = 0; routeDraw = 0; plateK = 0; moving = false;
             foreach (var p in pins) p.shown = false;
@@ -451,6 +505,7 @@ namespace MissionLens
             panoF.sharedMesh = mesh; panoMat.SetTexture("_MainTex", panoTex.TryGetValue(id, out var tex) && tex != null ? tex : Resources.Load<Texture2D>("ML/pano_" + id));
             panoMat.SetTexture("_Mask", Resources.Load<Texture2D>("ML/panomask_" + id));
             panoMat.SetFloat("_VTop", (90 - st.panoElMin) / (st.panoElMax - st.panoElMin));
+            panoMat.SetFloat("_ElMin", st.panoElMin); panoMat.SetFloat("_ElMax", st.panoElMax); panoMat.SetFloat("_CamH", MastHeight);
             var top = st.panoSky != null && st.panoSky.Length == 3 ? new Color(st.panoSky[0], st.panoSky[1], st.panoSky[2]) : MarsSky;
             panoMat.SetColor("_SkyTop", top * .86f);
             if (st.panoGround != null && st.panoGround.Length == 3) panoMat.SetColor("_Ground", new Color(st.panoGround[0], st.panoGround[1], st.panoGround[2]));
@@ -469,14 +524,23 @@ namespace MissionLens
             }
             local = default; dist = 0; return false;
         }
+        void TryMark(MLRig.Pointer p, Vector3 local, float dist, Vector3 dirLocal)
+        {
+            if (Time.time - lastMarkAt < .6f) return;   // a pinch that is read twice is still one record
+            lastMarkAt = Time.time;
+            var same = marks.Find(m => m.station == here && Vector2.Distance(new Vector2(m.x, m.z), new Vector2(local.x, -local.z)) < 1.5f);
+            if (same != null) { sfx.Play("deny"); Flash(L($"Already recorded here as candidate {same.n:00}", $"ここは候補 {same.n:00} として記録済みです")); return; }
+            rig.Haptic(p, .8f, .08f); AddMark(local, dist, dirLocal);
+        }
         void AddMark(Vector3 local, float dist, Vector3 dirLocal)
         {
-            var m = new Mark { n = ++markSeq, station = here, task = Task.phase, x = local.x, z = -local.z, d = dist, local = local + Vector3.up * .15f, born = Time.time,
+            var m = new Mark { n = ++markSeq, ti = taskIndex, station = here, task = Task.phase, x = local.x, z = -local.z, d = dist, local = local + Vector3.up * .15f, born = Time.time,
                 az = (Mathf.Atan2(dirLocal.x, dirLocal.z) * Mathf.Rad2Deg + 360) % 360, el = Mathf.Asin(Mathf.Clamp(dirLocal.y, -1, 1)) * Mathf.Rad2Deg };
-            m.label = MakeMarkLabel(m.n); marks.Add(m);
+            m.label = MakeMarkLabel(m.n); marks.Add(m); DrawMarkLabel(m);
             if (Task.recordCheck >= 0) done.Add(Task.recordCheck);
             sfx.Play("mark"); Ripple(world.TransformPoint(m.local), MLPanel.Amber, Mathf.Clamp(dist * .16f, .3f, 12f));
-            Refresh(); Flash(L($"Candidate {m.n} marked · {dist:0} m · bearing {MLData.Deg3(m.az)}° · simulated record", $"候補 {m.n} に印 · {dist:0} m · 方位 {MLData.Deg3(m.az)}° · 模擬の記録"));
+            Log($"candidate {m.n} recorded at {here}, {dist:0} m, bearing {m.az:0}");
+            Refresh(); Flash(L($"Candidate {m.n:00} recorded · {dist:0} m away, bearing {MLData.Deg3(m.az)}° · simulated record, approximate position", $"候補 {m.n:00} を記録 · {dist:0} m 先、方位 {MLData.Deg3(m.az)}° · 模擬の記録、概略位置"), 4.5f);
         }
         public void UndoMark()
         {
@@ -509,8 +573,11 @@ namespace MissionLens
             terrainMat.SetFloat("_Contour", Mathf.Max(oSlope, .55f)); terrainMat.SetFloat("_Step", ContourStep);
             terrainMat.SetFloat("_Fog", clipG * (1 - panoOpacity)); terrainMat.SetFloat("_InvS", 1 / world.localScale.x);
             panoMat.SetFloat("_Opacity", panoOpacity); panoR.enabled = shownPano != null && panoOpacity > .01f;
-            if (panoR.enabled) { panoMat.SetMatrix("_ToMap", world.worldToLocalMatrix); panoMat.SetFloat("_FloorY", rig.transform.position.y); }
-            panoT.position = rig.Head.position; panoT.rotation = Quaternion.Euler(0, view.yaw, 0);
+            // The surface image is drawn from where it was taken: the rover's mast over the station, not the person's
+            // head. Its lower half lies on the floor there (see MLPano.shader), so the ground is at the feet.
+            var foot = shownPano != null ? world.TransformPoint(D.Local(St(shownPano).x, St(shownPano).z)) : new Vector3(rig.Head.position.x, FloorY, rig.Head.position.z);
+            if (panoR.enabled) { panoMat.SetMatrix("_ToMap", world.worldToLocalMatrix); panoMat.SetFloat("_FloorY", foot.y); }
+            panoT.position = foot + Vector3.up * MastHeight; panoT.rotation = Quaternion.Euler(0, view.yaw, 0);
             // What is behind the table: the real room (passthrough) or, if chosen, the plain studio room.
             studioK = Mathf.MoveTowards(studioK, rig.xr && !studio ? 0 : 1, dt * 1.5f);
             float realRoom = roomO * (1 - studioK);
@@ -588,13 +655,14 @@ namespace MissionLens
                 {
                     var at = world.TransformPoint(local); p.hitDistance = Vector3.Distance(ray.origin, at);
                     if (!reticle) { reticle = true; PlaceReticle(at, p.hitDistance); }
-                    if (p.down) { rig.Haptic(p, .8f, .08f); AddMark(local, dist, world.InverseTransformDirection(ray.direction).normalized); }
+                    if (p.down) TryMark(p, local, dist, world.InverseTransformDirection(ray.direction).normalized);
                 }
                 else if (CanMark && p.down && !busy) { sfx.Play("deny"); Flash(L("No terrain model in that direction", "その方向には地形モデルがありません")); }
             }
             if (!reticle) HideReticle();
             if (!rig.gaze.active) HideGazeDot();
             TouchPanels();
+            foreach (var m in marks) { hovered.TryGetValue(m.label, out var mb); m.label.Hover(mb); }   // the candidates' tags light up under the pointer too
             foreach (var s in panels)
             {
                 hovered.TryGetValue(s, out var b);
@@ -605,11 +673,11 @@ namespace MissionLens
         // ---------- hooks for checking from the Editor (unity command eval) ----------
         public string State() => JsonUtility.ToJson(new StateDump
         {
-            stage = stage.ToString(), here = here, sel = sel, selTask = selTask, taskIndex = taskIndex, busy = busy && checkpoint == null, layer = layer, wrist = wristUp, xr = rig.xr,
+            stage = stage.ToString(), here = here, sel = sel, selTask = selTask, taskIndex = taskIndex, selMark = selMark, busy = busy && checkpoint == null, layer = layer, wrist = wristUp, xr = rig.xr,
             pano = panoOpacity, room = roomO, S = view.S, ax = view.ax, az = view.az, yaw = view.yaw, heading = HeadingNow, marks = marks.Count, done = done.OrderBy(i => i).ToArray(),
             buttons = Surfaces().SelectMany(s => s.buttons.Select(b => b.key)).ToArray(), scale = ScaleText, placed = placed, intro = introDone, banner = banner.Show, finished = Finished, preview = preview ?? "",
         });
-        [Serializable] class StateDump { public string stage, here, sel, layer, scale, preview; public int selTask, taskIndex, marks; public bool busy, wrist, xr, placed, intro, banner, finished; public float pano, room, S, ax, az, yaw, heading; public int[] done; public string[] buttons; }
+        [Serializable] class StateDump { public string stage, here, sel, layer, scale, preview; public int selTask, taskIndex, marks, selMark; public bool busy, wrist, xr, placed, intro, banner, finished; public float pano, room, S, ax, az, yaw, heading; public int[] done; public string[] buttons; }
 
         /// <summary>Press the button with this key on whichever visible surface has it.</summary>
         public string Press(string key)
@@ -628,8 +696,10 @@ namespace MissionLens
         public string PressAt(float vx, float vy)
         {
             var ray = rig.cam.ViewportPointToRay(new Vector3(vx, vy, 0));
-            if (CanMark && PointOnTerrain(ray, out var local, out float dist)) { AddMark(local, dist, world.InverseTransformDirection(ray.direction).normalized); return "marked at " + dist.ToString("0.0") + " m"; }
-            return CanMark ? "no terrain" : "marking not active";
+            if (!CanMark) return "marking not active";
+            if (!PointOnTerrain(ray, out var local, out float dist)) return "no terrain";
+            int before = marks.Count; lastMarkAt = -10; TryMark(rig.mouse, local, dist, world.InverseTransformDirection(ray.direction).normalized);   // the same way in as a pinch, without the wait between two
+            return marks.Count > before ? "marked at " + dist.ToString("0.0") + " m" : "refused: already recorded there";
         }
         public void LookAt(float yaw, float pitch) { rig.lookYaw = yaw; rig.lookPitch = pitch; }
         public string TestHandModels() => rig.TestHandModels();
