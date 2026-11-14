@@ -24,9 +24,10 @@ namespace MissionLens
             public bool active, held, down;      // down: pressed this frame
             public Vector3 origin; public Quaternion rotation = Quaternion.identity;
             public Ray Ray => new Ray(origin, rotation * Vector3.forward);
-            // How the hand itself is turned (its forward runs along the hand): the wrist joint from hand tracking, or
-            // the controller. For things that are turned in the hand; the pointing ray is steadied and barely rolls.
-            public Quaternion grip = Quaternion.identity; public Vector3 gripAt;
+            // How the hand itself is turned: the wrist joint from hand tracking, or the controller. For things that
+            // are turned in the hand; the pointing ray is steadied and barely rolls. gripAxis is the hand's long
+            // axis (wrist toward the middle finger's knuckle), the axis such a turn is measured about.
+            public Quaternion grip = Quaternion.identity; public Vector3 gripAt, gripAxis = Vector3.forward;
             public float hitDistance = -1;       // set by the app each frame, for the ray visual
             public bool controller;              // a held controller rather than a bare hand
             public bool grabDown;                // began holding this frame (a pinch or trigger; on a desktop, the mouse button going down)
@@ -172,7 +173,7 @@ namespace MissionLens
                 if (right.down || left.down) everPressed = true;
                 gaze.active = !everPressed && Time.time - lastHandTime > 2.5f; gaze.origin = Head.position; gaze.rotation = Head.rotation;
             }
-            else { ReadDesktop(); mouse.grip = mouse.rotation * Quaternion.Euler(0, 0, debugRoll); mouse.gripAt = mouse.origin; }
+            else { ReadDesktop(); mouse.grip = mouse.rotation * Quaternion.Euler(0, 0, debugRoll); mouse.gripAt = mouse.origin; mouse.gripAxis = mouse.rotation * Vector3.forward; }
         }
 
         void FindHands()
@@ -185,7 +186,12 @@ namespace MissionLens
         {
             if (!p.active || p.controller || handSystem == null || !handSystem.running) return;
             var hand = side == 0 ? handSystem.rightHand : handSystem.leftHand;
-            if (hand.isTracked && hand.GetJoint(XRHandJointID.Wrist).TryGetPose(out UnityEngine.Pose pose)) { p.grip = space.rotation * pose.rotation; p.gripAt = space.TransformPoint(pose.position); }
+            if (!hand.isTracked || !hand.GetJoint(XRHandJointID.Wrist).TryGetPose(out UnityEngine.Pose pose)) return;
+            p.grip = space.rotation * pose.rotation; p.gripAt = space.TransformPoint(pose.position); p.gripAxis = p.grip * Vector3.forward;
+            if (hand.GetJoint(XRHandJointID.MiddleProximal).TryGetPose(out UnityEngine.Pose knuckle))
+            {
+                var along = space.TransformPoint(knuckle.position) - p.gripAt; if (along.sqrMagnitude > 1e-4f) p.gripAxis = along.normalized;
+            }
         }
 
         // Finger outlines from the hand-tracking joints, in place of the hands the person can no longer see.
@@ -275,7 +281,7 @@ namespace MissionLens
             var aim = isRight ? MetaAimHand.right : MetaAimHand.left;
             if (aim != null && aim.added && ((MetaAimFlags)aim.aimFlags.value & MetaAimFlags.Valid) != 0)
             {
-                p.active = true; p.origin = space.TransformPoint(aim.devicePosition.value); p.rotation = p.grip = space.rotation * aim.deviceRotation.value; p.gripAt = p.origin; p.held = aim.indexPressed.isPressed;
+                p.active = true; p.origin = space.TransformPoint(aim.devicePosition.value); p.rotation = p.grip = space.rotation * aim.deviceRotation.value; p.gripAt = p.origin; p.gripAxis = p.rotation * Vector3.forward; p.held = aim.indexPressed.isPressed;
             }
             else
             {
@@ -285,7 +291,7 @@ namespace MissionLens
                     var pos = c.TryGetChildControl<Vector3Control>("pointerPosition") ?? c.devicePosition;
                     var rot = c.TryGetChildControl<QuaternionControl>("pointerRotation") ?? c.deviceRotation;
                     var trigger = c.TryGetChildControl<ButtonControl>("triggerPressed");
-                    p.active = true; p.controller = true; p.origin = space.TransformPoint(pos.value); p.rotation = p.grip = space.rotation * rot.value; p.gripAt = p.origin; p.held = trigger != null && trigger.isPressed;
+                    p.active = true; p.controller = true; p.origin = space.TransformPoint(pos.value); p.rotation = p.grip = space.rotation * rot.value; p.gripAt = p.origin; p.gripAxis = p.rotation * Vector3.forward; p.held = trigger != null && trigger.isPressed;
                 }
             }
             p.down = p.grabDown = p.active && p.held && !was;

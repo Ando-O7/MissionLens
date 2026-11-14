@@ -38,7 +38,7 @@ namespace MissionLens
         MLPanel dial; Transform needleT;
         MLRig.Pointer dialBy; bool timerCarried, timerAway;          // dialBy: the pointer that has it. carried: picked up (else turned where it lies). away: left somewhere other than its place
         Vector3 timerPos = TimerHome, timerHandAt; Quaternion timerGrip; float timerGrabDist, timerSince, timerSpeed;
-        float needleDeg; int dialTask = -1;
+        float needleDeg, timerReach; bool timerInReach; int dialTask = -1;
 
         void BuildTools()
         {
@@ -208,7 +208,7 @@ namespace MissionLens
                 lensPos = Vector3.Lerp(lensPos, want, 1 - Mathf.Exp(-22 * dt));
                 // A quick twist of the hand (or the wheel, on a desktop) changes what the lens shows. The twist is
                 // forgotten within a second, so the slow turning of a hand that is only carrying it does not count.
-                lensTwist = lensTwist * Mathf.Exp(-dt / .8f) + Twist(lensGrip, lensBy.grip); lensGrip = lensBy.grip;
+                lensTwist = lensTwist * Mathf.Exp(-dt / .8f) + Twist(lensGrip, lensBy.grip, lensBy.gripAxis); lensGrip = lensBy.grip;
                 bool twist = Mathf.Abs(lensTwist) > 38, wheel = !rig.xr && rig.wheel != 0;
                 if ((twist || wheel) && Time.time - lensToggledAt > .3f) { lensTwist = 0; LensNextLayer(); rig.Haptic(lensBy, .7f, .05f); }
             }
@@ -247,13 +247,19 @@ namespace MissionLens
             }
 
             // ----- the timer
+            // It swells a little, with a soft sound, when a hand comes within reach: a pinch now would pick it up.
+            bool reach = false;
+            if (live && rig.xr && dialBy == null) foreach (var p in ptrs) if (p.active && p.tool == null && TimerAt(p, out _, out _, out bool at) && at) reach = true;
+            if (reach && !timerInReach) sfx.Play("hover", .5f);
+            timerInReach = reach; timerReach = Mathf.MoveTowards(timerReach, reach || dialBy != null ? 1 : 0, dt * 8);
+            dial.SetWorldWidth(.2f * (1 + .05f * timerReach));
             var dialT = dial.go.transform; float before = needleDeg;
             if (dialBy != null && timerCarried)
             {
                 // Picked up: it rides above the hand, turned to face the eyes, and turning the hand turns the time.
                 Vector3 want = rig.xr ? dialBy.gripAt + Vector3.up * .21f : dialBy.Ray.GetPoint(timerGrabDist);
                 timerPos = Vector3.Lerp(timerPos, tableFrame.InverseTransformPoint(want), 1 - Mathf.Exp(-18 * dt));
-                float turned = Twist(timerGrip, dialBy.grip); timerGrip = dialBy.grip;
+                float turned = Twist(timerGrip, dialBy.grip, dialBy.gripAxis); timerGrip = dialBy.grip;
                 // Carrying it somewhere is not turning it: while the hand is travelling its turn counts for less,
                 // and the jolt of the pinch itself does not count at all.
                 timerSpeed = Mathf.Lerp(timerSpeed, Vector3.Distance(dialBy.gripAt, timerHandAt) / Mathf.Max(dt, 1e-4f), .3f); timerHandAt = dialBy.gripAt;
@@ -291,13 +297,13 @@ namespace MissionLens
             lensLayer = lensLayer == "slope" ? "crism" : "slope"; lensToggledAt = Time.time; lensShown = -999; sfx.Play("toggle"); Log("lens shows " + lensLayer);
         }
         // How far a hand has turned about its own long axis between two readings, in degrees. Positive is
-        // anticlockwise as the person sees it.
-        static float Twist(Quaternion from, Quaternion to)
+        // anticlockwise as the person sees it, looking along the hand.
+        static float Twist(Quaternion from, Quaternion to, Vector3 along)
         {
             (to * Quaternion.Inverse(from)).ToAngleAxis(out float angle, out Vector3 axis);
             if (float.IsNaN(axis.x) || float.IsInfinity(axis.x)) return 0;
             if (angle > 180) angle -= 360;
-            return angle * Vector3.Dot(axis, to * Vector3.forward);
+            return angle * Vector3.Dot(axis, along);
         }
 
         /// <summary>For checks from the Editor: where the timer and the lens are on screen, and what they are doing.</summary>
