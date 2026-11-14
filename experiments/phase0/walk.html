@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mission Lens — eye-level terrain probe</title>
+<style>
+  html,body { margin:0; height:100%; background:#0b0d10; color:#e9e6df; font:13px/1.45 -apple-system,"Helvetica Neue",Arial,sans-serif; overflow:hidden; }
+  canvas { display:block; }
+  .panel { position:absolute; background:rgba(14,17,22,.82); border:1px solid rgba(255,255,255,.14); border-radius:8px; padding:10px 14px; }
+  #hud { left:50%; top:14px; transform:translateX(-50%); text-align:center; min-width:300px; }
+  #hud b { font-size:20px; letter-spacing:.06em; font-variant-numeric:tabular-nums; }
+  #hud div { color:#9aa0a8; font-size:11px; }
+  #note { left:14px; bottom:14px; max-width:600px; font-size:11.5px; color:#9aa0a8; }
+  #note b { color:#ffb347; font-weight:600; }
+</style>
+</head>
+<body>
+<div id="hud" class="panel"><div style="letter-spacing:.14em">HEADING</div><b id="hdg">000°</b><div id="sub"></div></div>
+<div id="note" class="panel"><b>Orbital data only.</b> Standing inside the terrain model at true scale: MRO HiRISE DTM (2 m grid here, 1 m source) textured with the HiRISE colour ortho (0.3 m per pixel). No rover imagery, no overlays. The sky is a flat placeholder colour, not data. Drag to look, W A S D to walk, Shift to run. Throwaway experiment.</div>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+const DATA = '../../assets/data/jezero_delta_front/', q = new URLSearchParams(location.search);
+THREE.ColorManagement.enabled = false;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight); document.body.prepend(renderer.domElement);
+const [L, M, buf] = await Promise.all([
+  fetch(DATA + 'layers.json').then(r => r.json()),
+  fetch('../../assets/data/missions/eva01_hawksbill_gap.json').then(r => r.json()),
+  fetch(DATA + 'dtm_2m_f32.bin').then(r => r.arrayBuffer()),
+]);
+const dtm = new Float32Array(buf), [gw, gh] = L.dtm.grid, [sx, sy] = L.size_m, B = L.bounds, zMin = L.dtm.elev_min;
+function elevAt(x, z) {
+  const fc = Math.min(Math.max((x / sx + .5) * (gw - 1), 0), gw - 1.001), fr = Math.min(Math.max((z / sy + .5) * (gh - 1), 0), gh - 1.001);
+  const c = Math.floor(fc), r = Math.floor(fr), u = fc - c, v = fr - r, i = r * gw + c;
+  return (dtm[i] * (1 - u) + dtm[i + 1] * u) * (1 - v) + (dtm[i + gw] * (1 - u) + dtm[i + gw + 1] * u) * v;
+}
+// Full-resolution grid: every DTM sample is a vertex, true vertical scale.
+const pos = new Float32Array(gw * gh * 3), uv = new Float32Array(gw * gh * 2), idx = new Uint32Array((gw - 1) * (gh - 1) * 6);
+for (let r = 0, k = 0; r < gh; r++) for (let c = 0; c < gw; c++, k++) {
+  pos[k * 3] = (c / (gw - 1) - .5) * sx; pos[k * 3 + 1] = dtm[k] - zMin; pos[k * 3 + 2] = (r / (gh - 1) - .5) * sy;
+  uv[k * 2] = c / (gw - 1); uv[k * 2 + 1] = 1 - r / (gh - 1);
+}
+for (let r = 0, k = 0; r < gh - 1; r++) for (let c = 0; c < gw - 1; c++) { const a = r * gw + c, b = a + 1, d = a + gw, e = d + 1; idx.set([a, d, b, b, d, e], k); k += 6; }
+const geo = new THREE.BufferGeometry();
+geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setIndex(new THREE.BufferAttribute(idx, 1));
+const tex = await new THREE.TextureLoader().loadAsync(DATA + 'ortho.jpg'); tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xc8a47c);
+scene.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide })));
+
+const st = M.stations.find(s => s.id === (q.get('station') || 'C'));
+const eye = +(q.get('eye') ?? 1.7); let x = st.x, z = st.y, hdg = +(q.get('hdg') ?? 45), pitch = +(q.get('pitch') ?? -4);
+const cam = new THREE.PerspectiveCamera(+(q.get('fov') ?? 70), innerWidth / innerHeight, .05, 6000); cam.rotation.order = 'YXZ';
+let down = null; const keys = {};
+renderer.domElement.addEventListener('pointerdown', e => down = { x: e.clientX, y: e.clientY, hdg, pitch });
+addEventListener('pointerup', () => down = null);
+addEventListener('pointermove', e => { if (!down) return; const k = cam.fov / innerHeight; hdg = (down.hdg - (e.clientX - down.x) * k + 360) % 360; pitch = Math.max(-80, Math.min(60, down.pitch + (e.clientY - down.y) * k)); });
+addEventListener('keydown', e => keys[e.key.toLowerCase()] = true); addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
+let last = performance.now();
+renderer.setAnimationLoop(now => {
+  const dt = Math.min(.1, (now - last) / 1000); last = now;
+  const v = (keys.shift ? 15 : 3) * dt, a = hdg * Math.PI / 180, f = (keys.w ? 1 : 0) - (keys.s ? 1 : 0), s = (keys.d ? 1 : 0) - (keys.a ? 1 : 0);
+  x = Math.max(-sx / 2 + 2, Math.min(sx / 2 - 2, x + (Math.sin(a) * f + Math.cos(a) * s) * v));
+  z = Math.max(-sy / 2 + 2, Math.min(sy / 2 - 2, z + (-Math.cos(a) * f + Math.sin(a) * s) * v));
+  cam.position.set(x, elevAt(x, z) - zMin + eye, z); cam.rotation.set(pitch * Math.PI / 180, -a, 0);
+  document.getElementById('hdg').textContent = String(Math.round(hdg) % 360).padStart(3, '0') + '°';
+  const lon = B.lon_min + (x / sx + .5) * (B.lon_max - B.lon_min), lat = B.lat_max - (z / sy + .5) * (B.lat_max - B.lat_min);
+  document.getElementById('sub').textContent = `${lat.toFixed(5)}°N ${lon.toFixed(5)}°E · ground ${elevAt(x, z).toFixed(1)} m · eye ${eye} m · started at ${st.name}`;
+  renderer.render(scene, cam);
+});
+</script>
+</body>
+</html>
