@@ -196,7 +196,7 @@ namespace MissionLens
             bool live = stage == Stage.Table && introDone && !busy && grabs.Count == 0 && dialBy == null && framing == null, hit = false; Vector3 local = default; MLRig.Pointer by = null;
             if (live) foreach (var p in rig.xr ? new[] { rig.right, rig.left } : new[] { rig.mouse })
             {
-                if (!p.active || p.held || p.overSurface || p.tool != null || (rig.xr && p == rig.left && menuDock.on) || HandAtTool(p)) continue;
+                if (!p.active || p.held || p.fingerOnly || p.overSurface || p.tool != null || (rig.xr && p == rig.left && menuDock.on) || HandAtTool(p)) continue;
                 if (PointOnTerrain(p.Ray, out local, out _) && OnPatch(local.x, -local.z, .004f)) { hit = true; by = p; break; }
             }
             probeFor = hit ? probeFor + dt : 0; probe.Show = hit && probeFor > .3f;

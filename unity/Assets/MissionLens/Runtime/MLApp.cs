@@ -63,6 +63,7 @@ namespace MissionLens
         float panoOpacity, panoTarget, oSlope, oCrism, clipG, roomO = 1, roomTarget = 1;
         string pendingPano, shownPano;
         string flashMsg = ""; float flashUntil, lastPlaced = -10;
+        float clipHold = -1;   // 0..1 while a transition drives how far the table's cut is open; -1: it follows the stage
 
         MTask Task => M.tasks[Mathf.Min(taskIndex, M.tasks.Length - 1)];
         bool Finished => taskIndex >= M.tasks.Length;
@@ -185,13 +186,17 @@ namespace MissionLens
         }
 
         // Keeps the destination point as the pivot, so the model grows (or shrinks) around where you are going.
-        IEnumerator FlyTo(View target, float dur = 2.6f)
+        // With `pivot` (a point of the terrain) the model changes size around that point instead, which travels from
+        // where it is now to where the target view puts it.
+        IEnumerator FlyTo(View target, float dur = 2.6f, Vector3? pivot = null, Action<float> during = null)
         {
-            var lp = AnchorLocal(target); Vector3 w0 = world.TransformPoint(lp), w1 = target.w;
+            var lp = pivot ?? AnchorLocal(target); Vector3 w0 = world.TransformPoint(lp), w1 = pivot.HasValue ? WorldOf(target, lp) : target.w;
             float s0 = Mathf.Log(view.S), s1 = Mathf.Log(target.S), e0 = view.ex, y0 = view.yaw;
-            yield return Tween(dur, k => { float e = Ease(k); Place(Mathf.Exp(s0 + (s1 - s0) * e), e0 + (target.ex - e0) * e, Mathf.LerpAngle(y0, target.yaw, e), lp, Vector3.Lerp(w0, w1, e)); });
+            yield return Tween(dur, k => { float e = Ease(k); Place(Mathf.Exp(s0 + (s1 - s0) * e), e0 + (target.ex - e0) * e, Mathf.LerpAngle(y0, target.yaw, e), lp, Vector3.Lerp(w0, w1, e)); during?.Invoke(e); });
             view = target; ApplyView();
         }
+        /// <summary>Where a point of the terrain lies in the room under a given view.</summary>
+        Vector3 WorldOf(View v, Vector3 local) => v.w + Quaternion.Euler(0, v.yaw, 0) * Vector3.Scale(new Vector3(v.S, v.S * v.ex, v.S), local - AnchorLocal(v));
         static float Ease(float k) => k * k * (3 - 2 * k);
         static float EaseOut(float k) => 1 - (1 - k) * (1 - k) * (1 - k);
         static IEnumerator Tween(float dur, Action<float> fn)
@@ -213,7 +218,7 @@ namespace MissionLens
             placed = true; lastPlaced = Time.time; PlaceStudio(); Refresh();
         }
         const float EyeAboveTable = .64f, TableAhead = .84f;
-        float TableLookPitch => layout == "desk" ? -36 : -21;   // where the desktop camera looks at the table
+        float TableLookPitch => layout == "desk" ? -36 : -24;   // where the desktop camera looks at the table
 
         // ---------- stage changes ----------
         public void SelectStation(string id)
@@ -232,9 +237,19 @@ namespace MissionLens
         IEnumerator CoToTable()
         {
             busy = moving = true; HideBanner(); sfx.Play("whoosh", .8f);
-            panoTarget = 0; roomTarget = 1; stage = Stage.Table; preview = null; selTask = Mathf.Min(taskIndex, M.tasks.Length - 1); sel = M.tasks[selTask].station; Refresh();
+            // The terrain shrinks back into the model around the place where the person stands: that place goes from
+            // under the feet to its spot on the table. (It used to shrink around the map point at the table's centre,
+            // which at true scale can be hundreds of metres away: the model then stayed a speck in the distance and
+            // arrived all at once at the end.) The table shows the part of the map the person is coming back from.
+            var standing = new Vector3(view.ax, D.Elev(view.ax, view.az), -view.az); var from = new Vector2(view.ax, view.az);
+            panoTarget = 0; roomTarget = 1; stage = Stage.Table; preview = null; selTask = Mathf.Min(taskIndex, M.tasks.Length - 1); sel = M.tasks[selTask].station;
+            if (framing != null) { StopCoroutine(framing); framing = null; }
+            if (followTasks) { tv = FramingFor(M.tasks[selTask]); if (!OnPatch(from.x, from.y, .03f)) tv = Framing(new[] { from }, 60); }
+            baseY = BaseFor(tv); Refresh();
             if (!rig.xr) StartCoroutine(Look(2.2f, tableFrame.eulerAngles.y, TableLookPitch));
-            yield return FlyTo(TableView());
+            clipHold = 1;   // the table's edge closes in on the model as it lands, not before
+            yield return FlyTo(TableView(), 2.6f, standing, e => clipHold = 1 - e);
+            clipHold = -1; clipG = 0;
             busy = moving = false; Refresh();
             if (Finished) sfx.Play("ready", .7f);
         }
@@ -283,6 +298,17 @@ namespace MissionLens
         }
 
         public void Travel(string to) { if (!busy && to != here && preview == null) StartCoroutine(CoTravel(to)); }
+        // On the way the walk stops once, where the ground is steepest, and waits to be told to go on.
+        class Checkpoint { public float slope, ahead, toGo; public Vector3 local; }
+        Checkpoint checkpoint;
+        public void ConfirmCheckpoint() { if (checkpoint == null) return; Log($"route check confirmed: slope {checkpoint.slope:0} deg"); checkpoint = null; sfx.Play("mark", .7f); }
+        bool CanPress(MLPanel.Btn b) => !busy || (checkpoint != null && b.key == "HudAction");
+        static Vector2 RouteAt(List<Vector2> pts, float[] cum, float d, out int i)
+        {
+            i = 1; while (i < pts.Count - 1 && cum[i] < d) i++;
+            return Vector2.Lerp(pts[i - 1], pts[i], Mathf.Clamp01((d - cum[i - 1]) / Mathf.Max(1e-6f, cum[i] - cum[i - 1])));
+        }
+
         IEnumerator CoTravel(string to)
         {
             busy = moving = true; HideBanner(); sfx.Play("travel");
@@ -297,15 +323,14 @@ namespace MissionLens
             // and the planned clock running through the minutes the leg is given.
             float dur = Mathf.Clamp(total / 45f, 3, 8); int strides = Mathf.RoundToInt(dur * 2.1f), stepped = 0;
             var legTask = !Finished && Task.leg >= 0 && Task.station == to ? Task : null;
-            yield return Tween(dur, k =>
+            IEnumerator Walk(float d0, float d1) => Tween(Mathf.Max(1.6f, dur * (d1 - d0) / total), k =>
             {
-                float e = Ease(k);
+                float d = Mathf.Lerp(d0, d1, Ease(k)), e = d / total;
                 if (e * strides >= stepped + .5f) { sfx.Play((stepped & 1) == 0 ? "stepA" : "stepB", .5f); stepped++; }
                 if (hudSub != null && flashMsg.Length == 0)
-                    hudSub.text = L($"{total * (1 - e):0} m to go", $"残り {total * (1 - e):0} m") + (legTask != null ? L($" · {legTask.plannedMin} min on the plan, shown faster", $" · 計画では {legTask.plannedMin} 分(早送りで表示)") : "");
+                    hudSub.text = L($"{total - d:0} m to go", $"残り {total - d:0} m") + (legTask != null ? L($" · {legTask.plannedMin} min on the plan, shown faster", $" · 計画では {legTask.plannedMin} 分(早送りで表示)") : "");
                 if (hudClock != null && legTask != null) hudClock.text = $"T+ {MLData.Hm(Mathf.Lerp(legTask.startMin, legTask.endMin, e))} / {MLData.Hm(M.plannedTotalMin)}";
-                float d = e * total; int i = 1; while (i < pts.Count - 1 && cum[i] < d) i++;
-                float u = (d - cum[i - 1]) / Mathf.Max(1e-6f, cum[i] - cum[i - 1]); var p = Vector2.Lerp(pts[i - 1], pts[i], u);
+                var p = RouteAt(pts, cum, d, out int i);
                 view.ax = p.x; view.az = p.y; view.w = new Vector3(rig.Head.position.x, 0, rig.Head.position.z); ApplyView();
                 if (!rig.xr && Time.time - rig.lastDragTime > 1.5f)
                 {   // desktop: face the way you are walking unless the user is looking around
@@ -313,6 +338,27 @@ namespace MissionLens
                     rig.lookYaw = Mathf.LerpAngle(rig.lookYaw, want, .06f); rig.lookPitch += (-6 - rig.lookPitch) * .05f;
                 }
             });
+            // The route check. Where on this leg is the ground steepest (slope of the terrain model along the planned
+            // route)? If it reaches a slope class (10 degrees or more) the walk stops a few metres short of it, the
+            // slope classes are painted on the ground, and it goes on when the person has looked and confirmed.
+            float steep = 0, dSteep = 0;
+            for (float d = 0; d <= total; d += 2) { var q = RouteAt(pts, cum, d, out _); float sl = D.SlopeDeg(q.x, q.y); if (sl > steep) { steep = sl; dSteep = d; } }
+            bool check = steep >= 10 && total > 40; float dStop = check ? Mathf.Clamp(dSteep - 8, total * .2f, total * .8f) : total;
+            yield return Walk(0, dStop);
+            if (check)
+            {
+                var sp = RouteAt(pts, cum, dSteep, out _);
+                checkpoint = new Checkpoint { slope = steep, ahead = dSteep - dStop, toGo = total - dStop, local = D.Local(sp.x, sp.y, .4f) };
+                moving = false; sfx.Play("ready", .5f); Log($"route check: slope {steep:0} deg, {total - dStop:0} m to go"); Refresh();
+                float nextRing = 0; var ringCol = SlopeClass(steep);
+                while (checkpoint != null)
+                {   // a ring keeps marking the place
+                    if (Time.time > nextRing) { nextRing = Time.time + 1.4f; var at = world.TransformPoint(checkpoint.local); Ripple(at, ringCol, Mathf.Clamp(Vector3.Distance(at, rig.Head.position) * .3f, 1.5f, 8f)); }
+                    yield return null;
+                }
+                moving = true; Refresh();
+                yield return Walk(dStop, total);
+            }
             float g1 = eye - EyeAbovePano;
             yield return Tween(.6f, k => { view.w.y = Mathf.Lerp(0, g1, k); ApplyView(); });
             here = to; sel = to; stage = Stage.Field; panoTarget = 1; travelling = null;
@@ -350,7 +396,7 @@ namespace MissionLens
             StopAllCoroutines(); HideBanner();
             foreach (var m in marks) Destroy(m.label.go);
             marks.Clear(); markSeq = 0; done.Clear(); taskIndex = 0; selTask = 0; sel = M.tasks[0].station; here = "BASE"; layer = "none";
-            wristUp = false; travelling = null; pendingPano = null; preview = null; flashMsg = ""; restartArmedUntil = 0;
+            wristUp = false; travelling = null; pendingPano = null; preview = null; flashMsg = ""; restartArmedUntil = 0; checkpoint = null; clipHold = -1;
             panoTarget = 0; roomTarget = 1; introDone = false; frontR = 0; routeDraw = 0; plateK = 0; moving = false;
             foreach (var p in pins) p.shown = false;
             if (framing != null) framing = null;
@@ -452,9 +498,9 @@ namespace MissionLens
             roomO = Mathf.MoveTowards(roomO, roomTarget, dt * .9f);
             panoOpacity = Mathf.MoveTowards(panoOpacity, panoTarget, dt * 1.4f);
             if (pendingPano != null && panoTarget == 0 && panoOpacity < .02f) { ShowPano(pendingPano); pendingPano = null; }
-            string lay = stage == Stage.Table ? layer : "none";
+            string lay = stage == Stage.Table ? layer : checkpoint != null ? "slope" : "none";   // at a route check the slope classes are painted on the ground
             oSlope = Mathf.MoveTowards(oSlope, lay == "slope" ? 1 : 0, dt * 3); oCrism = Mathf.MoveTowards(oCrism, lay == "crism" ? 1 : 0, dt * 3);
-            clipG = Mathf.MoveTowards(clipG, OnTable ? 0 : 1, dt * 1.6f);
+            clipG = clipHold >= 0 ? clipHold : Mathf.MoveTowards(clipG, OnTable ? 0 : 1, dt * 1.6f);
             // On the table the terrain is cut to the table's patch; leaving it, the cut opens out to the whole area.
             float open = Mathf.Exp(clipG * 8.5f);
             Shader.SetGlobalMatrix("_MLTableInv", tableFrame.worldToLocalMatrix); Shader.SetGlobalVector("_MLTableClip", new Vector4(FootHx * open, FootHz * open, 0, 0));
@@ -495,7 +541,7 @@ namespace MissionLens
                 bool gaze = p == rig.gaze;
                 p.hitDistance = -1; p.overSurface = false; if (!p.active) { p.hoverPanel = null; p.hoverKey = null; continue; }
                 // A hand that is at the lens or the timer is there to pick it up, not to press what lies beyond it.
-                if (!gaze && HandAtTool(p)) { p.hoverPanel = null; p.hoverKey = null; continue; }
+                if (!gaze && (HandAtTool(p) || p.fingerOnly)) { p.hoverPanel = null; p.hoverKey = null; continue; }   // nor does a hand with only its forefinger out: that one touches
                 var ray = p.Ray; MLPanel hit = null; MLPanel.Btn btn = null; float best = float.MaxValue;
                 foreach (var s in Surfaces())
                 {
@@ -511,7 +557,7 @@ namespace MissionLens
                 if (btn != null && Time.time - p.hoverSince > .1f) { p.restPanel = hit; p.restKey = key; p.restAt = Time.time; }
                 if (gaze)
                 {   // looking at a button for a moment presses it, once
-                    float dwell = btn != null && !btn.quiet && !busy && gazeArmed ? Mathf.Clamp01((Time.time - p.hoverSince) / GazeDwell) : 0;
+                    float dwell = btn != null && !btn.quiet && CanPress(btn) && gazeArmed ? Mathf.Clamp01((Time.time - p.hoverSince) / GazeDwell) : 0;
                     p.down = dwell >= 1; if (p.down) gazeArmed = false;
                     PlaceGazeDot(ray.GetPoint(hit != null ? best : 1.5f), hit != null ? best : 1.5f, dwell);
                 }
@@ -523,7 +569,7 @@ namespace MissionLens
                 if (hit != null)
                 {
                     p.hitDistance = best; p.overSurface = true;
-                    if (btn != null && !busy)
+                    if (btn != null && CanPress(btn))
                     {
                         hovered[hit] = btn;
                         if (p.down)
@@ -559,7 +605,7 @@ namespace MissionLens
         // ---------- hooks for checking from the Editor (unity command eval) ----------
         public string State() => JsonUtility.ToJson(new StateDump
         {
-            stage = stage.ToString(), here = here, sel = sel, selTask = selTask, taskIndex = taskIndex, busy = busy, layer = layer, wrist = wristUp, xr = rig.xr,
+            stage = stage.ToString(), here = here, sel = sel, selTask = selTask, taskIndex = taskIndex, busy = busy && checkpoint == null, layer = layer, wrist = wristUp, xr = rig.xr,
             pano = panoOpacity, room = roomO, S = view.S, ax = view.ax, az = view.az, yaw = view.yaw, heading = HeadingNow, marks = marks.Count, done = done.OrderBy(i => i).ToArray(),
             buttons = Surfaces().SelectMany(s => s.buttons.Select(b => b.key)).ToArray(), scale = ScaleText, placed = placed, intro = introDone, banner = banner.Show, finished = Finished, preview = preview ?? "",
         });
@@ -568,7 +614,7 @@ namespace MissionLens
         /// <summary>Press the button with this key on whichever visible surface has it.</summary>
         public string Press(string key)
         {
-            if (busy) return "busy";
+            if (busy && !(checkpoint != null && key == "HudAction")) return "busy";
             foreach (bool exact in new[] { true, false })
                 foreach (var s in Surfaces())
                 {

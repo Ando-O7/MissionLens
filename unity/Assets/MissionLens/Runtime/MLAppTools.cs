@@ -3,6 +3,7 @@ using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.XR.Hands;
 using static MissionLens.MLPanel;
 using static MissionLens.MLText;
 
@@ -15,9 +16,10 @@ namespace MissionLens
     //   The lens  - a glass ball. Hold it over the model and the ground under it shows a data layer instead of
     //               the image; twist the hand, or press its tag, to change the layer. Let go over the model and
     //               it stays there.
-    //   The timer - a dial with the selected task written under it. Pick it up and it comes with the hand, so it
-    //               can be held in view beside the model or the panels; turning the hand that holds it moves
-    //               through the planned timeline, and the table follows. Let go and it stays where it was left.
+    //   The timer - a small dial with the selected task written over it. Pinch it and it sits in the fingers, like
+    //               a knob held by its lower edge, so it can be kept in view beside the model or the panels;
+    //               turning the hand that holds it moves through the planned timeline, and the table follows.
+    //               Let go and it stays where it was left.
     //               From a distance it can also be turned where it lies, by pointing at its rim and dragging round.
     public partial class MLApp
     {
@@ -34,9 +36,9 @@ namespace MissionLens
         Transform orbT, stemT; Material orbMat, stemMat; MLPanel lensTag;
 
         // ---------- the timer ----------
-        const float DialSweep = 300, DialUp = 140, TimerGain = 2f;   // degrees of the dial the timeline takes up; the dial's centre above the panel's (pixels); dial degrees per degree the hand turns
-        const float TimerW = .16f, TimerSide = 150, TimerOff = 260;  // its width (metres: small enough to hold and to catch again); how near a hand picks it up, in the panel's pixels: 4 cm beyond its edges, 7 cm off its face
-        static readonly Vector3 TimerHome = new Vector3(.355f, .07f, -.59f), TimerHomeEuler = new Vector3(54, 18, 0);
+        const float DialSweep = 300, DialUp = -140, TimerGain = 2.6f;   // degrees of the dial the timeline takes up; the dial's centre below the panel's (pixels); dial degrees per degree the hand turns
+        const float TimerW = .115f, TimerSide = .04f * 600 / TimerW, TimerOff = .07f * 600 / TimerW;   // its width (metres: small, to sit in the fingers); how near a hand picks it up, in the panel's pixels: 4 cm beyond its edges, 7 cm off its face
+        static readonly Vector3 TimerHome = new Vector3(.33f, .055f, -.53f), TimerHomeEuler = new Vector3(56, 16, 0);
         MLPanel dial; Transform needleT;
         MLRig.Pointer dialBy; bool timerCarried, timerAway;          // dialBy: the pointer that has it. carried: picked up (else turned where it lies). away: left somewhere other than its place
         Vector3 timerPos = TimerHome, timerHandAt; Quaternion timerGrip; float timerGrabDist, timerSince, timerSpeed;
@@ -77,9 +79,13 @@ namespace MissionLens
         readonly TextMeshProUGUI[] dialLetters = new TextMeshProUGUI[32]; TextMeshProUGUI dialTime, dialWhat, cardName, cardPhase, cardWhen, cardA, cardB; int dialBuiltFor = -1;
         void DrawDial()
         {
-            var s = dial; s.Clear(); const float C = 300;
+            var s = dial; s.Clear(); const float C = 300, CY = 580;
             var back = new Color(8 / 255f, 10 / 255f, 14 / 255f, .93f);   // nearly solid: it is held up against the room or the model
-            s.Box(6, 6, 588, 588, 294, back); s.Circle(C, C, 292, 3, Line);
+            // the selected task, written over the dial so that it travels with it (the fingers hold the dial from below)
+            s.Frame(back, Cyan, 6, 6, 588, 268);
+            cardName = s.Text("", 32, 56, 32, Ink, true); cardPhase = s.Text("", 32, 98, 27, Cyan, true); cardWhen = s.Text("", 32, 136, 23, Gray);
+            cardA = s.Text("", 32, 194, 23, Soft); cardB = s.Text("", 32, 232, 23, Soft);
+            s.Box(6, CY - 294, 588, 588, 294, back); s.Circle(C, CY, 292, 3, Line);
             foreach (var t in M.tasks)
             {   // each task is an arc of short strokes, as long as its planned time
                 float a0 = TimeToDeg(t.startMin) + 1.2f, a1 = TimeToDeg(t.endMin) - 1.2f; var arc = dialArcs[t.index] = new List<Image>();
@@ -87,22 +93,18 @@ namespace MissionLens
                 for (int i = 0; i < n; i++)
                 {
                     float b0 = Mathf.Lerp(a0, a1, i / (float)n) * Mathf.Deg2Rad, b1 = Mathf.Lerp(a0, a1, (i + 1f) / n) * Mathf.Deg2Rad;
-                    arc.Add(s.Stroke(C + Mathf.Sin(b0) * 250, C - Mathf.Cos(b0) * 250, C + Mathf.Sin(b1) * 250, C - Mathf.Cos(b1) * 250, 28, Color.white));
+                    arc.Add(s.Stroke(C + Mathf.Sin(b0) * 250, CY - Mathf.Cos(b0) * 250, C + Mathf.Sin(b1) * 250, CY - Mathf.Cos(b1) * 250, 28, Color.white));
                 }
                 dialLetters[t.index] = null;
                 if (t.plannedMin >= 15)
                 {
                     float m = (TimeToDeg(t.startMin) + TimeToDeg(t.endMin)) / 2 * Mathf.Deg2Rad;
-                    dialLetters[t.index] = s.Text((t.leg >= 0 ? "→" : "") + t.station, C + Mathf.Sin(m) * 198, C - Mathf.Cos(m) * 198 + 9, 24, Soft, true, 0);
+                    dialLetters[t.index] = s.Text((t.leg >= 0 ? "→" : "") + t.station, C + Mathf.Sin(m) * 198, CY - Mathf.Cos(m) * 198 + 9, 24, Soft, true, 0);
                 }
             }
-            s.Text(L("MISSION TIMER · PLANNED", "ミッションタイマー · 計画"), C, 222, 17, Gray, true, 0);
-            dialTime = s.Text("", C, 300, 66, Ink, true, 0); dialWhat = s.Text("", C, 346, 26, Cyan, true, 0);
-            s.Text(rig.xr ? L("pick up · turn your hand", "手に取って · 手を回す") : L("rim: turn · middle: carry", "縁: 回す · 中央: 持ち運ぶ"), C, 540, 19, Dim, false, 0);
-            // the selected task, written under the dial so that it travels with it
-            s.Frame(back, Cyan, 6, 606, 588, 268);
-            cardName = s.Text("", 32, 656, 32, Ink, true); cardPhase = s.Text("", 32, 698, 27, Cyan, true); cardWhen = s.Text("", 32, 736, 23, Gray);
-            cardA = s.Text("", 32, 794, 23, Soft); cardB = s.Text("", 32, 832, 23, Soft);
+            s.Text(L("MISSION TIMER · PLANNED", "ミッションタイマー · 計画"), C, CY - 78, 17, Gray, true, 0);
+            dialTime = s.Text("", C, CY, 66, Ink, true, 0); dialWhat = s.Text("", C, CY + 46, 26, Cyan, true, 0);
+            s.Text(rig.xr ? L("pinch here · turn your hand", "ここをつまんで · 手を回す") : L("rim: turn · middle: carry", "縁: 回す · 中央: 持ち運ぶ"), C, CY + 236, 19, Dim, false, 0);
             s.Hit("timer", 0, 0, 600, 880, () => { }, 40, true);   // so the pointer rests on it instead of taking hold of the map behind
             dialBuiltFor = Finished ? -2 : taskIndex;
         }
@@ -259,14 +261,15 @@ namespace MissionLens
             var dialT = dial.go.transform; float before = needleDeg;
             if (dialBy != null && timerCarried)
             {
-                // Picked up: it rides above the hand, turned to face the eyes, and turning the hand turns the time.
-                Vector3 want = rig.xr ? dialBy.gripAt + Vector3.up * .175f : dialBy.Ray.GetPoint(timerGrabDist);
-                timerPos = Vector3.Lerp(timerPos, tableFrame.InverseTransformPoint(want), 1 - Mathf.Exp(-18 * dt));
+                // Picked up: the dial sits in the pinching fingers (they hold it by the gap at the bottom of its ring),
+                // turned to face the eyes, and turning the hand turns the time.
+                Vector3 want = rig.xr ? PinchPoint(dialBy) + Vector3.up * (TimerW * (.33f - DialUp / 600f)) : dialBy.Ray.GetPoint(timerGrabDist);
+                timerPos = Vector3.Lerp(timerPos, tableFrame.InverseTransformPoint(want), 1 - Mathf.Exp(-30 * dt));
                 float turned = Twist(timerGrip, dialBy.grip, dialBy.gripAxis); timerGrip = dialBy.grip;
                 // Carrying it somewhere is not turning it: while the hand is travelling its turn counts for less,
                 // and the jolt of the pinch itself does not count at all.
                 timerSpeed = Mathf.Lerp(timerSpeed, Vector3.Distance(dialBy.gripAt, timerHandAt) / Mathf.Max(dt, 1e-4f), .3f); timerHandAt = dialBy.gripAt;
-                turned *= Time.time - timerSince < .2f ? 0 : 1 - Mathf.InverseLerp(.25f, .7f, timerSpeed);
+                turned *= Time.time - timerSince < .15f ? 0 : 1 - Mathf.InverseLerp(.4f, 1f, timerSpeed);
                 // clockwise, as the person sees it, is forward in time
                 needleDeg = Mathf.Clamp(needleDeg - turned * TimerGain + (rig.xr ? 0 : rig.wheel * 10), -DialSweep / 2, DialSweep / 2);
             }
@@ -293,6 +296,12 @@ namespace MissionLens
             var facing = up ? Quaternion.LookRotation(dialT.position - head, Vector3.up) : tableFrame.rotation * Quaternion.Euler(TimerHomeEuler);
             dialT.rotation = Quaternion.Slerp(dialT.rotation, facing, 1 - Mathf.Exp(-12 * dt));
             needleT.SetPositionAndRotation(dialT.TransformPoint(0, DialUp, 0), dialT.rotation * Quaternion.Euler(0, 0, -needleDeg)); needleT.localScale = Vector3.one * (dial.alpha * (2 - dial.alpha) * TimerW / .2f * (1 + .05f * timerReach));
+        }
+        // Where the thumb and forefinger meet (failing that, where the hand points from).
+        Vector3 PinchPoint(MLRig.Pointer p)
+        {
+            int side = p == rig.left ? 1 : 0;
+            return !p.controller && rig.Joint(side, XRHandJointID.ThumbTip, out var a) && rig.Joint(side, XRHandJointID.IndexTip, out var b) ? (a + b) / 2 : p.origin;
         }
         bool LensOverModel => OnPatch(new Vector2(lensPos.x, lensPos.z), -.02f) && lensPos.y < .45f;
         void LensNextLayer()

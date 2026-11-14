@@ -28,6 +28,9 @@ namespace MissionLens
             // are turned in the hand; the pointing ray is steadied and barely rolls. gripAxis is the hand's long
             // axis (wrist toward the middle finger's knuckle), the axis such a turn is measured about.
             public Quaternion grip = Quaternion.identity; public Vector3 gripAt, gripAxis = Vector3.forward;
+            // Only the forefinger is held out, the other fingers curled: the hand is about to touch something near, not
+            // to point at something far. No ray is drawn from it and it points at nothing.
+            public bool fingerOnly;
             public float hitDistance = -1;       // set by the app each frame, for the ray visual
             public bool controller;              // a held controller rather than a bare hand
             public bool grabDown;                // began holding this frame (a pinch or trigger; on a desktop, the mouse button going down)
@@ -204,14 +207,28 @@ namespace MissionLens
         }
         void ReadGrip(Pointer p, int side)
         {
-            if (!p.active || p.controller || handSystem == null || !handSystem.running) return;
+            if (!p.active || p.controller || handSystem == null || !handSystem.running) { p.fingerOnly = false; return; }
             var hand = side == 0 ? handSystem.rightHand : handSystem.leftHand;
-            if (!hand.isTracked || !hand.GetJoint(XRHandJointID.Wrist).TryGetPose(out UnityEngine.Pose pose)) return;
+            if (!hand.isTracked || !hand.GetJoint(XRHandJointID.Wrist).TryGetPose(out UnityEngine.Pose pose)) { p.fingerOnly = false; return; }
+            // how straight each finger is: the distance from knuckle to tip over the length of its bones (1 = straight, about 0.5 = curled into the palm)
+            float fi = Straight(hand, XRHandJointID.IndexProximal, XRHandJointID.IndexIntermediate, XRHandJointID.IndexDistal, XRHandJointID.IndexTip),
+                  fm = Straight(hand, XRHandJointID.MiddleProximal, XRHandJointID.MiddleIntermediate, XRHandJointID.MiddleDistal, XRHandJointID.MiddleTip),
+                  fr = Straight(hand, XRHandJointID.RingProximal, XRHandJointID.RingIntermediate, XRHandJointID.RingDistal, XRHandJointID.RingTip);
+            if (fi < 0 || fm < 0 || fr < 0) p.fingerOnly = false;
+            else p.fingerOnly = p.fingerOnly ? fi > .86f && fm < .9f && fr < .9f : fi > .94f && fm < .8f && fr < .8f;   // firmly out to begin with; it then holds a little slack
             p.grip = space.rotation * pose.rotation; p.gripAt = space.TransformPoint(pose.position); p.gripAxis = p.grip * Vector3.forward;
             if (hand.GetJoint(XRHandJointID.MiddleProximal).TryGetPose(out UnityEngine.Pose knuckle))
             {
                 var along = space.TransformPoint(knuckle.position) - p.gripAt; if (along.sqrMagnitude > 1e-4f) p.gripAxis = along.normalized;
             }
+        }
+
+        static float Straight(XRHand hand, XRHandJointID knuckle, XRHandJointID mid, XRHandJointID far, XRHandJointID tip)
+        {
+            if (!hand.GetJoint(knuckle).TryGetPose(out UnityEngine.Pose a) || !hand.GetJoint(mid).TryGetPose(out UnityEngine.Pose b)
+                || !hand.GetJoint(far).TryGetPose(out UnityEngine.Pose c) || !hand.GetJoint(tip).TryGetPose(out UnityEngine.Pose d)) return -1;
+            float bones = Vector3.Distance(a.position, b.position) + Vector3.Distance(b.position, c.position) + Vector3.Distance(c.position, d.position);
+            return bones < 1e-4f ? -1 : Vector3.Distance(a.position, d.position) / bones;
         }
 
         // Finger outlines from the hand-tracking joints, in place of the hands the person can no longer see.
@@ -359,9 +376,9 @@ namespace MissionLens
             foreach (var p in new[] { right, left })
             {
                 // Aimed at something: a line to it and a dot on it. Otherwise a short stub, so the hand is seen to point.
-                bool hit = p.active && p.hitDistance > 0;
-                p.line.enabled = p.active; p.dot.gameObject.SetActive(hit);
-                if (!p.active) continue;
+                bool on = p.active && !p.fingerOnly, hit = on && p.hitDistance > 0;
+                p.line.enabled = on; p.dot.gameObject.SetActive(hit);
+                if (!on) continue;
                 var end = p.origin + p.rotation * Vector3.forward * (hit ? p.hitDistance : .09f);
                 p.line.SetPosition(0, p.origin + p.rotation * Vector3.forward * .02f); p.line.SetPosition(1, end);
                 p.line.startWidth = hit ? .004f : .003f; p.line.endWidth = hit ? .002f : .0005f;

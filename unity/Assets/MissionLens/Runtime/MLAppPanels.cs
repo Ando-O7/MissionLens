@@ -30,7 +30,7 @@ namespace MissionLens
             neat = new MLPanel("Neatline", 1720, 84, FootHx * 2, tableFrame); neat.go.transform.localPosition = new Vector3(0, .016f, -FootHz - .042f); neat.go.transform.localRotation = Quaternion.Euler(52, 0, 0);
             // What the terrain model says at the point being pointed at.
             probe = new MLPanel("Probe", 520, 112, .2f, null, true);
-            menu = new MLPanel("Menu", 600, rig.xr ? 840 : 700, MenuW, rig.xr ? null : rig.Head); menuIntro = rig.xr; menu.Order(20);
+            menu = new MLPanel("Menu", 960, 520, MenuW, rig.xr ? null : rig.Head); menuIntro = rig.xr; menu.Order(20);
             // FIELD: a wrist panel for details, raised on demand, and a head-up strip that stays out of the scenery.
             wrist = new MLPanel("Wrist", 600, 860, rig.xr ? .26f : .215f, rig.xr ? null : rig.Head);
             hud = new MLPanel("HUD", 1200, 170, rig.xr ? .7f : .5f, rig.xr ? null : rig.Head);
@@ -44,7 +44,7 @@ namespace MissionLens
                 hud.go.transform.localPosition = new Vector3(0, -.262f, .6f);
                 title.go.transform.localPosition = new Vector3(0, .58f, .46f);
                 banner.go.transform.localPosition = new Vector3(0, .1f, 1.0f);
-                menu.go.transform.localPosition = new Vector3(-.4f, -.03f, .5f); menu.go.transform.localRotation = Quaternion.Euler(0, -24, 0);   // where a raised left hand would be
+                PlaceDesktopMenu();
                 rig.lookPitch = -3;
             }
             foreach (var s in M.stations)
@@ -58,14 +58,16 @@ namespace MissionLens
         }
 
         /// <summary>"desk": the panels lie spread on the desk around the model. "wall": they stand behind it.</summary>
-        public string layout = "desk";
+        [System.NonSerialized] public string layout = "wall";   // not serialised: the scene must not carry an old choice over the default
         void ApplyLayout()
         {
             void Put(MLPanel p, float width, Vector3 at, Vector3 euler) { p.SetWorldWidth(width); p.go.transform.localPosition = at; p.go.transform.localRotation = Quaternion.Euler(euler); }
             if (layout == "wall")
-            {   // about 1.3 m from the eyes and 50 degrees across, the timeline under the two panels
-                Put(board, .625f, new Vector3(-.308f, .75f, .465f), new Vector3(2, -13, 0)); Put(boardR, .625f, new Vector3(.308f, .75f, .465f), new Vector3(2, 13, 0));
-                Put(strip, 1.25f, new Vector3(0, .365f, .5f), new Vector3(11, 0, 0));
+            {   // Like a pair of screens across a desk: about 0.95 m from the eyes, standing over the far half of the
+                // model, the timeline under them. Their lower edges are high enough that the model's far edge still
+                // shows beneath. (They stood behind the model, 1.3 m away, which read as far.)
+                Put(board, .5f, new Vector3(-.262f, .665f, .12f), new Vector3(3, -12, 0)); Put(boardR, .5f, new Vector3(.262f, .665f, .12f), new Vector3(3, 12, 0));
+                Put(strip, 1.0f, new Vector3(0, .345f, .13f), new Vector3(12, 0, 0));
             }
             else
             {   // Like papers on a desk: a panel either side of the model, turned in and leaning toward the person, the
@@ -541,8 +543,16 @@ namespace MissionLens
             else
             {
                 var n = Nearest(); top = stage == Stage.Giant ? L("ROUTE PREVIEW · 1 : 25", "ルートの下見 · 1 : 25") : L("TERRAIN MODEL · TRUE SCALE", "地形モデル · 実寸");
+                if (checkpoint != null) top = L("ROUTE CHECK · TERRAIN MODEL, TRUE SCALE", "ルートの確認 · 地形モデル(実寸)");
                 main = travelling != null ? L($"Walking to {travelling} {St(travelling).name}", $"{travelling} {St(travelling).name} へ移動中") : L("Orbital data only", "軌道からのデータのみ");
                 sub = L($"Nearest station: {n.id} {St(n.id).name}, {n.d:0} m", $"最も近い地点: {n.id} {St(n.id).name}、{n.d:0} m");
+            }
+            if (checkpoint != null)
+            {   // stopped on the way, at the steepest ground of this leg: to be looked at and confirmed before going on
+                var cp = checkpoint; col = SlopeClass(cp.slope); if (col.a == 0) col = Ink;
+                main = L($"Steepest ground on this leg: {cp.slope:0}°", $"この区間でいちばん急な所: {cp.slope:0}°");
+                sub = (cp.ahead >= 2 ? L($"{cp.ahead:0} m ahead", $"{cp.ahead:0} m 先") : L("around here", "このあたり"))
+                    + L($" · {cp.toGo:0} m to go · colours: slope classes, ours, from the HiRISE terrain model", $" · 残り {cp.toGo:0} m · 色は傾斜の区分(HiRISE 地形モデルからこちらで計算)");
             }
             if (flashMsg.Length > 0) sub = flashMsg;
             // Left: where you are and what is due. Right: the step that is due as one button, then the panel and the table.
@@ -561,6 +571,7 @@ namespace MissionLens
             else if (stage == Stage.Field && fin) { act = L("Review at the table", "机で振り返る"); fn = ToTable; }
             else if (stage == Stage.Field && Tk.station != here) { string to = Tk.station; act = L("Walk to " + to, to + " へ歩く"); fn = () => Travel(to); }
             else if (stage == Stage.Field) { act = L("Complete task", "作業を完了"); fn = CompleteTask; on = done.Count == Tk.checks.Length; }
+            else if (checkpoint != null) { act = L("Confirmed · go on", "確認して進む"); fn = ConfirmCheckpoint; on = true; }
             else if (travelling == null) { string nid = Nearest().id; act = L("Surface image at " + nid, nid + " の実画像へ"); fn = () => ToField(nid); }
             if (act != null) s.Button(act, bx, 20, 252, 60, fn, on, primary: true, px: Ja ? 21 : 23, key: "HudAction");
             else s.Button(L("Walking…", "移動中…"), bx, 20, 252, 60, () => { }, dim: true, px: 23);

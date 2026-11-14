@@ -15,7 +15,7 @@ namespace MissionLens
     {
         class RippleFx { public Transform t; public Material m; public float t0, dur, size; }
 
-        float frontR, routeDraw, plateK, tableBaseO = 1, revealMax, vig;
+        float frontR, routeDraw, plateK, tableBaseO = 1, skirtO = 1, revealMax, vig;
         Transform plateT, skyT, vigT, studioT, floorT, plinthT;
         Material skirtMat, plateMat, frameMat, skyMat, vigMat, beaconMat, reticleMat, floorMat, plinthMat;
         static readonly Color StudioHorizon = new Color(.105f, .118f, .14f), StudioZenith = new Color(.03f, .035f, .045f), StudioBelow = new Color(.05f, .058f, .07f),
@@ -101,11 +101,12 @@ namespace MissionLens
             Shader.SetGlobalFloat("_MLRouteDraw", routeDraw); Shader.SetGlobalFloat("_MLInvS", 1 / S);
             terrainR.enabled = frontR > 0;
 
-            tableBaseO = Mathf.MoveTowards(tableBaseO, OnTable ? 1 : 0, dt * 3);
+            tableBaseO = Mathf.MoveTowards(tableBaseO, OnTable && clipG < .3f ? 1 : 0, dt * 3);   // the table's plate waits until the model is nearly down: before that it would hide it
             bool baseOn = tableBaseO > .01f && plateK > 0;
             plateT.gameObject.SetActive(baseOn); plateT.localScale = new Vector3(plateK, 1, plateK);
             plateMat.SetColor("_Color", new Color(.035f, .04f, .048f, tableBaseO)); frameMat.SetColor("_Color", new Color(Cyan.r, Cyan.g, Cyan.b, .55f * tableBaseO));
-            skirtR.enabled = tableBaseO > .01f && frontR > 0; skirtMat.SetFloat("_A", tableBaseO);
+            skirtO = Mathf.MoveTowards(skirtO, OnTable && clipG < .05f ? 1 : 0, dt * 4);   // the side walls come once the model has landed
+            skirtR.enabled = skirtO > .01f && frontR > 0; skirtMat.SetFloat("_A", skirtO * tableBaseO);
 
             // The sphere behind everything is the dissolve between rooms: clear for the real room, dark for the studio
             // room, and the Mars sky once the table has been left.
@@ -114,7 +115,7 @@ namespace MissionLens
             skyMat.SetColor("_Horizon", Color.Lerp(StudioHorizon, MarsHorizon, mars)); skyMat.SetColor("_Zenith", Color.Lerp(StudioZenith, MarsZenith, mars)); skyMat.SetColor("_Below", Color.Lerp(StudioBelow, MarsBelow, mars));
             float studioA = Ease(roomO) * studioK; bool studioOn = studioA > .01f && placed;
             if (studioT.gameObject.activeSelf != studioOn) studioT.gameObject.SetActive(studioOn);
-            if (studioOn) { floorMat.SetFloat("_A", studioA); var pc = plinthMat.GetColor("_Color"); pc.a = studioA; plinthMat.SetColor("_Color", pc); }
+            if (studioOn) { floorMat.SetFloat("_A", studioA); var pc = plinthMat.GetColor("_Color"); pc.a = studioA * Mathf.Clamp01(1 - clipG * 3); plinthMat.SetColor("_Color", pc); }   // the plinth too waits for the model to come down
             vig = Mathf.MoveTowards(vig, (rig.xr && moving) || debugVignette ? 1 : 0, dt * 3.5f);
             vigR.enabled = vig > .01f; vigMat.SetFloat("_Amount", vig * .94f); vigT.position = head;
 
