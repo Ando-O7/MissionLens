@@ -459,7 +459,8 @@ namespace MissionLens
             float open = Mathf.Exp(clipG * 8.5f);
             Shader.SetGlobalMatrix("_MLTableInv", tableFrame.worldToLocalMatrix); Shader.SetGlobalVector("_MLTableClip", new Vector4(FootHx * open, FootHz * open, 0, 0));
             terrainMat.SetFloat("_OSlope", oSlope); terrainMat.SetFloat("_OCrism", oCrism); terrainMat.SetFloat("_Dim", panoOpacity);
-            terrainMat.SetFloat("_Contour", oSlope);
+            // Contour lines are always on the model, lightly: they are what makes its relief readable. Full strength with the slope layer.
+            terrainMat.SetFloat("_Contour", Mathf.Max(oSlope, .55f)); terrainMat.SetFloat("_Step", ContourStep);
             terrainMat.SetFloat("_Fog", clipG * (1 - panoOpacity)); terrainMat.SetFloat("_InvS", 1 / world.localScale.x);
             panoMat.SetFloat("_Opacity", panoOpacity); panoR.enabled = shownPano != null && panoOpacity > .01f;
             if (panoR.enabled) { panoMat.SetMatrix("_ToMap", world.worldToLocalMatrix); panoMat.SetFloat("_FloorY", rig.transform.position.y); }

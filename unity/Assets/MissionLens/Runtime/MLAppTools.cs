@@ -36,7 +36,7 @@ namespace MissionLens
         // ---------- the timer ----------
         const float DialSweep = 300, DialUp = 140, TimerGain = 2f;   // degrees of the dial the timeline takes up; the dial's centre above the panel's (pixels); dial degrees per degree the hand turns
         const float TimerW = .16f, TimerSide = 150, TimerOff = 260;  // its width (metres: small enough to hold and to catch again); how near a hand picks it up, in the panel's pixels: 4 cm beyond its edges, 7 cm off its face
-        static readonly Vector3 TimerHome = new Vector3(.355f, .07f, -.56f), TimerHomeEuler = new Vector3(54, 18, 0);
+        static readonly Vector3 TimerHome = new Vector3(.355f, .07f, -.59f), TimerHomeEuler = new Vector3(54, 18, 0);
         MLPanel dial; Transform needleT;
         MLRig.Pointer dialBy; bool timerCarried, timerAway;          // dialBy: the pointer that has it. carried: picked up (else turned where it lies). away: left somewhere other than its place
         Vector3 timerPos = TimerHome, timerHandAt; Quaternion timerGrip; float timerGrabDist, timerSince, timerSpeed;
@@ -100,7 +100,7 @@ namespace MissionLens
             dialTime = s.Text("", C, 300, 66, Ink, true, 0); dialWhat = s.Text("", C, 346, 26, Cyan, true, 0);
             s.Text(rig.xr ? L("pick up · turn your hand", "手に取って · 手を回す") : L("rim: turn · middle: carry", "縁: 回す · 中央: 持ち運ぶ"), C, 540, 19, Dim, false, 0);
             // the selected task, written under the dial so that it travels with it
-            s.Box(6, 606, 588, 268, 26, back, Line);
+            s.Frame(back, Cyan, 6, 606, 588, 268);
             cardName = s.Text("", 32, 656, 32, Ink, true); cardPhase = s.Text("", 32, 698, 27, Cyan, true); cardWhen = s.Text("", 32, 736, 23, Gray);
             cardA = s.Text("", 32, 794, 23, Soft); cardB = s.Text("", 32, 832, 23, Soft);
             s.Hit("timer", 0, 0, 600, 880, () => { }, 40, true);   // so the pointer rests on it instead of taking hold of the map behind

@@ -2,6 +2,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using static MissionLens.MLPanel;
+using static MissionLens.MLText;
 
 namespace MissionLens
 {
@@ -24,6 +26,8 @@ namespace MissionLens
         Vector2 glide, glideNow, lastHold; MLRig.Pointer lastHoldBy; float menuDrawnAt;
 
         string ScaleText => "1 : " + Mathf.RoundToInt(1 / tv.S / 10) * 10;
+        /// <summary>Metres between contour lines: closer together the nearer the map is looked at. Off the table, 5 m.</summary>
+        float ContourStep => !OnTable ? 5 : tv.S >= 1 / 320f ? 1 : tv.S >= 1 / 800f ? 2 : 5;
 
         // Table metres (x across, y away from the person) <-> map metres (x east, y = z south).
         static Vector2 TableToMap(Vector2 t, TView v)
@@ -69,10 +73,11 @@ namespace MissionLens
                 float want = BaseFor(tv); baseY = Mathf.Abs(want - baseY) < .01f ? want : Mathf.Lerp(baseY, want, 1 - Mathf.Exp(-10 * dt));
                 view = TableView(); ApplyView();
                 // the sign's scale and north arrow follow the map, but not on every frame of a move: redrawing a sign is not free
-                int shown = Mathf.RoundToInt(1 / tv.S / 10) * 1000 + Mathf.RoundToInt(Mathf.Repeat(tv.yawRel, 360) / 3);
+                int shown = Mathf.RoundToInt(1 / tv.S / 10) * 1000 + Mathf.RoundToInt(Mathf.Repeat(tv.yawRel, 360) / 3) + (int)ContourStep * 1000000;
                 if (shown != scaleShown && Time.time - menuDrawnAt > .25f) { scaleShown = shown; menuDrawnAt = Time.time; DrawMenu(); }
             }
             if (OnTable && frontR > 0 && (!Same(skirtFor, tv) || skirtBaseY != baseY)) RebuildSkirt();
+            UpdateProbe(dt);
         }
         static bool Same(TView a, TView b) => a.ax == b.ax && a.az == b.az && a.S == b.S && a.yawRel == b.yawRel;
 
@@ -160,6 +165,56 @@ namespace MissionLens
         {
             var zero = v; zero.ax = 0; zero.az = 0; var off = TableToMap(t, zero);
             v.ax = m.x - off.x; v.az = m.y - off.y;
+        }
+
+        // ---------- what the table says about its map ----------
+        // The neatline: north (the arrow turns with the map), a scale bar that keeps to round lengths, the scale,
+        // and where the model comes from. It lies on the table at the model's near edge, so it is read with the map.
+        void DrawNeatline()
+        {
+            var s = neat; s.Clear(); float pxPerM = tv.S * s.w / (FootHx * 2);
+            s.Box(0, 6, s.w, s.h - 12, 10, new Color(8 / 255f, 10 / 255f, 14 / 255f, .82f));
+            float cx = 50, cy = 42, r = 24, th = tv.yawRel * Mathf.Deg2Rad; Vector2 up = new Vector2(Mathf.Sin(th), -Mathf.Cos(th)), side = new Vector2(-up.y, up.x);
+            Vector2 c = new Vector2(cx, cy), tip = c + up * r, tail = c - up * r, barb = tip - up * 15;
+            s.Stroke(tail.x, tail.y, tip.x, tip.y, 5, Ink); s.Stroke(tip.x, tip.y, barb.x + side.x * 10, barb.y + side.y * 10, 5, Ink); s.Stroke(tip.x, tip.y, barb.x - side.x * 10, barb.y - side.y * 10, 5, Ink);
+            s.Text("N", 92, 54, 32, Ink, true);
+            float len = 10; foreach (var l in new[] { 20f, 50f, 100f, 200f, 500f }) if (l * pxPerM <= 420) len = l;
+            float bar = len * pxPerM, bx = 170; const float by = 50;
+            s.Box(bx, by, bar, 9, 2, Ink); s.Box(bx, by, bar / 2, 9, 2, Gray);
+            for (int i = 0; i <= 2; i++) s.Stroke(bx + bar * i / 2, by - 8, bx + bar * i / 2, by + 9, 3, Ink);
+            s.Text("0", bx, by - 14, 23, Soft, false, 0); s.Text($"{len / 2:0}", bx + bar / 2, by - 14, 23, Soft, false, 0); s.Text($"{len:0} m", bx + bar, by - 14, 23, Soft, false, 0);
+            string ratio = $"{ScaleText} · {(tableEx > 1 ? L("height ×2", "高さ ×2") : L("height as measured", "高さ 実寸"))}";
+            s.Text(ratio, bx + 470, 55, 30, Ink, true);
+            s.Text(L($"HiRISE image on the HiRISE terrain model (2 m grid) · contours every {ContourStep:0} m", $"HiRISE の画像 + 地形モデル(2 m 格子)· 等高線 {ContourStep:0} m ごと"), bx + 470 + s.Measure(ratio, 30, true) + 40, 54, 21, Gray);
+        }
+
+        // The probe: point at the model and, after a moment, a tag gives the elevation of that point and how steep the
+        // ground is there. Both are read from the terrain model; the slope is our calculation from it.
+        int probeShown = int.MinValue; float probeFor; Vector3 probeAt;
+        void UpdateProbe(float dt)
+        {
+            bool live = stage == Stage.Table && introDone && !busy && grabs.Count == 0 && dialBy == null && framing == null, hit = false; Vector3 local = default; MLRig.Pointer by = null;
+            if (live) foreach (var p in rig.xr ? new[] { rig.right, rig.left } : new[] { rig.mouse })
+            {
+                if (!p.active || p.held || p.overSurface || p.tool != null || (rig.xr && p == rig.left && menuDock.on) || HandAtTool(p)) continue;
+                if (PointOnTerrain(p.Ray, out local, out _) && OnPatch(local.x, -local.z, .004f)) { hit = true; by = p; break; }
+            }
+            probeFor = hit ? probeFor + dt : 0; probe.Show = hit && probeFor > .3f;
+            if (!hit) return;
+            var at = world.TransformPoint(local); var head = rig.Head.position; float d = Mathf.Max(.2f, Vector3.Distance(at, head));
+            by.hitDistance = Vector3.Distance(by.origin, at); PlaceReticle(at, d * .45f);
+            int elev = Mathf.RoundToInt(M.elevMin + local.y), slope = Mathf.RoundToInt(D.SlopeDeg(local.x, -local.z)), key = elev * 100 + slope;
+            if (key != probeShown)
+            {
+                probeShown = key; var s = probe; s.Clear(); var sc = SlopeClass(slope); if (sc.a == 0) sc = Ink;
+                s.Box(0, 0, s.w, s.h, 18, new Color(8 / 255f, 10 / 255f, 14 / 255f, .88f), new Color(1, 1, 1, .16f));
+                string e = L($"{elev} m", $"標高 {elev} m"), g = L($"slope {slope}°", $"傾斜 {slope}°");
+                s.Text(e, 24, 52, 38, Ink, true); s.Text(g, 24 + s.Measure(e, 38, true) + 26, 52, 38, sc, true);
+                s.Text(L("HiRISE terrain model, MOLA datum · slope computed by us", "HiRISE 地形モデル(MOLA 基準)· 傾斜はこちらで計算"), 24, 92, 21, Soft);
+            }
+            probeAt = probe.alpha < .05f ? at : Vector3.Lerp(probeAt, at, 1 - Mathf.Exp(-18 * dt));
+            var rot = Quaternion.LookRotation(probeAt - head, Vector3.up); float w = .23f * d;
+            probe.SetWorldWidth(w); probe.go.transform.SetPositionAndRotation(probeAt + rot * new Vector3(w * .56f, w * .2f, 0), rot);   // beside the point, up and to the right, so the point itself stays in view
         }
 
         // ---------- bringing things onto the table ----------

@@ -23,8 +23,8 @@ float MLRise(float y, float front) { return lerp(_MLReveal.y, y, smoothstep(0.0,
 // Anti-aliased line where f crosses an integer; width in pixels.
 float MLLine(float f, float width)
 {
-    float d = abs(frac(f - 0.5) - 0.5) / max(fwidth(f), 1e-5);
-    return saturate(width - d);
+    float w = max(fwidth(f), 1e-5), d = abs(frac(f - 0.5) - 0.5) / w;
+    return saturate(width - d) * saturate(2.0 - w * 6.0);   // gone where the lines would lie closer than a few pixels
 }
 
 #endif

@@ -34,7 +34,7 @@ namespace MissionLens
         void DrawMenu()
         {
             var s = menu; s.Clear(); const float X = 26; float W = s.w - 2 * X, bw = (W - 12) / 2, bh = 82; int px = Ja ? 24 : 26;
-            s.Box(1.5f, 1.5f, s.w - 3, s.h - 3, 30, new Color(10 / 255f, 12 / 255f, 17 / 255f, .95f), Line);
+            s.Frame(new Color(10 / 255f, 12 / 255f, 17 / 255f, .95f), Cyan);
             // the map as it lies on the table now: north (the arrow turns as the map is turned), scale, height
             float cx = X + 42, cy = 70, r = 36, th = tv.yawRel * Mathf.Deg2Rad; Vector2 up = new Vector2(Mathf.Sin(th), -Mathf.Cos(th)), side = new Vector2(-up.y, up.x);
             s.Box(cx - r, cy - r, 2 * r, 2 * r, r, new Color(0, 0, 0, 0), new Color(1, 1, 1, .28f));
@@ -63,6 +63,7 @@ namespace MissionLens
             y += 24;
             if (rig.xr && menuIntro)
                 y = s.Wrap(L("Turn the back of your left hand toward you and open your thumb wide: this menu comes to your hand.", "左手の甲を自分に向けて親指を大きく開くと、このメニューが手に付きます。"), X, y, W, 27, 21, Amber) + 2;
+            DrawNeatline();
             s.Wrap(rig.xr ? L("Pinch at the model and move to slide the map. Pinch with both hands and pull apart to stretch it, or turn them to turn it.", "模型のところでピンチして動かすと地図が滑ります。両手でピンチして広げると拡大、回すと回転します。")
                           : L("Drag the model to slide it, wheel to zoom, Q / E to turn. M hides this menu.", "模型をドラッグで移動、ホイールで拡大縮小、Q / E で回転。M でこのメニューを隠します。"), X, y, W, 25, 19, Gray);
         }

@@ -198,6 +198,19 @@ namespace MissionLens
             return im;
         }
 
+        /// <summary>
+        /// The frame every panel shares: the dark ground, a hairline round it, and a short bracket at each corner in
+        /// the accent colour. One frame for all of them is what makes them read as one instrument.
+        /// </summary>
+        public void Frame(Color ground, Color accent, float x = 0, float y = 0, float fw = -1, float fh = -1)
+        {
+            if (fw < 0) fw = w; if (fh < 0) fh = h;
+            Box(x + 1.5f, y + 1.5f, fw - 3, fh - 3, 18, ground, new Color(1, 1, 1, .11f));
+            float m = 13, len = Mathf.Clamp(Mathf.Min(fw, fh) * .1f, 16, 44), t = Mathf.Clamp(Mathf.Min(fw, fh) * .006f, 2.5f, 4); var c = accent; c.a *= .8f;
+            foreach (var (cx, cy, sx, sy) in new[] { (x + m, y + m, 1f, 1f), (x + fw - m, y + m, -1f, 1f), (x + m, y + fh - m, 1f, -1f), (x + fw - m, y + fh - m, -1f, -1f) })
+            { Stroke(cx, cy, cx + sx * len, cy, t, c); Stroke(cx, cy, cx, cy + sy * len, t, c); }
+        }
+
         /// <summary>A thin circle. (A box's outline is a small sprite stretched: at a large radius it would come out thick and soft.)</summary>
         public void Circle(float cx, float cy, float radius, float thickness, Color c, int segments = 96)
         {

@@ -11,7 +11,7 @@ namespace MissionLens
     // surface (x right, y down), carried over from the desktop mock in experiments/spatial/.
     public partial class MLApp
     {
-        MLPanel board, boardR, strip, wrist, hud, title, banner, menu;
+        MLPanel board, boardR, strip, wrist, hud, title, banner, menu, neat, probe;
         readonly List<MLPanel> panels = new List<MLPanel>();   // every surface that can hold buttons
         TextMeshProUGUI hudHeading, hudClock, hudSub;
         readonly Dictionary<string, Texture2D> viewTex = new Dictionary<string, Texture2D>();
@@ -26,6 +26,10 @@ namespace MissionLens
             board = new MLPanel("Board left", 1100, 900, .5f, tableFrame);
             boardR = new MLPanel("Board right", 1100, 900, .5f, tableFrame);
             strip = new MLPanel("Timeline", 1600, 270, .78f, tableFrame);
+            // On the table itself, along the model's near edge: north, a scale bar, the scale and the source (a map's neatline).
+            neat = new MLPanel("Neatline", 1720, 84, FootHx * 2, tableFrame); neat.go.transform.localPosition = new Vector3(0, .016f, -FootHz - .042f); neat.go.transform.localRotation = Quaternion.Euler(52, 0, 0);
+            // What the terrain model says at the point being pointed at.
+            probe = new MLPanel("Probe", 520, 112, .2f, null, true);
             menu = new MLPanel("Menu", 600, rig.xr ? 840 : 700, MenuW, rig.xr ? null : rig.Head); menuIntro = rig.xr; menu.Order(20);
             // FIELD: a wrist panel for details, raised on demand, and a head-up strip that stays out of the scenery.
             wrist = new MLPanel("Wrist", 600, 860, rig.xr ? .26f : .215f, rig.xr ? null : rig.Head);
@@ -48,7 +52,7 @@ namespace MissionLens
                 pins.Add(new Pin { st = s, local = D.Local(s.x, s.z, .3f), label = new MLPanel("Pin " + s.id, 640, 128, .34f, null, true) });
                 viewTex[s.id] = Resources.Load<Texture2D>("ML/view_" + s.id);
             }
-            panels.AddRange(new[] { board, boardR, strip, menu, wrist, hud, title, banner }); panels.AddRange(pins.Select(p => p.label));
+            panels.AddRange(new[] { board, boardR, strip, menu, wrist, hud, title, banner, neat, probe }); panels.AddRange(pins.Select(p => p.label));
             foreach (var p in panels) p.Snap(false);
             DrawTitle();
         }
@@ -68,7 +72,7 @@ namespace MissionLens
                 // timeline along the near edge. About 0.9 m from the eyes: as near as they come without covering the
                 // model's near corners. (They were 1.1 m away, which read as far.)
                 Put(board, .46f, new Vector3(-.68f, .22f, -.4f), new Vector3(40, -48, 0)); Put(boardR, .46f, new Vector3(.68f, .22f, -.4f), new Vector3(40, 48, 0));
-                Put(strip, .7f, new Vector3(-.1f, .05f, -.515f), new Vector3(60, 0, 0));
+                Put(strip, .7f, new Vector3(-.1f, .035f, -.545f), new Vector3(60, 0, 0));
             }
         }
         public void ToggleLayout()
@@ -103,7 +107,7 @@ namespace MissionLens
         {
             var head = rig.Head.position; bool table = stage == Stage.Table; var yaw = Quaternion.Euler(0, rig.HeadYaw, 0);
             title.Show = stage == Stage.Title && !busy;
-            board.Show = boardR.Show = strip.Show = table && introDone && roomO > .6f;
+            board.Show = boardR.Show = strip.Show = neat.Show = table && introDone && roomO > .6f;
             UpdateMenu(dt);
             hud.Show = !OnTable;
             if (banner.Show && bannerUntil > 0 && Time.time > bannerUntil) banner.Show = false;
@@ -282,7 +286,7 @@ namespace MissionLens
         void DrawTitle()
         {
             var s = title; s.Clear(); const float X = 90; float W = s.w - 2 * X;
-            s.Box(1.5f, 1.5f, s.w - 3, s.h - 3, 44, Back, Line);
+            s.Frame(Back, Cyan);
             s.Text("MISSION LENS", X, 156, 108, Ink, true);
             s.Text(L("From science objectives to Marswalk execution", "科学目標から、火星を歩く 1 回の活動へ"), X, 222, 42, Cyan, true);
             float y = s.Wrap(L("One hypothetical crewed Marswalk at the front of Jezero Crater's fan. Plan it on a tabletop terrain model, then stand at each station inside the panorama Perseverance took there.",
@@ -311,7 +315,7 @@ namespace MissionLens
         void DrawBoard()
         {
             var b = board; b.Clear(); var st = St(sel); const float X1 = 48, W1 = 990, X2 = 30, W2 = 1040; float y;
-            b.Box(1.5f, 1.5f, b.w - 3, b.h - 3, 36, Back, Line);
+            b.Frame(Back, Finished ? Amber : Cyan);
             b.Text("MISSION LENS", X1, 62, 24, Gray, true); b.Text(Finished ? L("PLAN · REVIEW", "PLAN · 振り返り") : "PLAN", X1 + 196, 62, 24, Cyan, true);
             b.Text(Finished ? L("SIMULATED RUN", "模擬の実行") : L("HYPOTHETICAL MARSWALK", "仮想の Marswalk"), X1 + W1, 62, 24, Amber, true, 1);
             int mk = marks.Count(m => m.station == st.id); float big = Ja ? 30 : 32, small = Ja ? 23 : 25;
@@ -356,7 +360,7 @@ namespace MissionLens
             }
 
             // right panel: the NASA evidence for the selected station, and what can be done with it
-            b = boardR; b.Clear(); b.Box(1.5f, 1.5f, b.w - 3, b.h - 3, 36, Back, Line);
+            b = boardR; b.Clear(); b.Frame(Back, Cyan);
             const float ih = 300; b.Box(X2, 48, W2, ih, 16, new Color(.1f, .12f, .14f, 1));
             if (viewTex.TryGetValue(sel, out var tex) && tex != null) { float vh = (tex.width * ih / W2) / tex.height; b.Picture(tex, X2, 48, W2, ih, new Rect(0, (1 - vh) / 2, 1, vh)); }
             b.Tag(L("NASA OBSERVATION", "NASA の観測"), X2 + 14, 60, Ink);
@@ -378,7 +382,7 @@ namespace MissionLens
                 float lx = X2;
                 foreach (var (c, t) in new[] { (Slope10, "10–15°"), (Slope15, "15–20°"), (Slope20, L("over 20°", "20° 超")) })
                 { b.Box(lx, ly - 19, 22, 22, 4, c); b.Text(t, lx + 30, ly, 23, Ink); lx += 46 + b.Measure(t, 23); }
-                b.Text(L("· slope and 5 m contours: HiRISE terrain model; classes ours", "· 傾斜と 5 m 等高線: HiRISE 地形モデルから。区分はこちらで設定"), lx, ly, Ja ? 21 : 23, Gray);
+                b.Text(L("· slope and contours: HiRISE terrain model; classes ours", "· 傾斜と等高線: HiRISE 地形モデルから。区分はこちらで設定"), lx, ly, Ja ? 21 : 23, Gray);
             }
             else if (layer == "crism") b.Text(L($"{M.crismObservation} PHY: R {M.crismBands[0]}, G {M.crismBands[1]}, B {M.crismBands[2]} · moved {M.crismShiftM:0} m by us to fit HiRISE · brightness ×{M.crismGain}",
                                                 $"{M.crismObservation} PHY: R {M.crismBands[0]}, G {M.crismBands[1]}, B {M.crismBands[2]} · HiRISE に合わせてこちらで {M.crismShiftM:0} m 移動 · 明るさ ×{M.crismGain}"), X2, ly, 21, Gray);
@@ -389,7 +393,7 @@ namespace MissionLens
         void DrawStrip()
         {
             var s = strip; s.Clear(); var Ts = M.tasks[selTask]; const float X0 = 30; float W = s.w - 60, k = W / M.plannedTotalMin; var leg = Ts.leg >= 0 ? M.legs[Ts.leg] : null;
-            s.Box(1.5f, 1.5f, s.w - 3, s.h - 3, 28, Back, Line);
+            s.Frame(Back, Cyan);
             s.Text($"{Ts.station} {St(Ts.station).name} · {T(Ts.phase)}", X0, 52, 30, Ink, true);
             string state = Ts.index == taskIndex ? L(" · current task", " · 現在の作業") : Ts.index < taskIndex ? L(" · done", " · 完了") : "";
             s.Text(L($"{Ts.plannedMin} min", $"{Ts.plannedMin} 分") + $" · {MLData.Hm(Ts.startMin)}–{MLData.Hm(Ts.endMin)}{state}", X0 + W - 150, 52, 25, Ts.index == taskIndex ? Amber : Gray, false, 1);
@@ -433,7 +437,7 @@ namespace MissionLens
         void DrawWrist()
         {
             var s = wrist; s.Clear(); const float PW = 600, PH = 860; var Tk = Task; float y = 54, yb = PH - 196;
-            s.Box(1.5f, 1.5f, PW - 3, PH - 3, 34, new Color(12 / 255f, 15 / 255f, 20 / 255f, .95f), new Color(1, 1, 1, .22f));
+            s.Frame(new Color(12 / 255f, 15 / 255f, 20 / 255f, .95f), preview != null || stage != Stage.Field ? Cyan : Amber);
             s.Text("MISSION LENS", 34, y, 20, Gray, true);
             s.Text(stage == Stage.Giant ? L("PLAN · ROUTE PREVIEW", "PLAN · ルートの下見") : stage == Stage.Walk ? L("TERRAIN MODEL", "地形モデル") : preview != null ? L("PLAN · LOOKING AHEAD", "PLAN · 下見") : "FIELD", PW - 34, y, 20, Cyan, true, 1); y += 44;
             s.Text(M.title, 34, y, 34, Ink, true); y += 36;

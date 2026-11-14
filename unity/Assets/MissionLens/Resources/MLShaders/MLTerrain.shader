@@ -12,6 +12,7 @@ Shader "MissionLens/Terrain"
         _OCrism ("CRISM amount", Range(0, 1)) = 0
         _Dim ("Under the surface image: dark, with a metre grid", Range(0, 1)) = 0
         _Contour ("Contour lines", Range(0, 1)) = 0
+        _Step ("Contour interval (m)", Float) = 5
         _Fog ("Distance haze", Range(0, 1)) = 0
         _FogColor ("Haze colour", Color) = (0.79, 0.65, 0.49, 1)
         _InvS ("Map metres per room metre", Float) = 1
@@ -36,7 +37,7 @@ Shader "MissionLens/Terrain"
             TEXTURE2D(_Slope); SAMPLER(sampler_Slope);
             TEXTURE2D(_Crism); SAMPLER(sampler_Crism);
             CBUFFER_START(UnityPerMaterial)
-                float _OSlope, _OCrism, _Dim, _Contour, _Fog, _InvS, _LensSlope, _LensCrism;
+                float _OSlope, _OCrism, _Dim, _Contour, _Step, _Fog, _InvS, _LensSlope, _LensCrism;
                 half4 _FogColor;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -61,10 +62,10 @@ Shader "MissionLens/Terrain"
                 half4 s = SAMPLE_TEXTURE2D(_Slope, sampler_Slope, i.uv); c = lerp(c, s.rgb, s.a * oSlope);
                 half4 k = SAMPLE_TEXTURE2D(_Crism, sampler_Crism, i.uv); c = lerp(c, k.rgb, k.a * oCrism * 0.72);
 
-                // Elevation lines every 5 m, stronger every 25 m (from the terrain model).
+                // Elevation lines every _Step metres, every fifth one stronger (from the terrain model).
                 float shown = smoothstep(0.0, 36.0, i.fd.x), nearFront = exp(-abs(i.fd.x) / 16.0);
-                float line5 = MLLine(i.p.y / 5.0, 1.0), line25 = MLLine(i.p.y / 25.0, 1.6), lines = max(line5 * 0.5, line25);
-                c = lerp(c, half3(0.07, 0.04, 0.03), lines * contour * 0.5);
+                float line5 = MLLine(i.p.y / _Step, 1.25), line25 = MLLine(i.p.y / (_Step * 5.0), 1.9), lines = max(line5 * 0.6, line25);
+                c = lerp(c, half3(0.07, 0.04, 0.03), saturate(lines * contour * 0.9) * smoothstep(5.0, 22.0, i.fd.y));   // not at the person's feet when walking
                 c = lerp(c, half3(1, 1, 1), _MLLens.w * (1 - smoothstep(0.0012, 0.0026, abs(ld - _MLLens.z))) * 0.9);   // the lens's edge
 
                 // Opening: ahead of the front only a dark plate with a 50 m grid; the image arrives with the front.
