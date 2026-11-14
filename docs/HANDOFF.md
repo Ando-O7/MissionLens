@@ -103,6 +103,28 @@ python3 -m http.server 8765
 #   状態指定: ?mode=2d|3d|pov  &layers=oSlope,oHill,oThN,oThD  &hdg=45&pitch=-4  &site=Wildcat%20Ridge  &ex=1.5
 ```
 
+### Unity の操作(公式の Unity CLI)
+
+開いている Editor を CLI から操作する。Editor 側の受け口はプロジェクトに入っている `com.unity.pipeline`。CLI 自身の手引きは `unity skill show`(参考資料は `unity skill show --list` と `--path references/<名前>.md`)。
+
+```sh
+U=~/.unity/bin/unity
+P=/Users/ando/AND/develop/Prototype/NASASpaceAppsChallenge/MissionLens/unity   # 必ずこのパスを付ける
+$U open "$P"                                                    # Editor を開く(画面に出る)
+$U status --until-ready --project-path "$P" --format json       # 操作できる状態になるまで待つ(初回 約 2 分)
+$U command --tags --project-path "$P"                           # 使えるコマンドの分類。--tag <分類> --detail compact で一覧
+$U command eval 'return UnityEngine.Application.unityVersion;' --project-path "$P" --result-only
+$U command capture scene_view --project-path "$P" --result-only -- --output-path <絶対パス.png> --width 960 --height 540
+$U command console status --project-path "$P" --result-only     # コンパイル失敗の有無とエラー数
+$U recompile --project-path "$P"                                # スクリプトを書いたあと。コンパイルエラーを返す
+```
+
+- **もう一方の AI セッションの Editor(`mission-lens-codex/unity`)が同時に開いていることがある。`--project-path` を省くと、そちらを操作してしまうおそれがある。**
+- Editor 側の引数は `--` の後ろに書く(CLI 自身の `--timeout` などと衝突するため)。
+- 起動時にコンパイルエラーがあると Safe Mode になり、CLI から接続できない。エラーを直して Editor を開き直す。
+- Editor が前面にないと Play が 1 フレーム目で止まることがある。Play の前に `set_autotick` を実行し、`wait_for` でフレームが進んでいることを確かめる(`unity skill show --path references/playmode-verification-loop.md`)。
+- Editor が開いている間は、シーンやプレハブの YAML を直接書き換えない。C# ファイルの追加・編集は通常どおりでよい。
+
 確認用の画像: `experiments/phase0/out/`(`shot_3d.jpg` `shot_2d_themis.jpg` `shot_pov.jpg` `shot_pov_ne.jpg` `registration_check.jpg` `pano_dtm_horizon_check.jpg`)。
 詳細: `docs/PHASE0_REPORT.md`、経緯: `docs/WORKLOG.md`。
 3D 地形表示の作り方: `docs/TERRAIN_RENDERING.md`。別の AI セッションへ渡す共通条件: `docs/SHARED_CONDITIONS.md`。提出物の型と審査基準: `docs/SUBMISSION.md`。

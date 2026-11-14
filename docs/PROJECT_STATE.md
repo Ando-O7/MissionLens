@@ -1,6 +1,6 @@
 # PROJECT STATE
 
-最終更新: 2026-11-14 19:15 JST(UI/UX の設計を任された旨と、作り直した空間 UI の擬似版を反映)
+最終更新: 2026-11-14 19:30 JST(Unity の実装に入る方針と、Unity の操作方法を反映)
 
 ## コンセプト
 
@@ -113,7 +113,7 @@ git の管理対象は `NASASpaceAppsChallenge/MissionLens/`(このリポジト�
 
 1. **放射線データの扱い**: Gale の RAD 実測を参考値として示すか、扱わないか。出どころは回答済み(Curiosity の RAD、PDS 公開、数値は未取得)。Claude の推奨は扱わない(別の地点の計測で、局所という軸から外れる)。
 2. **触れる版(ヘッドセットなしで触れる公開物)の作り方**: ユーザーが後で決める。候補は、いまある Three.js の表示を整えたデータビューア。
-3. **次の一手**: 擬似版を WebXR 対応にして Quest で先に確かめるか、Unity へ移すか(2026-11-14 18:00 に質問、未回答)。Unity 側は、最初のスモークテスト(Quest ビルド)の担当と Meta SDK の導入も未定。
+3. **Quest 向けの XR パッケージ構成**: Unity 公式の OpenXR 系(Unity OpenXR: Meta + AR Foundation + XR Interaction Toolkit + XR Hands)か、Meta XR SDK(v209)か。Claude の推奨は前者(下の「開発環境」参照)。どちらも、この環境と実機では未検証。
 4. **画像からワールドを生成する AI を、擬似現地モードとして使うか(要検討)**。ユーザーは「擬似モードとしてはありかもしれない」との感触。Claude の推奨は今回は入れない(再整理の「観測データが不足している場所を実測の 3D 空間として表現しない」「スコープを広げない」に当たる)。
 5. デモの形式(最後に決める)。
 
@@ -136,6 +136,10 @@ git の管理対象は `NASASpaceAppsChallenge/MissionLens/`(このリポジト�
 - macOS、Python 3.9(`.venv`: numpy 2.0.2 / rasterio 1.4.3 / Pillow 11.3)、Node 24.12。GDAL 単体は無し(rasterio 同梱を使用)。
 - Unity Editor **6000.3.6f1**(Unity Hub 経由、他のバージョンは入っていない)。ビルドモジュールは Android(SDK / NDK / OpenJDK つき)、iOS、Mac。**Web(WebGL)モジュールは入っていない。**
 - Unity のバッチモードはこの環境で動く(ライセンス解決、空プロジェクト作成 15 秒、終了コード 0)。ビルドそのものは未確認。
+- **Unity の操作は公式の Unity CLI で行う**(2026-11-14 ユーザー方針、動作確認済み)。`~/.unity/bin/unity`(1.0.0-beta.13。最新は 1.0.0)。プロジェクトには `com.unity.pipeline` 1.0.0 が入っていて、開いている Editor を CLI から操作できる: C# の実行(`eval`)、再コンパイルとエラーの取得、Play、Scene / Game ビューの画像保存、コンソール、パッケージ追加、ビルドターゲットの切り替え、ビルド。手順と注意は `HANDOFF.md` の 10 章。
+- **もう一方の AI セッションの Editor(`mission-lens-codex/unity`)が同じマシンで開いていることがある。** Editor を操作するコマンドには必ず `--project-path <MissionLens/unity の絶対パス>` を付け、そちらの Editor には触れない。
+- 実機の確認手段: adb は Unity 同梱のものがある(`/Applications/Unity/Hub/Editor/6000.3.6f1/PlaybackEngines/AndroidPlayer/SDK/platform-tools/adb`)。Meta の CLI(`metavr`、旧 hzdb。インストール、ログ、画面の取得)は未導入。19:28 時点で Quest は接続されていない。
+- XR パッケージの候補: (a) Unity OpenXR: Meta(`com.unity.xr.meta-openxr`)。Unity のレジストリだけで入り、Unity の資料では Quest 向けの推奨経路。パススルーが効かない不具合(2.2.0 以降)は 2.2.1 / 2.3.1 / 2.4 系で修正済みとの記載。(b) Meta XR SDK 209。Unity 6.3 LTS との組み合わせに過去の不具合報告あり(下記)。
 - Unity のバージョンは Quest 開発の SDK 都合で決める(ユーザー方針)。Meta XR Core SDK の最新は 209.0.0(2026-11-10 公開)で、要求は Unity 6000.0.66f2 以上。6000.3.6f1 は条件を満たす。ただし Unity 6.3 と Meta SDK の組み合わせには不具合報告がある(下記 WORKLOG)。実際の組み合わせは未検証。
 - Unity 6.3 の WebGPU は実験段階。Web 書き出しは WebGL2 を使う。
 - Three.js 0.160.0 を `experiments/phase0/vendor/` に同梱。
@@ -155,7 +159,8 @@ git の管理対象は `NASASpaceAppsChallenge/MissionLens/`(このリポジト�
 
 ## 次に取り組むこと
 
-1. 次の一手(未決定 3: WebXR で Quest 確認 / Unity へ移す)をユーザーと確定する。
-2. ユーザーが擬似版を触った感想を受けて直す。
-3. 本家フォームの文面(`SUBMISSION.md`)を、いまの画面に合わせて埋める。
-4. 余力があれば `UI_DECISIONS.md` の検討中の項目。
+1. XR パッケージ構成(未決定 3)をユーザーと確定する。
+2. Unity で地形メッシュを表示する(`TERRAIN_RENDERING.md` の 10 章)。Editor を CLI で操作し、画像で確認しながら進める。
+3. 擬似版の流れ(PLAN のボードと時間割、FIELD の帯と手首パネル、記録)を Unity に移す。仕様は擬似版と `UI_DECISIONS.md`。
+4. Quest 向けのビルドと実機確認(実機はユーザー)。
+5. 本家フォームの文面(`SUBMISSION.md`)を埋める。
