@@ -48,7 +48,7 @@ namespace MissionLens
             root = (RectTransform)go.transform;
             root.sizeDelta = new Vector2(w, h);
             SetWorldWidth(worldWidth);
-            measurer = New<TextMeshProUGUI>("measure"); measurer.enabled = false; measurer.textWrappingMode = TextWrappingModes.NoWrap;
+            measurer = New<TextMeshProUGUI>("measure"); measurer.enabled = false; measurer.textWrappingMode = TextWrappingModes.NoWrap; measurer.font = MLText.Font;
             EnsureSprites();
             hoverFill = Sliced(sRound, 0, 0, 10, 10, 14, Color.clear); hoverRing = Sliced(sRing, 0, 0, 10, 10, 14, Color.clear);
             hoverFill.name = hoverRing.name = "hover"; hoverFill.enabled = hoverRing.enabled = false;
@@ -118,7 +118,7 @@ namespace MissionLens
         {
             var t = New<TextMeshProUGUI>("text");
             Place(t.rectTransform, x, y, 0, 0, new Vector2(align < 0 ? 0 : align == 0 ? .5f : 1, .5f));
-            t.text = s; t.fontSize = px; t.color = col; t.fontStyle = bold ? FontStyles.Bold : FontStyles.Normal;
+            t.font = MLText.Font; t.text = s; t.fontSize = px; t.color = col; t.fontStyle = bold ? FontStyles.Bold : FontStyles.Normal;
             t.textWrappingMode = TextWrappingModes.NoWrap; t.overflowMode = TextOverflowModes.Overflow; t.raycastTarget = false;
             t.alignment = align < 0 ? TextAlignmentOptions.BaselineLeft : align == 0 ? TextAlignmentOptions.Baseline : TextAlignmentOptions.BaselineRight;
             if (overlay) t.fontSharedMaterial = OverlayFont(t.font);
@@ -134,6 +134,7 @@ namespace MissionLens
         /// <summary>Word-wrapped text; returns the baseline for whatever comes next.</summary>
         public float Wrap(string s, float x, float y, float width, float lineHeight, float px, Color col, bool bold = false, int align = -1)
         {
+            if (MLText.HasCjk(s)) return WrapCjk(s, x, y, width, lineHeight, px, col, bold, align);
             var line = "";
             foreach (var word in s.Split(' '))
             {
@@ -141,6 +142,30 @@ namespace MissionLens
                 line += word + " ";
             }
             Text(line.TrimEnd(), x, y, px, col, bold, align);
+            return y + lineHeight;
+        }
+
+        // Japanese has no spaces to break at: a line may break after any Japanese character, runs of Latin letters and
+        // digits stay whole, and a line does not begin with closing punctuation. Japanese glyphs are one em wide,
+        // so only the Latin runs need measuring.
+        float WrapCjk(string s, float x, float y, float width, float lineHeight, float px, Color col, bool bold, int align)
+        {
+            var line = new System.Text.StringBuilder(); float lw = 0; int i = 0;
+            while (i < s.Length)
+            {
+                int j = i; string tok;
+                if (s[i] >= 0x2E80 || s[i] == ' ') { tok = s[i].ToString(); j = i + 1; }
+                else { while (j < s.Length && s[j] < 0x2E80 && s[j] != ' ') j++; tok = s.Substring(i, j - i); }
+                float tw = tok == " " ? px * .28f : tok[0] >= 0x2E80 ? px * (bold ? 1.03f : 1f) : Measure(tok, px, bold);
+                bool hang = tok.Length == 1 && MLText.NoLineStart(tok[0]);
+                if (lw + tw > width && line.Length > 0 && !hang)
+                {
+                    Text(line.ToString().TrimEnd(), x, y, px, col, bold, align); y += lineHeight; line.Clear(); lw = 0;
+                    if (tok == " ") { i = j; continue; }
+                }
+                line.Append(tok); lw += tw; i = j;
+            }
+            Text(line.ToString().TrimEnd(), x, y, px, col, bold, align);
             return y + lineHeight;
         }
 
@@ -168,6 +193,16 @@ namespace MissionLens
             im.sprite = sRound; im.type = Image.Type.Sliced; im.pixelsPerUnitMultiplier = 24f / Mathf.Max(1f, thickness / 2); im.color = c; im.raycastTarget = false;
             if (overlay) im.material = OverlayImage();
             return im;
+        }
+
+        /// <summary>A thin circle. (A box's outline is a small sprite stretched: at a large radius it would come out thick and soft.)</summary>
+        public void Circle(float cx, float cy, float radius, float thickness, Color c, int segments = 96)
+        {
+            for (int i = 0; i < segments; i++)
+            {
+                float a = i * Mathf.PI * 2 / segments, b = (i + 1) * Mathf.PI * 2 / segments;
+                Stroke(cx + Mathf.Sin(a) * radius, cy - Mathf.Cos(a) * radius, cx + Mathf.Sin(b) * radius, cy - Mathf.Cos(b) * radius, thickness, c);
+            }
         }
 
         /// <summary>A tick mark inside the box (x, y, size).</summary>

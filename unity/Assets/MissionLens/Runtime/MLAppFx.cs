@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using static MissionLens.MLPanel;
+using static MissionLens.MLText;
 
 namespace MissionLens
 {
@@ -199,7 +200,7 @@ namespace MissionLens
             s.Box(0, y0, W, bh, 30, new Color(8 / 255f, 10 / 255f, 14 / 255f, .9f), new Color(1, 1, 1, .2f));
             s.Text(top, W / 2, y0 + 62, 24, Cyan, true, 0); s.Text(main, W / 2, y0 + 138, 64, Ink, true, 0);
             s.Wrap(sub, W / 2, y0 + 192, W - 120, 34, 25, Soft, false, 0);
-            if (bannerHasButton) s.Button(button, W / 2 - 210, y0 + bh - 104, 420, 72, fn, primary: true, px: 28);
+            if (bannerHasButton) s.Button(button, W / 2 - 210, y0 + bh - 104, 420, 72, fn, primary: true, px: 28, key: "Review at the table");
             if (rig.xr)
             {   // fixed in the room where the person is looking now
                 var yaw = Quaternion.Euler(0, rig.HeadYaw, 0); var at = rig.Head.position + yaw * new Vector3(0, bannerHasButton ? -.05f : .1f, 1.5f);
@@ -213,13 +214,14 @@ namespace MissionLens
         {
             if (Finished) { MissionComplete(); return; }
             var st = St(id); sfx.Play("arrive");
-            ShowBanner(preview != null ? $"LOOKING AHEAD AT STATION {st.id}  ·  NASA OBSERVATION" : $"STATION {st.id}  ·  NASA OBSERVATION", st.name, $"Mastcam-Z panorama, {st.panoSols} · {st.panoCredit} · seen from the rover's mast, about 2 m above the ground", 3.6f);
+            ShowBanner(preview != null ? L($"LOOKING AHEAD AT STATION {st.id}  ·  NASA OBSERVATION", $"地点 {st.id} の下見  ·  NASA の観測") : L($"STATION {st.id}  ·  NASA OBSERVATION", $"地点 {st.id}  ·  NASA の観測"), st.name,
+                L($"Mastcam-Z panorama, {st.panoSols} · {st.panoCredit} · seen from the rover's mast, about 2 m above the ground", $"Mastcam-Z パノラマ、{st.panoSols} · {st.panoCredit} · ローバーのマスト(地面から約 2 m)から見た景色"), 3.6f);
         }
         void MissionComplete()
         {
             sfx.Play("complete"); int n = marks.Count;
-            ShowBanner("HYPOTHETICAL MARSWALK  ·  SIMULATED RUN", "Marswalk complete",
-                $"{M.tasks.Length} tasks stepped through · {M.routeTotalM:0} m on foot · {(n == 0 ? "no candidates" : n == 1 ? "1 candidate" : n + " candidates")} recorded", 0, "Review at the table", ToTable);
+            ShowBanner(L("HYPOTHETICAL MARSWALK  ·  SIMULATED RUN", "仮想の Marswalk  ·  模擬の実行"), L("Marswalk complete", "Marswalk 完了"),
+                L($"{M.tasks.Length} tasks stepped through · {M.routeTotalM:0} m on foot · {(n == 0 ? "no candidates" : n == 1 ? "1 candidate" : n + " candidates")} recorded", $"{M.tasks.Length} 作業を実施 · 徒歩 {M.routeTotalM:0} m · 候補の記録 {n} 件"), 0, L("Review at the table", "机で振り返る"), ToTable);
         }
     }
 }

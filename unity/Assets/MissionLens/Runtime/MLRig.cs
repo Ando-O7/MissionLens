@@ -24,6 +24,9 @@ namespace MissionLens
             public bool active, held, down;      // down: pressed this frame
             public Vector3 origin; public Quaternion rotation = Quaternion.identity;
             public Ray Ray => new Ray(origin, rotation * Vector3.forward);
+            // How the hand itself is turned (its forward runs along the hand): the wrist joint from hand tracking, or
+            // the controller. For things that are turned in the hand; the pointing ray is steadied and barely rolls.
+            public Quaternion grip = Quaternion.identity; public Vector3 gripAt;
             public float hitDistance = -1;       // set by the app each frame, for the ray visual
             public bool controller;              // a held controller rather than a bare hand
             public bool grabDown;                // began holding this frame (a pinch or trigger; on a desktop, the mouse button going down)
@@ -58,6 +61,8 @@ namespace MissionLens
         public bool anyKey;                      // desktop: Enter pressed this frame (stands in for the first press)
         /// <summary>For checks from the Editor: aim the desktop pointer through this viewport point instead of the mouse.</summary>
         public Vector2? debugAim; public bool debugClick, debugHold;
+        /// <summary>For checks from the Editor: how far the desktop pointer's "hand" is rolled, in degrees.</summary>
+        public float debugRoll;
         // Desktop only: wheel steps and Q / E this frame, and whether a drag is moving the table's map (not the view).
         public float wheel, turn; public bool lookLocked;
         /// <summary>0 while the person can see their real hands (passthrough), 1 once they cannot. Sets how solid the drawn hands are.</summary>
@@ -162,24 +167,31 @@ namespace MissionLens
             {
                 ReadHand(right, true); ReadHand(left, false);
                 // The outlines are a nicety; if the hand data misbehaves on some runtime, drop them rather than the frame.
-                if (!handsFailed) try { UpdateHandModels(); DrawHands(); } catch (System.Exception e) { handsFailed = true; HideHands(0, 10); Debug.LogWarning("Hand drawing switched off: " + e.Message); }
+                if (!handsFailed) try { FindHands(); ReadGrip(right, 0); ReadGrip(left, 1); UpdateHandModels(); DrawHands(); } catch (System.Exception e) { handsFailed = true; HideHands(0, 10); Debug.LogWarning("Hand drawing switched off: " + e.Message); }
                 if (right.active || left.active) lastHandTime = Time.time;
                 if (right.down || left.down) everPressed = true;
                 gaze.active = !everPressed && Time.time - lastHandTime > 2.5f; gaze.origin = Head.position; gaze.rotation = Head.rotation;
             }
-            else ReadDesktop();
+            else { ReadDesktop(); mouse.grip = mouse.rotation * Quaternion.Euler(0, 0, debugRoll); mouse.gripAt = mouse.origin; }
+        }
+
+        void FindHands()
+        {
+            if ((handSystem != null && handSystem.running) || Time.time < nextHandSearch) return;
+            nextHandSearch = Time.time + 1; SubsystemManager.GetSubsystems(handSystems);
+            handSystem = handSystems.Find(h => h.running) ?? (handSystems.Count > 0 ? handSystems[0] : null);
+        }
+        void ReadGrip(Pointer p, int side)
+        {
+            if (!p.active || p.controller || handSystem == null || !handSystem.running) return;
+            var hand = side == 0 ? handSystem.rightHand : handSystem.leftHand;
+            if (hand.isTracked && hand.GetJoint(XRHandJointID.Wrist).TryGetPose(out UnityEngine.Pose pose)) { p.grip = space.rotation * pose.rotation; p.gripAt = space.TransformPoint(pose.position); }
         }
 
         // Finger outlines from the hand-tracking joints, in place of the hands the person can no longer see.
         void DrawHands()
         {
-            if (handSystem == null || !handSystem.running)
-            {
-                if (Time.time < nextHandSearch) { HideHands(0, 10); return; }
-                nextHandSearch = Time.time + 1; SubsystemManager.GetSubsystems(handSystems);
-                handSystem = handSystems.Find(h => h.running) ?? (handSystems.Count > 0 ? handSystems[0] : null);
-                if (handSystem == null) { HideHands(0, 10); return; }
-            }
+            if (handSystem == null || !handSystem.running) { HideHands(0, 10); return; }
             for (int side = 0; side < 2; side++)
             {
                 var hand = side == 0 ? handSystem.rightHand : handSystem.leftHand;
@@ -263,7 +275,7 @@ namespace MissionLens
             var aim = isRight ? MetaAimHand.right : MetaAimHand.left;
             if (aim != null && aim.added && ((MetaAimFlags)aim.aimFlags.value & MetaAimFlags.Valid) != 0)
             {
-                p.active = true; p.origin = space.TransformPoint(aim.devicePosition.value); p.rotation = space.rotation * aim.deviceRotation.value; p.held = aim.indexPressed.isPressed;
+                p.active = true; p.origin = space.TransformPoint(aim.devicePosition.value); p.rotation = p.grip = space.rotation * aim.deviceRotation.value; p.gripAt = p.origin; p.held = aim.indexPressed.isPressed;
             }
             else
             {
@@ -273,7 +285,7 @@ namespace MissionLens
                     var pos = c.TryGetChildControl<Vector3Control>("pointerPosition") ?? c.devicePosition;
                     var rot = c.TryGetChildControl<QuaternionControl>("pointerRotation") ?? c.deviceRotation;
                     var trigger = c.TryGetChildControl<ButtonControl>("triggerPressed");
-                    p.active = true; p.controller = true; p.origin = space.TransformPoint(pos.value); p.rotation = space.rotation * rot.value; p.held = trigger != null && trigger.isPressed;
+                    p.active = true; p.controller = true; p.origin = space.TransformPoint(pos.value); p.rotation = p.grip = space.rotation * rot.value; p.gripAt = p.origin; p.held = trigger != null && trigger.isPressed;
                 }
             }
             p.down = p.grabDown = p.active && p.held && !was;

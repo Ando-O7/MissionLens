@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using static MissionLens.MLText;
 
 namespace MissionLens
 {
@@ -75,6 +76,7 @@ namespace MissionLens
         void Awake()
         {
             I = this;
+            MLText.lang = PlayerPrefs.GetString("ml.lang", "en") == "ja" ? "ja" : "en";
             D = MLData.Load(); M = D.M;
             rig = MLRig.Create(); sfx = new MLAudio(rig.gameObject);
             selTask = 0; sel = M.tasks[0].station;
@@ -325,7 +327,7 @@ namespace MissionLens
         {
             if (Finished) return;
             taskIndex++; done.Clear(); sfx.Play("done"); Refresh();
-            if (!Finished) Flash($"Task complete · T+ {MLData.Hm(Pet)} on the planned timeline", 3); else MissionComplete();
+            if (!Finished) Flash(L($"Task complete · T+ {MLData.Hm(Pet)} on the planned timeline", $"作業を完了 · 計画上の T+ {MLData.Hm(Pet)}"), 3); else MissionComplete();
         }
         public void ToggleCheck(int i) { if (!done.Remove(i)) done.Add(i); sfx.Play("toggle"); Refresh(); }
         public void ToggleWrist() { if (!OnTable) { wristUp = !wristUp; sfx.Play("toggle", .6f); wristPlaced = false; Refresh(); } }
@@ -341,7 +343,7 @@ namespace MissionLens
             panoTarget = 0; roomTarget = 1; introDone = false; frontR = 0; routeDraw = 0; plateK = 0; moving = false;
             foreach (var p in pins) p.shown = false;
             if (framing != null) framing = null;
-            tv = tvDefault; tableEx = 1; baseY = BaseFor(tv); grabs.Clear();
+            tv = tvDefault; tableEx = 1; baseY = BaseFor(tv); grabs.Clear(); ResetTools();
             stage = Stage.Title; view = TableView(); ApplyView();
             if (!rig.xr) StartCoroutine(Look(1.2f, tableFrame.eulerAngles.y, -3));
             Refresh();
@@ -417,7 +419,7 @@ namespace MissionLens
             m.label = MakeMarkLabel(m.n); marks.Add(m);
             if (Task.recordCheck >= 0) done.Add(Task.recordCheck);
             sfx.Play("mark"); Ripple(world.TransformPoint(m.local), MLPanel.Amber, Mathf.Clamp(dist * .16f, .3f, 12f));
-            Refresh(); Flash($"Candidate {m.n} marked · {dist:0} m · bearing {MLData.Deg3(m.az)}° · simulated record");
+            Refresh(); Flash(L($"Candidate {m.n} marked · {dist:0} m · bearing {MLData.Deg3(m.az)}° · simulated record", $"候補 {m.n} に印 · {dist:0} m · 方位 {MLData.Deg3(m.az)}° · 模擬の記録"));
         }
         public void UndoMark()
         {
@@ -452,6 +454,7 @@ namespace MissionLens
             terrainMat.SetFloat("_Contour", oSlope);
             terrainMat.SetFloat("_Fog", clipG * (1 - panoOpacity)); terrainMat.SetFloat("_InvS", 1 / world.localScale.x);
             panoMat.SetFloat("_Opacity", panoOpacity); panoR.enabled = shownPano != null && panoOpacity > .01f;
+            if (panoR.enabled) { panoMat.SetMatrix("_ToMap", world.worldToLocalMatrix); panoMat.SetFloat("_FloorY", rig.transform.position.y); }
             panoT.position = rig.Head.position; panoT.rotation = Quaternion.Euler(0, view.yaw, 0);
             // What is behind the table: the real room (passthrough) or, if chosen, the plain studio room.
             studioK = Mathf.MoveTowards(studioK, rig.xr && !studio ? 0 : 1, dt * 1.5f);
@@ -482,6 +485,8 @@ namespace MissionLens
             {
                 bool gaze = p == rig.gaze;
                 p.hitDistance = -1; p.overSurface = false; if (!p.active) { p.hoverPanel = null; p.hoverKey = null; continue; }
+                // A hand that is at the lens or the timer is there to pick it up, not to press what lies beyond it.
+                if (!gaze && HandAtTool(p)) { p.hoverPanel = null; p.hoverKey = null; continue; }
                 var ray = p.Ray; MLPanel hit = null; MLPanel.Btn btn = null; float best = float.MaxValue;
                 foreach (var s in Surfaces())
                 {
@@ -529,7 +534,7 @@ namespace MissionLens
                     if (!reticle) { reticle = true; PlaceReticle(at, p.hitDistance); }
                     if (p.down) { rig.Haptic(p, .8f, .08f); AddMark(local, dist, world.InverseTransformDirection(ray.direction).normalized); }
                 }
-                else if (CanMark && p.down && !busy) { sfx.Play("deny"); Flash("No terrain model in that direction"); }
+                else if (CanMark && p.down && !busy) { sfx.Play("deny"); Flash(L("No terrain model in that direction", "その方向には地形モデルがありません")); }
             }
             if (!reticle) HideReticle();
             if (!rig.gaze.active) HideGazeDot();

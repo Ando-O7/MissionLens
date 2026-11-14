@@ -33,10 +33,13 @@ def fill_gaps(path):
     """A panorama with its uncovered (black) parts filled in, and a mask of what was really observed.
 
     The mosaics have no pixels where the rover's own deck was masked out and at a few missing frames. Shown
-    as they are, those parts are black holes in the scene. Here each hole is filled with a smooth blend of the
-    image around it (a push-pull fill: averages of the valid pixels at coarser and coarser scales, pulled back
-    up into the holes). The fill is ours, not an observation; the mask lets the app draw it differently
-    (duller and darker) so it does not pass for image. Returns (filled RGB image, mask L image: 255 = observed).
+    as they are, those parts are black holes in the scene. Here each hole gets a plain colour: for every
+    direction round the horizon, the typical colour of the ground the image does show that way, varying
+    smoothly with direction. Nothing of the image is smeared into a hole, so no shapes appear there that
+    were not photographed (an earlier version blended the surroundings in, and read as a blurred-out photo).
+    The fill is ours, not an observation; the mask lets the app draw it differently (duller, with a grid)
+    so it does not pass for image. Returns (filled RGB image, mask L image: 255 = observed, the fraction
+    filled, and the fill's mean colour for straight down).
     """
     im = Image.open(path).convert("RGB")
     full = np.asarray(im).astype(np.float32)
@@ -46,27 +49,26 @@ def fill_gaps(path):
     hole_im = Image.fromarray(((full.sum(axis=2) <= 30) * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(21)).filter(ImageFilter.MaxFilter(31))
     valid_im = Image.eval(hole_im, lambda p: 255 - p)
     w, h = im.size
-    half = np.asarray(im.resize((w // 2, h // 2), Image.BOX)).astype(np.float32)
-    # Bright rover hardware at a hole's edge would bleed into the fill as pale blobs: cap what the fill may pick up.
-    half = np.minimum(half, np.percentile(half[half.sum(axis=2) > 30], 80, axis=0))
-    v = np.asarray(valid_im.resize((w // 2, h // 2), Image.NEAREST)) > 127
-    levels, a, wt = [], half * v[..., None], v.astype(np.float32)
-    while min(a.shape[:2]) > 4:
-        levels.append((a, wt))
-        hh, ww = a.shape[0] // 2 * 2, a.shape[1] // 2 * 2
-        a = a[:hh, :ww].reshape(hh // 2, 2, ww // 2, 2, 3).sum(axis=(1, 3))
-        wt = wt[:hh, :ww].reshape(hh // 2, 2, ww // 2, 2).sum(axis=(1, 3))
-    col = a / np.maximum(wt, 1e-6)[..., None]
-    col[wt <= 0] = col[wt > 0].mean(axis=0) if (wt > 0).any() else 0
-    for a, wt in reversed(levels):
-        up = np.asarray(Image.fromarray(np.clip(col, 0, 255).astype(np.uint8)).resize((a.shape[1], a.shape[0]), Image.BILINEAR)).astype(np.float32)
-        col = np.where(wt[..., None] > 0, a / np.maximum(wt, 1e-6)[..., None], up)
-    filled_half = Image.fromarray(np.clip(col, 0, 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(14))
-    filled = filled_half.resize((w, h), Image.BILINEAR)
-    out = Image.composite(im, filled, valid_im.filter(ImageFilter.GaussianBlur(3)))   # observed pixels stay exactly as they are away from the edge
-    mask = valid_im.resize((1024, max(1, round(1024 * h / w))), Image.BOX).filter(ImageFilter.GaussianBlur(1.2))
-    low = np.asarray(out).astype(np.float32)[-max(4, h // 40):].reshape(-1, 3).mean(axis=0)   # colour of the lowest rows, for straight down
-    return out, mask, 1 - float((np.asarray(valid_im) > 127).mean()), [round(float(c) / 255, 3) for c in low]
+    sw, sh = 1024, max(1, round(1024 * h / w))
+    small = np.asarray(im.resize((sw, sh), Image.BOX)).astype(np.float32)
+    v = np.asarray(valid_im.resize((sw, sh), Image.BOX)) > 250
+    # The ground colour in each direction: the median of the observed pixels in the lower half of that column.
+    cols, ok = np.zeros((sw, 3), np.float32), np.zeros(sw, np.float32)
+    for x in range(sw):
+        px = small[sh // 2:, x][v[sh // 2:, x]]
+        if len(px) >= 8:
+            cols[x], ok[x] = np.median(px, axis=0), 1
+    # ... smoothed round the horizon (the mosaic wraps), which also carries it across directions with no ground at all
+    k = np.exp(-0.5 * (np.arange(-160, 161) / 48.0) ** 2)
+    smooth = lambda a: np.convolve(np.concatenate([a[-160:], a, a[:160]]), k, mode="valid")
+    wt = np.maximum(smooth(ok), 1e-6)
+    colour = np.stack([smooth(cols[:, c]) / wt for c in range(3)], axis=1)
+    filled = Image.fromarray(np.clip(np.repeat(colour[None], 4, axis=0), 0, 255).astype(np.uint8)).resize((w, h), Image.BILINEAR)
+    # The image fades into the fill over its own last few pixels; no black from inside the hole is mixed in.
+    feather = Image.eval(valid_im.filter(ImageFilter.GaussianBlur(7)), lambda p: max(0, min(255, (p - 128) * 2)))
+    out = Image.composite(im, filled, feather)
+    mask = valid_im.resize((sw, sh), Image.BOX).filter(ImageFilter.GaussianBlur(1.2))
+    return out, mask, 1 - float((np.asarray(valid_im) > 127).mean()), [round(float(c) / 255, 3) for c in colour.mean(axis=0)]
 
 
 def main():
