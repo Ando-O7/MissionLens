@@ -130,12 +130,16 @@ namespace MissionLens
             var routeShader = Resources.Load<Shader>("MLShaders/MLRoute"); float u0 = 0;
             for (int li = 0; li < M.legs.Length; li++)
             {
-                var leg = M.legs[li]; int n = leg.route.Length / 2; var p = new Vector3[n];
-                for (int i = 0; i < n; i++) p[i] = D.Local(leg.route[i * 2], leg.route[i * 2 + 1]);
+                var leg = M.legs[li]; int n = leg.route.Length / 2; var p = new Vector3[n]; var tint = new Color[n];
+                for (int i = 0; i < n; i++)
+                {
+                    p[i] = D.Local(leg.route[i * 2], leg.route[i * 2 + 1]);
+                    tint[i] = SlopeClass(D.SlopeDeg(leg.route[i * 2], leg.route[i * 2 + 1]));   // where the leg is steep, in the slope layer's colours
+                }
                 var o = new LegObj { index = li, leg = leg, ribbon = new Material(routeShader), wide = new Material(routeShader) };
                 o.ribbon.SetFloat("_Dash", 3.2f); o.wide.SetFloat("_Dash", 26f); o.ribbon.SetVector("_Near", new Vector4(3, 14, 0, 0));
-                o.ribbonGo = Add("Route " + leg.from + "-" + leg.to, MLMesh.Ribbon(p, .25f, .3f, u0), o.ribbon, world).gameObject;
-                o.wideGo = Add("Route wide " + leg.from + "-" + leg.to, MLMesh.Ribbon(p, 1.6f, 2.2f, u0), o.wide, world).gameObject;
+                o.ribbonGo = Add("Route " + leg.from + "-" + leg.to, MLMesh.Ribbon(p, .25f, .3f, u0, tint), o.ribbon, world).gameObject;
+                o.wideGo = Add("Route wide " + leg.from + "-" + leg.to, MLMesh.Ribbon(p, 1.6f, 2.2f, u0, tint), o.wide, world).gameObject;
                 legs.Add(o);
                 for (int i = 1; i < n; i++) u0 += Vector2.Distance(new Vector2(p[i].x, p[i].z), new Vector2(p[i - 1].x, p[i - 1].z));
             }
@@ -147,6 +151,10 @@ namespace MissionLens
 
             if (!rig.xr) BuildMockRoom();
         }
+
+        // The slope layer's classes (our class breaks): 10-15, 15-20, over 20 degrees. Below 10: no colour.
+        public static readonly Color Slope10 = new Color(1, .84f, .25f), Slope15 = new Color(1, .55f, .16f), Slope20 = new Color(.92f, .2f, .2f);
+        static Color SlopeClass(float deg) => deg >= 20 ? Slope20 : deg >= 15 ? Slope15 : deg >= 10 ? Slope10 : Color.clear;
 
         MeshRenderer Add(string name, Mesh mesh, Material mat, Transform parent)
         {

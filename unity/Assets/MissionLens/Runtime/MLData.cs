@@ -64,6 +64,13 @@ namespace MissionLens
             return (dtm[i] * (1 - u) + dtm[i + 1] * u) * (1 - v) + (dtm[i + gw] * (1 - u) + dtm[i + gw + 1] * u) * v;
         }
 
+        /// <summary>Ground slope in degrees at a map position, from heights 2 m to either side (our calculation).</summary>
+        public float SlopeDeg(float x, float zSouth)
+        {
+            float gx = (Elev(x + 2, zSouth) - Elev(x - 2, zSouth)) / 4, gz = (Elev(x, zSouth + 2) - Elev(x, zSouth - 2)) / 4;
+            return Mathf.Atan(Mathf.Sqrt(gx * gx + gz * gz)) * Mathf.Rad2Deg;
+        }
+
         /// <summary>Map position to the terrain's local frame in Unity: x east, y up, z NORTH.</summary>
         public Vector3 Local(float x, float zSouth, float lift = 0) => new Vector3(x, Elev(x, zSouth) + lift, -zSouth);
 

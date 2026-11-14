@@ -17,18 +17,22 @@ namespace MissionLens
             var m = new Mesh { name = "Box" }; m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateBounds(); return m;
         }
 
-        /// <summary>A flat band along a path, lifted above it. uv.x: metres along the path from u0, uv.y: 0..1 across.</summary>
-        public static Mesh Ribbon(Vector3[] p, float halfWidth, float lift, float u0 = 0)
+        /// <summary>
+        /// A flat band along a path, lifted above it. uv.x: metres along the path from u0, uv.y: 0..1 across.
+        /// tint: an optional colour per path point (alpha 0 = none), carried as vertex colour.
+        /// </summary>
+        public static Mesh Ribbon(Vector3[] p, float halfWidth, float lift, float u0 = 0, Color[] tint = null)
         {
-            var v = new Vector3[p.Length * 2]; var uv = new Vector2[v.Length]; var t = new List<int>(); float u = u0;
+            var v = new Vector3[p.Length * 2]; var uv = new Vector2[v.Length]; var col = new Color[v.Length]; var t = new List<int>(); float u = u0;
             for (int i = 0; i < p.Length; i++)
             {
                 var d = p[Mathf.Min(i + 1, p.Length - 1)] - p[Mathf.Max(i - 1, 0)]; var side = new Vector3(-d.z, 0, d.x).normalized * halfWidth; var c = p[i] + Vector3.up * lift;
                 if (i > 0) u += Vector2.Distance(new Vector2(p[i].x, p[i].z), new Vector2(p[i - 1].x, p[i - 1].z));
                 v[i * 2] = c - side; v[i * 2 + 1] = c + side; uv[i * 2] = new Vector2(u, 0); uv[i * 2 + 1] = new Vector2(u, 1);
+                col[i * 2] = col[i * 2 + 1] = tint != null ? tint[i] : Color.clear;
                 if (i > 0) t.AddRange(new[] { 2 * i - 2, 2 * i - 1, 2 * i, 2 * i - 1, 2 * i + 1, 2 * i });
             }
-            var m = new Mesh { name = "Ribbon" }; m.SetVertices(v); m.SetUVs(0, uv); m.SetTriangles(t, 0); m.RecalculateBounds(); return m;
+            var m = new Mesh { name = "Ribbon" }; m.SetVertices(v); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(t, 0); m.RecalculateBounds(); return m;
         }
 
         /// <summary>

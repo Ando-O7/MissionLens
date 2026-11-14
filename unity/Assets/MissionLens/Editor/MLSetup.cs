@@ -95,6 +95,11 @@ namespace MissionLens.EditorTools
         public static string ConfigurePlayer()
         {
             var android = NamedBuildTarget.Android;
+            // Builds log one NullReferenceException from an OpenXR validation rule (MetaQuestFeature.cs:539). It looks
+            // for the Meta Quest feature under the platform *selected* in the build settings window, which is
+            // Standalone here. It is only a log line; the build is unaffected. Do not "fix" it by selecting Android:
+            // a package then rewrites the Android scripting defines on every entry to Play mode, and the recompile
+            // that follows wipes the running app's state.
             PlayerSettings.companyName = "Mission Lens";
             PlayerSettings.productName = "Mission Lens";
             PlayerSettings.SetApplicationIdentifier(android, "com.missionlens.eva01");

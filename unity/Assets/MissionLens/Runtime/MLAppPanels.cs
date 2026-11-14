@@ -200,6 +200,7 @@ namespace MissionLens
                 o.ribbonGo.SetActive(!table && (next || stage != Stage.Field)); o.wideGo.SetActive(table);
                 var c = Cyan; c.a = next ? (stage == Stage.Field ? .5f : .7f) : .2f; o.ribbon.SetColor("_Color", c); o.ribbon.SetFloat("_Flow", next ? 1 : 0); o.ribbon.SetFloat("_Speed", back ? -1.6f : 1.6f);
                 var wc = next ? Cyan : Color.white; wc.a = next ? .98f : .42f; o.wide.SetColor("_Color", wc); o.wide.SetFloat("_Flow", next ? 1 : 0); o.wide.SetFloat("_Speed", 14f);
+                o.ribbon.SetFloat("_Tint", next ? 1 : 0); o.wide.SetFloat("_Tint", next ? 1 : 0);
             }
             if (stage == Stage.Title) return;
             if (table) { DrawBoard(); DrawStrip(); DrawLegend(); } else { DrawWrist(); DrawHud(); }
@@ -345,7 +346,15 @@ namespace MissionLens
             int ti = selTask;
             s.Button("‹", X0 + W - 128, 18, 58, 48, () => SelectTask(ti - 1), dim: ti == 0, px: 30, key: "PrevTask");
             s.Button("›", X0 + W - 58, 18, 58, 48, () => SelectTask(ti + 1), dim: ti == M.tasks.Length - 1, px: 30, key: "NextTask");
-            s.Text(leg != null ? $"Walk {leg.distM:0} m from {leg.from}: climb {leg.ascentM:0} m, steepest {leg.slopeMaxDeg:0}°, {Mathf.RoundToInt(leg.pctOnTrack * 100)}% on ground Perseverance drove. About {Mathf.RoundToInt(leg.estWalkMin)} min at {M.walkSpeed} m/s (our assumption)." : string.Join("  ·  ", T.checks), X0, 90, 23, Gray);
+            string line = leg != null ? $"Walk {leg.distM:0} m from {leg.from} · climb {leg.ascentM:0} m · steepest {leg.slopeMaxDeg:0}° · {Mathf.RoundToInt(leg.pctOnTrack * 100)}% on Perseverance's track · about {Mathf.RoundToInt(leg.estWalkMin)} min at {M.walkSpeed} m/s" : string.Join("  ·  ", T.checks);
+            s.Text(line, X0, 90, 23, Gray);
+            if (leg != null)
+            {   // what the colours on the selected leg mean (the slope layer's classes)
+                float lx = X0 + W, textEnd = X0 + s.Measure(line, 23);
+                foreach (var (c, t) in new[] { (Slope20, "over 20°"), (Slope15, "15–20°"), (Slope10, "10–15°") })
+                { lx -= s.Measure(t, 20); s.Text(t, lx, 90, 20, Soft); lx -= 26; s.Box(lx, 74, 18, 18, 4, c); lx -= 16; }
+                if (lx - s.Measure("slope on the route", 20) > textEnd + 24) s.Text("slope on the route", lx, 90, 20, Dim, false, 1);
+            }
             foreach (var t in M.tasks)
             {
                 float x = X0 + t.startMin * k, w = t.plannedMin * k - 4; bool on = t.index == selTask; int i = t.index;
@@ -358,7 +367,7 @@ namespace MissionLens
             }
             for (int m = 0; m < M.plannedTotalMin; m += 60) s.Text(MLData.Hm(m), X0 + m * k, 212, 20, Gray);
             s.Text(MLData.Hm(M.plannedTotalMin), X0 + W, 212, 20, Gray, false, 1);
-            s.Text("Tasks and durations follow the BASALT-2 planned EVA timeline (Beaton et al. 2019, Table 2) · amber outline: current task", X0, 248, 20, Dim);
+            s.Text("Timeline after the BASALT-2 planned EVA (Beaton et al. 2019, Table 2) · walking times and slope classes are ours · amber outline: current task", X0, 248, 20, Dim);
             float bx = s.w - 30; bool armed = Time.time < restartArmedUntil;
             if (rig.xr) { bx -= 200; s.Button("Bring table here", bx, 222, 200, 40, PlaceTable, px: 19); bx -= 12; }
             float rw = armed ? 250 : 120; bx -= rw;
