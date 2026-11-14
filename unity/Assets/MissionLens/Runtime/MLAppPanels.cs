@@ -255,6 +255,9 @@ namespace MissionLens
             s.Text(rig.xr ? "Point with a hand and pinch, or pull a controller trigger" : "Click, or press Enter · drag to look around", X + 476, rig.xr ? 764 : 782, 26, Gray);
             if (rig.xr) s.Text("No hand or controller in view? Look at a button and hold still.", X + 476, 800, 22, Dim);
             s.Text("Data: NASA/JPL-Caltech/UArizona (HiRISE) · NASA/JPL-Caltech/ASU/MSSS (Mastcam-Z) · NASA/JPL-Caltech/JHUAPL (CRISM) · NASA/JPL-Caltech/CAB (MEDA)", X, 850, 19, Dim);
+            // which build this is, so that it can be told apart from the one before it
+            var stamp = Resources.Load<TextAsset>("ML/build");
+            if (stamp != null) s.Text("Build " + stamp.text.Trim(), X + W, 68, 22, Gray, false, 1);
         }
 
         // The sign beside the model: which way is north on the table, a scale bar, the scale, and the table's own

@@ -28,3 +28,7 @@ __pycache__/
 /unity/*.aab
 /unity/*.unitypackage
 /unity/crashlytics-build.properties
+
+# written by each build (MLBuildStamp)
+/unity/Assets/MissionLens/Resources/ML/build.txt
+/unity/Assets/MissionLens/Resources/ML/build.txt.meta
