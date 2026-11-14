@@ -1,5 +1,5 @@
 // Terrain surface: HiRISE image, unlit, with optional slope and CRISM overlays.
-// _ClipG 0 draws only the Marswalk window (tabletop model), 1 the whole area; in between the map spreads out.
+// On the table only the part over the table is drawn (see MLReveal.hlsl); elsewhere the whole area.
 // The opening reveal, the contour lines and the distance haze are drawing aids of ours, not data.
 Shader "MissionLens/Terrain"
 {
@@ -11,9 +11,6 @@ Shader "MissionLens/Terrain"
         _OSlope ("Slope amount", Range(0, 1)) = 0
         _OCrism ("CRISM amount", Range(0, 1)) = 0
         _Dim ("Under the surface image: dark, with a metre grid", Range(0, 1)) = 0
-        _ClipG ("Window to whole area", Range(0, 1)) = 1
-        _Win ("Window: centre x, centre z, half x, half z", Vector) = (0, 0, 1000, 1000)
-        _Full ("Whole area: half x, half z", Vector) = (650, 600, 0, 0)
         _Contour ("Contour lines", Range(0, 1)) = 0
         _Fog ("Distance haze", Range(0, 1)) = 0
         _FogColor ("Haze colour", Color) = (0.79, 0.65, 0.49, 1)
@@ -37,25 +34,24 @@ Shader "MissionLens/Terrain"
             TEXTURE2D(_Slope); SAMPLER(sampler_Slope);
             TEXTURE2D(_Crism); SAMPLER(sampler_Crism);
             CBUFFER_START(UnityPerMaterial)
-                float _OSlope, _OCrism, _Dim, _ClipG, _Contour, _Fog, _InvS;
-                float4 _Win, _Full;
+                float _OSlope, _OCrism, _Dim, _Contour, _Fog, _InvS;
                 half4 _FogColor;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float3 p : TEXCOORD1; float2 fd : TEXCOORD2; UNITY_VERTEX_OUTPUT_STEREO };
+            struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float3 p : TEXCOORD1; float2 fd : TEXCOORD2; float2 t : TEXCOORD3; UNITY_VERTEX_OUTPUT_STEREO };
             Varyings vert(Attributes i)
             {
                 Varyings o; UNITY_SETUP_INSTANCE_ID(i); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 float3 q = i.positionOS.xyz; float front = MLFront(q.xz);
                 q.y = MLRise(q.y, front);
                 o.positionCS = TransformObjectToHClip(q); o.uv = i.uv; o.p = i.positionOS.xyz;
-                o.fd = float2(front, distance(TransformObjectToWorld(q), _WorldSpaceCameraPos) * _InvS);
+                float3 ws = TransformObjectToWorld(q);
+                o.fd = float2(front, distance(ws, _WorldSpaceCameraPos) * _InvS); o.t = MLTablePos(ws);
                 return o;
             }
             half4 frag(Varyings i) : SV_Target
             {
-                float2 h = lerp(_Win.zw, _Full.xy, _ClipG), c0 = _Win.xy * (1 - _ClipG);
-                clip(h.x - abs(i.p.x - c0.x)); clip(h.y - abs(i.p.z - c0.y));
+                MLTableCut(i.t);
                 half3 c = SAMPLE_TEXTURE2D(_Ortho, sampler_Ortho, i.uv).rgb;
                 half4 s = SAMPLE_TEXTURE2D(_Slope, sampler_Slope, i.uv); c = lerp(c, s.rgb, s.a * _OSlope);
                 half4 k = SAMPLE_TEXTURE2D(_Crism, sampler_Crism, i.uv); c = lerp(c, k.rgb, k.a * _OCrism * 0.72);

@@ -10,7 +10,7 @@ namespace MissionLens
     // surface (x right, y down), carried over from the desktop mock in experiments/spatial/.
     public partial class MLApp
     {
-        MLPanel board, strip, wrist, hud, title, banner, legend;
+        MLPanel board, boardR, strip, wrist, hud, title, banner, legend;
         readonly List<MLPanel> panels = new List<MLPanel>();   // every surface that can hold buttons
         TextMeshProUGUI hudHeading;
         readonly Dictionary<string, Texture2D> viewTex = new Dictionary<string, Texture2D>();
@@ -18,36 +18,40 @@ namespace MissionLens
 
         void BuildPanels()
         {
-            // PLAN, in the room: a briefing board behind the table and the task timeline along its near edge.
-            board = new MLPanel("Board", 2200, 900, 2.2f, tableFrame);
-            board.go.transform.localPosition = new Vector3(0, .53f, .63f); board.go.transform.localRotation = Quaternion.Euler(15, 0, 0);
-            strip = new MLPanel("Timeline", 1600, 270, 1.0f, tableFrame);
-            strip.go.transform.localPosition = new Vector3(0, rig.xr ? .075f : .048f, -.52f); strip.go.transform.localRotation = Quaternion.Euler(rig.xr ? 48 : 55.6f, 0, 0);
-            // A small sign to the left of the model: north, a scale bar and the model's scale.
-            legend = new MLPanel("Map legend", 520, 300, .26f, tableFrame);
-            legend.go.transform.localPosition = new Vector3(-.6f, .05f, -.24f); legend.go.transform.localRotation = Quaternion.Euler(58, 0, 0);
+            // PLAN, in the room: a briefing wall just behind the model, close enough that its text is read without
+            // strain: two board panels turned slightly inward (left: the objective and why this station; right: the
+            // NASA evidence) with the task timeline under them. About 1.3 m from the eyes and 50 degrees across.
+            board = new MLPanel("Board left", 1100, 900, .625f, tableFrame);
+            board.go.transform.localPosition = new Vector3(-.308f, .75f, .465f); board.go.transform.localRotation = Quaternion.Euler(2, -13, 0);
+            boardR = new MLPanel("Board right", 1100, 900, .625f, tableFrame);
+            boardR.go.transform.localPosition = new Vector3(.308f, .75f, .465f); boardR.go.transform.localRotation = Quaternion.Euler(2, 13, 0);
+            strip = new MLPanel("Timeline", 1600, 270, 1.25f, tableFrame);
+            strip.go.transform.localPosition = new Vector3(0, .365f, .5f); strip.go.transform.localRotation = Quaternion.Euler(11, 0, 0);
+            // A sign at the model's near left corner: north, a scale bar, and the controls for the table itself.
+            legend = new MLPanel("Map legend", 600, rig.xr ? 452 : 376, .3f, tableFrame);
+            legend.go.transform.localPosition = new Vector3(-.6f, .075f, -.2f); legend.go.transform.localRotation = Quaternion.Euler(46, -24, 0);
             // FIELD: a wrist panel for details, raised on demand, and a head-up strip that stays out of the scenery.
             wrist = new MLPanel("Wrist", 600, 860, rig.xr ? .26f : .215f, rig.xr ? null : rig.Head);
             hud = new MLPanel("HUD", 1200, 170, rig.xr ? .7f : .5f, rig.xr ? null : rig.Head);
             // Before the briefing: what this is and where its contents come from.
-            title = new MLPanel("Title", 1500, 880, rig.xr ? 1.05f : 1.5f, rig.xr ? null : tableFrame);
+            title = new MLPanel("Title", 1500, 880, 1.05f, rig.xr ? null : tableFrame);
             // Short messages on arrival and at the end, drawn over everything.
             banner = new MLPanel("Banner", 1400, 400, rig.xr ? .95f : .74f, rig.xr ? null : rig.Head, true);
             if (!rig.xr)
             {
                 wrist.go.transform.localPosition = new Vector3(-.33f, -.075f, .46f); wrist.go.transform.localRotation = Quaternion.Euler(5.7f, -28.6f, 0);
                 hud.go.transform.localPosition = new Vector3(0, -.262f, .6f);
-                title.go.transform.localPosition = new Vector3(0, .68f, .3f); title.go.transform.localRotation = Quaternion.Euler(5, 0, 0);
+                title.go.transform.localPosition = new Vector3(0, .58f, .46f);
                 banner.go.transform.localPosition = new Vector3(0, .1f, 1.0f);
-                rig.lookPitch = -8;
+                rig.lookPitch = -3;
             }
             foreach (var s in M.stations)
             {
                 pins.Add(new Pin { st = s, local = D.Local(s.x, s.z, .3f), label = new MLPanel("Pin " + s.id, 640, 128, .34f, null, true) });
                 viewTex[s.id] = Resources.Load<Texture2D>("ML/view_" + s.id);
             }
-            panels.AddRange(new[] { board, strip, wrist, hud, title, banner }); panels.AddRange(pins.Select(p => p.label));
-            foreach (var p in panels.Append(legend)) p.Snap(false);
+            panels.AddRange(new[] { board, boardR, strip, legend, wrist, hud, title, banner }); panels.AddRange(pins.Select(p => p.label));
+            foreach (var p in panels) p.Snap(false);
             DrawTitle();
         }
 
@@ -55,7 +59,7 @@ namespace MissionLens
         IEnumerable<MLPanel> Surfaces()
         {
             if (stage == Stage.Title) { yield return title; yield break; }
-            if (stage == Stage.Table) { yield return board; yield return strip; }
+            if (stage == Stage.Table) { yield return board; yield return boardR; yield return strip; yield return legend; }
             else { yield return wrist; yield return hud; }
             if (banner.Show && bannerHasButton) yield return banner;
             foreach (var p in pins) yield return p.label;
@@ -77,13 +81,13 @@ namespace MissionLens
         {
             var head = rig.Head.position; bool table = stage == Stage.Table; var yaw = Quaternion.Euler(0, rig.HeadYaw, 0);
             title.Show = stage == Stage.Title && !busy;
-            board.Show = strip.Show = legend.Show = table && introDone && roomO > .6f;
+            board.Show = boardR.Show = strip.Show = legend.Show = table && introDone && roomO > .6f;
             hud.Show = !OnTable;
             if (banner.Show && bannerUntil > 0 && Time.time > bannerUntil) banner.Show = false;
             if (rig.xr)
             {
                 // Title: in front of the person, following their turn loosely until the briefing begins.
-                if (stage == Stage.Title) Chase(title, ref titleChasing, head + yaw * new Vector3(0, -.06f, 1.3f), head, 30, 3, dt);
+                if (stage == Stage.Title) Chase(title, ref titleChasing, head + yaw * new Vector3(0, -.06f, 1.25f), head, 30, 3, dt);
                 // Wrist panel: floats just above the left hand and shows while you look at it; or, asked for from
                 // the head-up strip, stays where it was called up, low and to the left.
                 // "Looking at it" means the hand is raised near the face and is not itself pointing ahead at something.
@@ -105,7 +109,8 @@ namespace MissionLens
             {
                 var to = world.TransformPoint(p.local) - head; p.dist = Mathf.Max(.05f, to.magnitude);
                 p.az = Mathf.DeltaAngle(rig.HeadYaw, Mathf.Atan2(to.x, to.z) * Mathf.Rad2Deg) * Mathf.Deg2Rad; p.el0 = to.y / p.dist;
-                bool hide = !p.shown || (!OnTable && Vector2.Distance(new Vector2(view.ax, view.az), new Vector2(p.st.x, p.st.z)) < 6);
+                bool hide = !p.shown || (!OnTable && Vector2.Distance(new Vector2(view.ax, view.az), new Vector2(p.st.x, p.st.z)) < 6)
+                    || (table && introDone && !OnPatch(p.st.x, p.st.z, .004f));   // slid off the table
                 p.label.Show = !hide;
             }
             foreach (var p in pins)
@@ -143,9 +148,9 @@ namespace MissionLens
                 var at = world.TransformPoint(m.local); float d = Mathf.Max(.05f, Vector3.Distance(at, head)), pop = 1 + 1.1f * (1 - EaseOut(Mathf.Clamp01((Time.time - m.born) / .45f)));
                 float mw = (OnTable ? .03f : .05f) * d * pop; var mrot = Quaternion.LookRotation(at - head, Vector3.up);
                 m.label.SetWorldWidth(mw); m.label.go.transform.SetPositionAndRotation(at + mrot * Vector3.up * (mw * 67f / 96f), mrot);
+                m.label.Show = !table || OnPatch(m.x, m.z, .004f); m.label.Tick(dt, 8);
             }
-            foreach (var p in panels) p.Tick(dt, p == board || p == title ? 2.6f : 5);
-            legend.Tick(dt, 2.6f);
+            foreach (var p in panels) p.Tick(dt, p == board || p == boardR || p == strip || p == legend || p == title ? 2.6f : 5);
             if (hudHeading != null) hudHeading.text = $"HDG {MLData.Deg3(HeadingNow)}°";
             if (TurnSide() != hudSide && !OnTable) DrawHud();   // the turn hint changed
         }
@@ -197,10 +202,10 @@ namespace MissionLens
                 bool fwd = o.leg.from == here && o.leg.to == target, back = o.leg.to == here && o.leg.from == target;
                 bool next = table ? o.index == selLeg : fwd || back;
                 // Over the real image only the leg about to be walked is drawn, and not at the person's feet.
-                o.ribbonGo.SetActive(!table && (next || stage != Stage.Field)); o.wideGo.SetActive(table);
-                var c = Cyan; c.a = next ? (stage == Stage.Field ? .5f : .7f) : .2f; o.ribbon.SetColor("_Color", c); o.ribbon.SetFloat("_Flow", next ? 1 : 0); o.ribbon.SetFloat("_Speed", back ? -1.6f : 1.6f);
-                var wc = next ? Cyan : Color.white; wc.a = next ? .98f : .42f; o.wide.SetColor("_Color", wc); o.wide.SetFloat("_Flow", next ? 1 : 0); o.wide.SetFloat("_Speed", 14f);
-                o.ribbon.SetFloat("_Tint", next ? 1 : 0); o.wide.SetFloat("_Tint", next ? 1 : 0);
+                o.go.SetActive(table || next || stage != Stage.Field); o.back = back;
+                var c = next || !table ? Cyan : Color.white; c.a = table ? (next ? .98f : .42f) : next ? (stage == Stage.Field ? .5f : .7f) : .2f;
+                o.mat.SetColor("_Color", c); o.mat.SetFloat("_Flow", next ? 1 : 0); o.mat.SetFloat("_Tint", next ? 1 : 0);
+                o.mat.SetVector("_Near", table ? Vector4.zero : new Vector4(3, 14, 0, 0));
             }
             if (stage == Stage.Title) return;
             if (table) { DrawBoard(); DrawStrip(); DrawLegend(); } else { DrawWrist(); DrawHud(); }
@@ -252,24 +257,44 @@ namespace MissionLens
             s.Text("Data: NASA/JPL-Caltech/UArizona (HiRISE) · NASA/JPL-Caltech/ASU/MSSS (Mastcam-Z) · NASA/JPL-Caltech/JHUAPL (CRISM) · NASA/JPL-Caltech/CAB (MEDA)", X, 850, 19, Dim);
         }
 
-        // On the table beside the model: which way is north, how long 100 m is, and the model's scale.
+        // The sign beside the model: which way is north on the table, a scale bar, the scale, and the table's own
+        // controls. Redrawn as the map is slid, stretched or turned.
         void DrawLegend()
         {
-            var s = legend; s.Clear(); float pxPerM = STable / (.26f / s.w), bar = 100 * pxPerM, x = s.w - 24 - bar; const float y = 150;
-            s.Box(x - 30, 4, s.w - x + 30 - 2, s.h - 8, 22, Back, Line);   // a backing, so it reads over whatever the room looks like
-            s.Stroke(s.w - 44, 96, s.w - 44, 26, 6, Ink); s.Stroke(s.w - 44, 22, s.w - 62, 50, 6, Ink); s.Stroke(s.w - 44, 22, s.w - 26, 50, 6, Ink); s.Text("N", s.w - 82, 78, 44, Ink, true, 1);
-            s.Box(x, y - 6, bar, 12, 3, Ink); s.Box(x, y - 6, bar / 2, 12, 3, Gray);
-            s.Text("0", x, y - 20, 24, Soft, false, 0); s.Text("50", x + bar / 2, y - 20, 24, Soft, false, 0); s.Text("100 m", x + bar, y - 20, 24, Soft, false, 1);
-            s.Text($"{scaleText} · height {(view.ex > 1 ? "×2" : "as measured")}", s.w - 24, y + 52, 30, Ink, true, 1);
-            s.Text("MRO HiRISE terrain model, 2 m grid", s.w - 24, y + 90, 22, Gray, false, 1);
-            s.Text("Walls and base are drawn by us", s.w - 24, y + 120, 22, Gray, false, 1);
+            var s = legend; s.Clear(); const float X = 28; float W = s.w - 2 * X, pxPerM = tv.S / (.3f / s.w);
+            s.Box(1.5f, 1.5f, s.w - 3, s.h - 3, 26, Back, Line);
+            // north: an arrow in a ring, turned as the map is turned
+            float cx = X + 46, cy = 74, r = 40, th = tv.yawRel * Mathf.Deg2Rad; Vector2 up = new Vector2(Mathf.Sin(th), -Mathf.Cos(th)), side = new Vector2(-up.y, up.x);
+            s.Box(cx - r, cy - r, 2 * r, 2 * r, r, new Color(0, 0, 0, 0), new Color(1, 1, 1, .25f));
+            Vector2 c = new Vector2(cx, cy), tip = c + up * (r - 8), tail = c - up * (r - 12), barb = tip - up * 20;
+            s.Stroke(tail.x, tail.y, tip.x, tip.y, 6, Ink); s.Stroke(tip.x, tip.y, barb.x + side.x * 13, barb.y + side.y * 13, 6, Ink); s.Stroke(tip.x, tip.y, barb.x - side.x * 13, barb.y - side.y * 13, 6, Ink);
+            Vector2 n = c + up * (r + 20); s.Text("N", n.x, n.y + 11, 30, Ink, true, 0);
+            // scale bar: the longest round length that fits
+            float len = 10; foreach (var l in new[] { 20f, 50f, 100f, 200f, 500f }) if (l * pxPerM <= 360) len = l;
+            float bar = len * pxPerM, bx = X + 150; const float by = 78;
+            s.Box(bx, by - 6, bar, 12, 3, Ink); s.Box(bx, by - 6, bar / 2, 12, 3, Gray);
+            s.Text("0", bx, by - 20, 23, Soft, false, 0); s.Text($"{len / 2:0}", bx + bar / 2, by - 20, 23, Soft, false, 0); s.Text($"{len:0} m", bx + bar, by - 20, 23, Soft, false, 0);
+            s.Text($"{ScaleText} · height {(tableEx > 1 ? "×2" : "as measured")}", bx, by + 44, 29, Ink, true);
+            s.Text("MRO HiRISE terrain model, 2 m grid · walls and base drawn by us", X, 168, 18, Gray);
+            float bw = (W - 14) / 2;
+            s.Button("Whole route", X, 190, bw, 64, WholeRoute, px: 25);
+            s.Button(followTasks ? "Follow tasks: on" : "Follow tasks: off", X + bw + 14, 190, bw, 64, ToggleFollow, followTasks, px: 25, key: "Follow tasks");
+            float y = 286;
+            if (rig.xr)
+            {
+                s.Button("Bring table here", X, 268, bw, 64, PlaceTable, px: 25);
+                s.Button(studio ? "Room: studio" : "Room: yours", X + bw + 14, 268, bw, 64, ToggleStudio, studio, px: 25, key: "Room");
+                y = 364;
+            }
+            s.Wrap(rig.xr ? "Pinch the model and move to slide it. Pinch with both hands to stretch and turn it. \"Follow tasks\" brings each task's place onto the table."
+                          : "Drag the model to slide it, wheel to zoom, Q / E to turn. \"Follow tasks\" brings each task's place onto the table.", X, y, W, 24, 19, Gray);
         }
 
         // PLAN: left, what the Marswalk is for and why the selected station serves it; right, the NASA evidence.
         // After the last task the left side becomes the review of the run.
         void DrawBoard()
         {
-            var b = board; b.Clear(); var st = St(sel); const float X1 = 48, W1 = 980, X2 = 1090, W2 = 1062; float y;
+            var b = board; b.Clear(); var st = St(sel); const float X1 = 48, W1 = 990, X2 = 30, W2 = 1040; float y;
             b.Box(1.5f, 1.5f, b.w - 3, b.h - 3, 36, Back, Line);
             b.Text("MISSION LENS", X1, 62, 24, Gray, true); b.Text(Finished ? "PLAN · REVIEW" : "PLAN", X1 + 196, 62, 24, Cyan, true);
             b.Text(Finished ? "SIMULATED RUN" : "HYPOTHETICAL MARSWALK", X1 + W1, 62, 24, Amber, true, 1);
@@ -309,6 +334,8 @@ namespace MissionLens
                 b.Text("Clears the run and returns to the title", X1 + 262, 841, 22, Dim);
             }
 
+            // right panel: the NASA evidence for the selected station, and what can be done with it
+            b = boardR; b.Clear(); b.Box(1.5f, 1.5f, b.w - 3, b.h - 3, 36, Back, Line);
             const float ih = 300; b.Box(X2, 48, W2, ih, 16, new Color(.1f, .12f, .14f, 1));
             if (viewTex.TryGetValue(sel, out var tex) && tex != null) { float vh = (tex.width * ih / W2) / tex.height; b.Picture(tex, X2, 48, W2, ih, new Rect(0, (1 - vh) / 2, 1, vh)); }
             b.Tag("NASA OBSERVATION", X2 + 14, 60, Ink); b.Text($"Mastcam-Z panorama, {st.panoSols}, looking {MLData.Deg3(st.viewAz)}° · {st.panoCredit}", X2, 48 + ih + 30, 23, Gray);
@@ -320,9 +347,9 @@ namespace MissionLens
             b.Text("ON THE MODEL", x, by - 14, 19, Dim, true); b.Text("LOOK AHEAD AT " + s, x + 584, by - 14, 19, Dim, true);
             b.Button("Slope", x, by, 150, 64, () => SetLayer("slope"), layer == "slope", px: 26); x += 166;
             b.Button("Spectral", x, by, 180, 64, () => SetLayer("crism"), layer == "crism", px: 26); x += 196;
-            b.Button("Height ×2", x, by, 190, 64, ToggleHeight, view.ex > 1, px: 26); x += 222;
-            b.Button("Preview 1 : 25", x, by, 230, 64, () => EnterTerrain(s, SGiant), px: 26); x += 246;
-            b.Button("Stand at " + s, x, by, 228, 64, () => ToField(s), px: 26);
+            b.Button("Height ×2", x, by, 190, 64, ToggleHeight, tableEx > 1, px: 26); x += 222;
+            b.Button("Preview 1 : 25", x, by, 216, 64, () => EnterTerrain(s, SGiant), px: 25); x += 232;
+            b.Button("Stand at " + s, x, by, 224, 64, () => ToField(s), px: 26);
             const float ly = 866;
             if (layer == "slope")
             {
@@ -331,8 +358,8 @@ namespace MissionLens
                 { b.Box(lx, ly - 19, 22, 22, 4, c); b.Text(t, lx + 30, ly, 23, Ink); lx += 46 + b.Measure(t, 23); }
                 b.Text("· slope and 5 m contours: HiRISE terrain model; classes ours", lx, ly, 23, Gray);
             }
-            else if (layer == "crism") b.Text($"{M.crismObservation} PHY: R {M.crismBands[0]}, G {M.crismBands[1]}, B {M.crismBands[2]} · moved {M.crismShiftM:0} m by us to fit HiRISE · brightness ×{M.crismGain}", X2, ly, 23, Gray);
-            else b.Text($"On the table: MRO HiRISE image over the HiRISE terrain model, {scaleText}", X2, ly, 23, Gray);
+            else if (layer == "crism") b.Text($"{M.crismObservation} PHY: R {M.crismBands[0]}, G {M.crismBands[1]}, B {M.crismBands[2]} · moved {M.crismShiftM:0} m by us to fit HiRISE · brightness ×{M.crismGain}", X2, ly, 21, Gray);
+            else b.Text("On the table: MRO HiRISE image draped over the HiRISE terrain model", X2, ly, 23, Gray);
         }
 
         // PLAN: the task timeline. Each segment selects its task, station and leg.
@@ -368,10 +395,8 @@ namespace MissionLens
             for (int m = 0; m < M.plannedTotalMin; m += 60) s.Text(MLData.Hm(m), X0 + m * k, 212, 20, Gray);
             s.Text(MLData.Hm(M.plannedTotalMin), X0 + W, 212, 20, Gray, false, 1);
             s.Text("Timeline after the BASALT-2 planned EVA (Beaton et al. 2019, Table 2) · walking times and slope classes are ours · amber outline: current task", X0, 248, 20, Dim);
-            float bx = s.w - 30; bool armed = Time.time < restartArmedUntil;
-            if (rig.xr) { bx -= 200; s.Button("Bring table here", bx, 222, 200, 40, PlaceTable, px: 19); bx -= 12; }
-            float rw = armed ? 250 : 120; bx -= rw;
-            s.Button(armed ? "Press again to restart" : "Restart", bx, 222, rw, 40, () => { if (Time.time < restartArmedUntil) Restart(); else { restartArmedUntil = Time.time + 3; Refresh(); } }, armed, px: 19, key: "Restart");
+            bool armed = Time.time < restartArmedUntil; float rw = armed ? 250 : 120;
+            s.Button(armed ? "Press again to restart" : "Restart", s.w - 30 - rw, 222, rw, 40, () => { if (Time.time < restartArmedUntil) Restart(); else { restartArmedUntil = Time.time + 3; Refresh(); } }, armed, px: 19, key: "Restart");
         }
 
         static string ShortPhase(MTask t) => t.leg >= 0 ? (t.phase == "Return" ? "return" : "walk") : t.phase.StartsWith("Contextual") ? "survey" : t.phase.StartsWith("Candidate") ? "candidate search"

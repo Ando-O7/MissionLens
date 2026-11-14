@@ -11,6 +11,7 @@ Shader "MissionLens/Ring"
         _Pulse ("Repeating pulse", Range(0, 1)) = 0
         _T ("One-shot ripple (0..1, 0 = off)", Range(0, 1)) = 0
         [Enum(UnityEngine.Rendering.CompareFunction)] _ZTest ("Depth test", Float) = 8
+        _OnTable ("Cut at the table's edge", Float) = 0
     }
     SubShader
     {
@@ -27,19 +28,22 @@ Shader "MissionLens/Ring"
             #pragma fragment frag
             #pragma multi_compile_instancing
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "MLReveal.hlsl"
             CBUFFER_START(UnityPerMaterial)
-                half4 _Color; float _Radius, _Width, _Fill, _Pulse, _T, _ZTest;
+                half4 _Color; float _Radius, _Width, _Fill, _Pulse, _T, _ZTest, _OnTable;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_OUTPUT_STEREO };
+            struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; float2 t : TEXCOORD1; UNITY_VERTEX_OUTPUT_STEREO };
             Varyings vert(Attributes i)
             {
                 Varyings o; UNITY_SETUP_INSTANCE_ID(i); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-                o.positionCS = TransformObjectToHClip(i.positionOS.xyz); o.uv = i.uv; return o;
+                float3 ws = TransformObjectToWorld(i.positionOS.xyz);
+                o.positionCS = TransformWorldToHClip(ws); o.uv = i.uv; o.t = MLTablePos(ws); return o;
             }
             float Band(float r, float at, float w) { float aa = max(fwidth(r), 1e-4); return smoothstep(w + aa, w, abs(r - at)); }
             half4 frag(Varyings i) : SV_Target
             {
+                if (_OnTable > 0.5) MLTableCut(i.t);   // a station marker stops at the table's edge like the terrain does
                 float r = length(i.uv - 0.5) * 2.0, aa = max(fwidth(r), 1e-4);
                 float a = Band(r, _Radius, _Width * 0.5) + _Fill * smoothstep(_Radius, _Radius - aa, r) * 0.5;
                 float t = frac(_Time.y * 0.55);

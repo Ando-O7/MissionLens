@@ -18,21 +18,25 @@ namespace MissionLens
         }
 
         /// <summary>
-        /// A flat band along a path, lifted above it. uv.x: metres along the path from u0, uv.y: 0..1 across.
+        /// A flat band along a path. Both vertices of each cross-section sit on the path; the shader moves them
+        /// apart along `normal` (the sideways direction) and lifts them, so one mesh serves every width.
+        /// uv.x: metres along the path from u0; uv.y: 0 on one edge, 1 on the other.
         /// tint: an optional colour per path point (alpha 0 = none), carried as vertex colour.
         /// </summary>
-        public static Mesh Ribbon(Vector3[] p, float halfWidth, float lift, float u0 = 0, Color[] tint = null)
+        public static Mesh Ribbon(Vector3[] p, float u0 = 0, Color[] tint = null)
         {
-            var v = new Vector3[p.Length * 2]; var uv = new Vector2[v.Length]; var col = new Color[v.Length]; var t = new List<int>(); float u = u0;
+            var v = new Vector3[p.Length * 2]; var side = new Vector3[v.Length]; var uv = new Vector2[v.Length]; var col = new Color[v.Length]; var t = new List<int>(); float u = u0;
             for (int i = 0; i < p.Length; i++)
             {
-                var d = p[Mathf.Min(i + 1, p.Length - 1)] - p[Mathf.Max(i - 1, 0)]; var side = new Vector3(-d.z, 0, d.x).normalized * halfWidth; var c = p[i] + Vector3.up * lift;
+                var d = p[Mathf.Min(i + 1, p.Length - 1)] - p[Mathf.Max(i - 1, 0)]; var n = new Vector3(-d.z, 0, d.x).normalized;
                 if (i > 0) u += Vector2.Distance(new Vector2(p[i].x, p[i].z), new Vector2(p[i - 1].x, p[i - 1].z));
-                v[i * 2] = c - side; v[i * 2 + 1] = c + side; uv[i * 2] = new Vector2(u, 0); uv[i * 2 + 1] = new Vector2(u, 1);
+                v[i * 2] = v[i * 2 + 1] = p[i]; side[i * 2] = side[i * 2 + 1] = n; uv[i * 2] = new Vector2(u, 0); uv[i * 2 + 1] = new Vector2(u, 1);
                 col[i * 2] = col[i * 2 + 1] = tint != null ? tint[i] : Color.clear;
                 if (i > 0) t.AddRange(new[] { 2 * i - 2, 2 * i - 1, 2 * i, 2 * i - 1, 2 * i + 1, 2 * i });
             }
-            var m = new Mesh { name = "Ribbon" }; m.SetVertices(v); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(t, 0); m.RecalculateBounds(); return m;
+            var m = new Mesh { name = "Ribbon" }; m.SetVertices(v); m.SetNormals(side); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(t, 0); m.RecalculateBounds();
+            var b = m.bounds; b.Expand(60); m.bounds = b;   // room for the width and lift the shader adds
+            return m;
         }
 
         /// <summary>
@@ -89,25 +93,24 @@ namespace MissionLens
         }
 
         /// <summary>
-        /// Walls around a rectangle of terrain, from the surface down to baseY. height(x, z) gives the surface.
-        /// uv.x: 1 on the top row, 0 on the bottom; uv.y: the wall's height at that column.
+        /// Walls around a four-cornered patch of terrain, from the surface down to baseY, written into `m` (so the
+        /// same mesh can be refilled as the patch moves). corners: Unity local x, z in order around the patch.
+        /// height(x, z) gives the surface. uv.x: 1 on the top row, 0 on the bottom; uv.y: the wall's height there.
         /// </summary>
-        public static Mesh Skirt(float cx, float cz, float hx, float hz, float baseY, float stepM, Func<float, float, float> height)
+        public static void Skirt(Mesh m, Vector2[] corners, int perEdge, float baseY, Func<float, float, float> height)
         {
-            var v = new List<Vector3>(); var uv = new List<Vector2>(); var t = new List<int>();
-            void Wall(Vector2 a, Vector2 b)
+            int cols = perEdge + 1; var v = new Vector3[cols * 2 * 4]; var uv = new Vector2[v.Length]; var t = new int[perEdge * 6 * 4];
+            for (int e = 0, k = 0, q = 0; e < 4; e++)
             {
-                int n = Mathf.Max(1, Mathf.CeilToInt(Vector2.Distance(a, b) / stepM)), i0 = v.Count;
-                for (int i = 0; i <= n; i++)
+                Vector2 a = corners[e], b = corners[(e + 1) % 4]; int i0 = k;
+                for (int i = 0; i <= perEdge; i++, k += 2)
                 {
-                    var p = Vector2.Lerp(a, b, i / (float)n); float y = height(p.x, p.y);
-                    v.Add(new Vector3(p.x, y, p.y)); uv.Add(new Vector2(1, y - baseY)); v.Add(new Vector3(p.x, baseY, p.y)); uv.Add(new Vector2(0, y - baseY));
-                    if (i > 0) { int k = i0 + i * 2; t.AddRange(new[] { k - 2, k - 1, k, k - 1, k + 1, k }); }
+                    var p = Vector2.Lerp(a, b, i / (float)perEdge); float y = height(p.x, p.y);
+                    v[k] = new Vector3(p.x, y, p.y); uv[k] = new Vector2(1, y - baseY); v[k + 1] = new Vector3(p.x, baseY, p.y); uv[k + 1] = new Vector2(0, y - baseY);
+                    if (i > 0) { int c = i0 + i * 2; t[q++] = c - 2; t[q++] = c - 1; t[q++] = c; t[q++] = c - 1; t[q++] = c + 1; t[q++] = c; }
                 }
             }
-            Vector2 p00 = new Vector2(cx - hx, cz - hz), p10 = new Vector2(cx + hx, cz - hz), p11 = new Vector2(cx + hx, cz + hz), p01 = new Vector2(cx - hx, cz + hz);
-            Wall(p00, p10); Wall(p10, p11); Wall(p11, p01); Wall(p01, p00);
-            var m = new Mesh { name = "Skirt" }; m.SetVertices(v); m.SetUVs(0, uv); m.SetTriangles(t, 0); m.RecalculateBounds(); return m;
+            m.Clear(); m.SetVertices(v); m.SetUVs(0, uv); m.SetTriangles(t, 0); m.RecalculateBounds();
         }
 
         /// <summary>An eight-sided dot.</summary>

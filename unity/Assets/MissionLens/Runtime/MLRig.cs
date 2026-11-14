@@ -26,6 +26,8 @@ namespace MissionLens
             public Ray Ray => new Ray(origin, rotation * Vector3.forward);
             public float hitDistance = -1;       // set by the app each frame, for the ray visual
             public bool controller;              // a held controller rather than a bare hand
+            public bool grabDown;                // began holding this frame (a pinch or trigger; on a desktop, the mouse button going down)
+            public bool overSurface;             // set by the app: the pointer is on a panel or label
             internal LineRenderer line; internal Transform dot; internal InputAction haptic; internal float heldSince;
             // What the pointer has rested on for a moment. A pinch or a trigger pull jerks the ray; the press goes
             // to what was being pointed at just before it.
@@ -54,14 +56,20 @@ namespace MissionLens
         public bool wristToggle;                 // desktop: Space pressed this frame
         public bool anyKey;                      // desktop: Enter pressed this frame (stands in for the first press)
         /// <summary>For checks from the Editor: aim the desktop pointer through this viewport point instead of the mouse.</summary>
-        public Vector2? debugAim; public bool debugClick;
+        public Vector2? debugAim; public bool debugClick, debugHold;
+        // Desktop only: wheel steps and Q / E this frame, and whether a drag is moving the table's map (not the view).
+        public float wheel, turn; public bool lookLocked;
+        /// <summary>0 while the person can see their real hands (passthrough), 1 once they cannot. Sets how solid the drawn hands are.</summary>
+        public float handPresence;
         Vector2 pressAt; bool pressed, dragged; Vector2 pressLook;
 
         Transform space;                         // tracking space
         ARCameraManager passthrough;
 
-        /// <summary>Draw the tracked hands as thin outlines. Wanted once the room is gone and the real hands with it.</summary>
-        public bool showHands;
+        // The tracked hands are drawn as hand models (from Unity's XR Hands sample, driven by the tracked joints).
+        // If the models cannot be set up, thin finger outlines are drawn instead once the real hands are out of sight.
+        class HandModel { public GameObject go; public Renderer r; public Material mat; public XRHandTrackingEvents events; }
+        readonly HandModel[] handModels = new HandModel[2];   // right, left
         XRHandSubsystem handSystem; float nextHandSearch; bool handsFailed;
         readonly LineRenderer[] handLines = new LineRenderer[10];   // five fingers per hand, right hand first
         static readonly List<XRHandSubsystem> handSystems = new List<XRHandSubsystem>();
@@ -100,7 +108,11 @@ namespace MissionLens
                 var session = new GameObject("AR Session"); session.transform.SetParent(transform, false);
                 session.AddComponent<ARSession>(); session.AddComponent<ARInputManager>();
                 passthrough = camGo.AddComponent<ARCameraManager>();   // on Quest, enabling this component turns passthrough on
+                // Render the eyes at a higher resolution than the default: thin text and distant edges crawl less.
+                // The first run on a Quest 3 used about a third of the GPU at the default, so there is room.
+                UnityEngine.XR.XRSettings.eyeTextureResolutionScale = 1.3f;
                 MakeVisual(right, "Right pointer"); MakeVisual(left, "Left pointer");
+                MakeHandModel(0); MakeHandModel(1);
                 var handMat = new Material(Resources.Load<Shader>("MLShaders/MLColor")); handMat.SetColor("_Color", new Color(.92f, .96f, 1f, .5f)); handMat.SetFloat("_ZTest", (float)UnityEngine.Rendering.CompareFunction.Always); handMat.renderQueue = 3995;
                 for (int i = 0; i < handLines.Length; i++)
                 {
@@ -149,7 +161,7 @@ namespace MissionLens
             {
                 ReadHand(right, true); ReadHand(left, false);
                 // The outlines are a nicety; if the hand data misbehaves on some runtime, drop them rather than the frame.
-                if (!handsFailed) try { DrawHands(); } catch (System.Exception e) { handsFailed = true; HideHands(0, 10); Debug.LogWarning("Hand outlines switched off: " + e.Message); }
+                if (!handsFailed) try { UpdateHandModels(); DrawHands(); } catch (System.Exception e) { handsFailed = true; HideHands(0, 10); Debug.LogWarning("Hand drawing switched off: " + e.Message); }
                 if (right.active || left.active) lastHandTime = Time.time;
                 if (right.down || left.down) everPressed = true;
                 gaze.active = !everPressed && Time.time - lastHandTime > 2.5f; gaze.origin = Head.position; gaze.rotation = Head.rotation;
@@ -170,7 +182,7 @@ namespace MissionLens
             for (int side = 0; side < 2; side++)
             {
                 var hand = side == 0 ? handSystem.rightHand : handSystem.leftHand;
-                if (!showHands || !hand.isTracked) { HideHands(side * 5, 5); continue; }
+                if (handModels[side] != null || handPresence < .5f || !hand.isTracked) { HideHands(side * 5, 5); continue; }
                 for (int f = 0; f < 5; f++)
                 {
                     var lr = handLines[side * 5 + f]; var ids = Fingers[f]; bool ok = true;
@@ -184,6 +196,45 @@ namespace MissionLens
             }
         }
         void HideHands(int from, int count) { for (int i = from; i < from + count; i++) if (handLines[i] != null && handLines[i].enabled) handLines[i].enabled = false; }
+
+        // A hand model whose joints follow the tracked hand. side: 0 right, 1 left.
+        void MakeHandModel(int side)
+        {
+            try
+            {
+                var prefab = Resources.Load<GameObject>("MLHands/" + (side == 0 ? "RightHand" : "LeftHand")); var shader = Resources.Load<Shader>("MLShaders/MLHand");
+                if (prefab == null || shader == null) return;
+                var go = Instantiate(prefab, space); go.name = side == 0 ? "Right hand" : "Left hand";
+                go.transform.localPosition = Vector3.zero; go.transform.localRotation = Quaternion.identity;
+                Transform wrist = null;
+                foreach (var t in go.GetComponentsInChildren<Transform>()) if (t.name.EndsWith("Wrist")) { wrist = t; break; }
+                var skin = go.GetComponentInChildren<SkinnedMeshRenderer>();
+                if (wrist == null || skin == null) { Destroy(go); return; }
+                var events = go.AddComponent<XRHandTrackingEvents>(); events.handedness = side == 0 ? Handedness.Right : Handedness.Left; events.updateType = XRHandTrackingEvents.UpdateTypes.BeforeRender;
+                var driver = go.AddComponent<XRHandSkeletonDriver>(); driver.handTrackingEvents = events; driver.rootTransform = wrist;
+                driver.FindJointsFromRoot(new List<string>()); driver.InitializeFromSerializedReferences();
+                var mat = new Material(shader); var mats = new Material[skin.sharedMaterials.Length]; for (int i = 0; i < mats.Length; i++) mats[i] = mat;
+                skin.sharedMaterials = mats; skin.updateWhenOffscreen = true; skin.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; skin.receiveShadows = false; skin.enabled = false;
+                handModels[side] = new HandModel { go = go, r = skin, mat = mat, events = events };
+            }
+            catch (System.Exception e) { handModels[side] = null; Debug.LogWarning("Hand model not available, using outlines: " + e.Message); }
+        }
+
+        // Faint with a bright edge while the real hand is visible behind it; more solid once it is not. Turns
+        // toward the accent colour while pinching, so a pinch is seen to have registered.
+        void UpdateHandModels()
+        {
+            for (int side = 0; side < 2; side++)
+            {
+                var m = handModels[side]; if (m == null) continue;
+                bool tracked = m.events != null && m.events.handIsTracked;
+                if (m.r.enabled != tracked) m.r.enabled = tracked;
+                if (!tracked) continue;
+                var p = side == 0 ? right : left; float k = handPresence;
+                m.mat.SetColor("_Color", p.held && !p.controller ? new Color(.37f, .83f, 1f, 1) : new Color(.88f, .94f, 1f, 1));
+                m.mat.SetFloat("_Body", Mathf.Lerp(.03f, .2f, k) + (p.held ? .12f : 0)); m.mat.SetFloat("_Rim", Mathf.Lerp(.5f, .8f, k));
+            }
+        }
 
         void ReadHand(Pointer p, bool isRight)
         {
@@ -204,7 +255,7 @@ namespace MissionLens
                     p.active = true; p.controller = true; p.origin = space.TransformPoint(pos.value); p.rotation = space.rotation * rot.value; p.held = trigger != null && trigger.isPressed;
                 }
             }
-            p.down = p.active && p.held && !was;
+            p.down = p.grabDown = p.active && p.held && !was;
             if (p.down) p.heldSince = Time.time;
         }
 
@@ -213,21 +264,24 @@ namespace MissionLens
             var m = Mouse.current; var k = Keyboard.current;
             wristToggle = k != null && k.spaceKey.wasPressedThisFrame;
             anyKey = k != null && (k.enterKey.wasPressedThisFrame || k.numpadEnterKey.wasPressedThisFrame);
-            mouse.down = false;
+            mouse.down = mouse.grabDown = false; wheel = 0; turn = 0;
             if (m == null) { mouse.active = false; return; }
+            wheel = Mathf.Clamp(m.scroll.ReadValue().y, -1, 1) ; if (k != null) turn = (k.eKey.isPressed ? 1 : 0) - (k.qKey.isPressed ? 1 : 0);
             Vector2 at = m.position.ReadValue();
             if (debugAim.HasValue)
             {
                 cam.transform.localRotation = Quaternion.Euler(-lookPitch, lookYaw, 0);
                 var dr = cam.ViewportPointToRay(new Vector3(debugAim.Value.x, debugAim.Value.y, 0));
                 mouse.active = true; mouse.origin = dr.origin; mouse.rotation = Quaternion.LookRotation(dr.direction); mouse.down = debugClick; debugClick = false;
+                mouse.grabDown = debugHold && !mouse.held; mouse.held = debugHold;
                 return;
             }
-            if (m.leftButton.wasPressedThisFrame) { pressed = true; dragged = false; pressAt = at; pressLook = new Vector2(lookYaw, lookPitch); }
+            if (m.leftButton.wasPressedThisFrame) { pressed = true; dragged = false; pressAt = at; pressLook = new Vector2(lookYaw, lookPitch); mouse.grabDown = true; }
+            mouse.held = m.leftButton.isPressed;
             if (pressed && m.leftButton.isPressed)
             {
                 if ((at - pressAt).magnitude > 4) dragged = true;
-                if (dragged)
+                if (dragged && !lookLocked)
                 {
                     float kdeg = cam.fieldOfView / Screen.height;
                     lookYaw = pressLook.x - (at.x - pressAt.x) * kdeg; lookPitch = Mathf.Clamp(pressLook.y + (at.y - pressAt.y) * kdeg, -85, 60); lastDragTime = Time.time;

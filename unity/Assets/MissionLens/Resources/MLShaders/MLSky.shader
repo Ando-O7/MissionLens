@@ -1,5 +1,6 @@
-// What is behind everything once the room is gone: a plain sky gradient of ours (not an observation), on a
-// sphere around the head. Its opacity is what dissolves the room into Mars and back.
+// What is behind everything once the real room is gone: a plain gradient of ours (not an observation) on a
+// sphere around the head - the studio room's dark surroundings, or the Mars sky. Its opacity is what dissolves
+// the real room away and back. Drawn before the studio room's floor and plinth, which do not write depth.
 Shader "MissionLens/Sky"
 {
     Properties
@@ -11,7 +12,7 @@ Shader "MissionLens/Sky"
     }
     SubShader
     {
-        Tags { "RenderType" = "Transparent" "Queue" = "Geometry+405" "RenderPipeline" = "UniversalPipeline" }
+        Tags { "RenderType" = "Transparent" "Queue" = "Geometry+390" "RenderPipeline" = "UniversalPipeline" }
         Pass
         {
             Tags { "LightMode" = "UniversalForward" }

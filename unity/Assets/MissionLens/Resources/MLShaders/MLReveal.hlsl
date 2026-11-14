@@ -5,6 +5,14 @@
 
 float4 _MLReveal;   // x: radius the front has reached (map metres), y: flat level before it arrives, zw: centre (x, z)
 
+// The tabletop model shows the part of the terrain that lies over the table. _MLTableInv takes a world position
+// into the table's own frame (metres; x across, z away from the person); _MLTableClip.xy are the half sizes of
+// what is shown. Away from the table the half sizes are made huge, so nothing is cut.
+float4x4 _MLTableInv;
+float4 _MLTableClip;
+float2 MLTablePos(float3 positionWS) { return mul(_MLTableInv, float4(positionWS, 1.0)).xz; }
+void MLTableCut(float2 t) { clip(_MLTableClip.x - abs(t.x)); clip(_MLTableClip.y - abs(t.y)); }
+
 // Metres behind the front (positive: already revealed).
 float MLFront(float2 xz) { return _MLReveal.x - distance(xz, _MLReveal.zw); }
 

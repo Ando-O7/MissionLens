@@ -25,7 +25,7 @@ namespace MissionLens
         struct View { public float S, ex, ax, az, yaw; public bool ground; public Vector3 w; }
 
         class Mark { public int n; public string station, task; public float x, z, d, az, el, born; public Vector3 local; public MLPanel label; }
-        class LegObj { public int index; public Leg leg; public Material ribbon, wide; public GameObject ribbonGo, wideGo; }
+        class LegObj { public int index; public Leg leg; public Material mat; public GameObject go; public bool back; }
         class Pin
         {
             public Station st; public MLPanel label; public Vector3 local; public bool shown; public float k = 1, routeM; public Transform ringT, leaderT; public Material ring, leader;
@@ -37,7 +37,7 @@ namespace MissionLens
         static readonly Color MarsSky = new Color(.79f, .65f, .49f), MockRoom = new Color(.137f, .149f, .169f);
 
         MLData D; Mission M; MLRig rig; MLAudio sfx;
-        Transform world, tableFrame, mockRoom;
+        Transform world, tableFrame;
         Material terrainMat, panoMat; MeshRenderer terrainR, panoR; Transform panoT; MeshFilter panoF;
         readonly Dictionary<string, Mesh> panoMeshes = new Dictionary<string, Mesh>();
         readonly List<LegObj> legs = new List<LegObj>();
@@ -45,8 +45,8 @@ namespace MissionLens
         readonly List<Mark> marks = new List<Mark>();
         int markSeq;
 
-        // window of the area shown on the table (map metres, z south) and the table scale
-        float winCx, winCz, winHx, winHz, baseY, STable, routeTotal; string scaleText;
+        // height of the model's base in map metres (follows what is on the table), and the route's length
+        float baseY, routeTotal;
 
         View view;
         Stage stage = Stage.Title;
@@ -57,6 +57,8 @@ namespace MissionLens
         readonly HashSet<int> done = new HashSet<int>();
         string layer = "none";
         bool busy, moving, wristUp, placed, introDone;
+        /// <summary>In the headset: show a plain studio room around the table instead of the real room.</summary>
+        public bool studio; float studioK;
         float panoOpacity, panoTarget, oSlope, oCrism, clipG, roomO = 1, roomTarget = 1;
         string pendingPano, shownPano;
         string flashMsg = ""; float flashUntil, lastPlaced = -10;
@@ -91,17 +93,16 @@ namespace MissionLens
             world = new GameObject("World").transform;
             tableFrame = new GameObject("Table frame").transform;
 
-            // The table shows only the part of the area this Marswalk uses: the route's bounding box plus a margin,
-            // in the proportions of the model's footprint (0.86 x 0.79 m).
+            // To begin with the table shows the part of the area this Marswalk uses: the route's bounding box plus a
+            // margin, fitted to the table's patch. From there the person can slide, stretch and turn it (MLAppTable.cs).
             var pts = new List<Vector2>();
             foreach (var l in M.legs) for (int i = 0; i < l.route.Length; i += 2) pts.Add(new Vector2(l.route[i], l.route[i + 1]));
             foreach (var s in M.stations) pts.Add(new Vector2(s.x, s.z));
-            float x0 = pts.Min(p => p.x), x1 = pts.Max(p => p.x), z0 = pts.Min(p => p.y), z1 = pts.Max(p => p.y), ar = .86f / .79f;
-            winHx = Mathf.Max((x1 - x0) / 2 + 60, ((z1 - z0) / 2 + 60) * ar); winHz = winHx / ar;
-            winCx = Mathf.Clamp((x0 + x1) / 2, -D.sx / 2 + winHx, D.sx / 2 - winHx); winCz = Mathf.Clamp((z0 + z1) / 2, -D.sz / 2 + winHz, D.sz / 2 - winHz);
-            float lo = float.MaxValue;
-            for (float z = winCz - winHz; z <= winCz + winHz; z += 4) for (float x = winCx - winHx; x <= winCx + winHx; x += 4) lo = Mathf.Min(lo, D.Elev(x, z));
-            baseY = lo - 3; STable = .43f / winHx; scaleText = "1 : " + Mathf.RoundToInt(1 / STable / 10) * 10;
+            float x0 = pts.Min(p => p.x), x1 = pts.Max(p => p.x), z0 = pts.Min(p => p.y), z1 = pts.Max(p => p.y), ar = FootHx / FootHz;
+            float hx = Mathf.Max((x1 - x0) / 2 + 60, ((z1 - z0) / 2 + 60) * ar), hz = hx / ar;
+            SMin = Mathf.Min(FootHx / (D.sx / 2), FootHz / (D.sz / 2));
+            tvDefault = new TView { ax = Mathf.Clamp((x0 + x1) / 2, -D.sx / 2 + hx, D.sx / 2 - hx), az = Mathf.Clamp((z0 + z1) / 2, -D.sz / 2 + hz, D.sz / 2 - hz), S = FootHx / hx, yawRel = 0 };
+            tv = tvDefault; baseY = BaseFor(tv);
 
             // Terrain mesh: every second DTM sample (4 m) is a vertex; unlit, textured with the HiRISE image.
             const int step = 2;
@@ -122,10 +123,10 @@ namespace MissionLens
             mesh.SetVertices(v); mesh.SetUVs(0, uv); mesh.SetTriangles(idx, 0); mesh.RecalculateBounds();
             terrainMat = new Material(Resources.Load<Shader>("MLShaders/MLTerrain"));
             terrainMat.SetTexture("_Ortho", Resources.Load<Texture2D>("ML/ortho")); terrainMat.SetTexture("_Slope", Resources.Load<Texture2D>("ML/slope")); terrainMat.SetTexture("_Crism", Resources.Load<Texture2D>("ML/crism_phy"));
-            terrainMat.SetVector("_Win", new Vector4(winCx, -winCz, winHx, winHz)); terrainMat.SetVector("_Full", new Vector4(D.sx / 2, D.sz / 2, 0, 0));
             terrainR = Add("Terrain", mesh, terrainMat, world);
 
-            // Planned route: a 0.5 m ribbon on the ground (true scale) and a 3 m one for the table model.
+            // Planned route: one ribbon per leg. Its width follows the scale (MLAppFx.cs): half a metre on the
+            // ground at true scale, a few millimetres on the table however far the map is stretched.
             // uv.x counts metres from the start of the Marswalk, so the opening can draw the route on in order.
             var routeShader = Resources.Load<Shader>("MLShaders/MLRoute"); float u0 = 0;
             for (int li = 0; li < M.legs.Length; li++)
@@ -136,10 +137,8 @@ namespace MissionLens
                     p[i] = D.Local(leg.route[i * 2], leg.route[i * 2 + 1]);
                     tint[i] = SlopeClass(D.SlopeDeg(leg.route[i * 2], leg.route[i * 2 + 1]));   // where the leg is steep, in the slope layer's colours
                 }
-                var o = new LegObj { index = li, leg = leg, ribbon = new Material(routeShader), wide = new Material(routeShader) };
-                o.ribbon.SetFloat("_Dash", 3.2f); o.wide.SetFloat("_Dash", 26f); o.ribbon.SetVector("_Near", new Vector4(3, 14, 0, 0));
-                o.ribbonGo = Add("Route " + leg.from + "-" + leg.to, MLMesh.Ribbon(p, .25f, .3f, u0, tint), o.ribbon, world).gameObject;
-                o.wideGo = Add("Route wide " + leg.from + "-" + leg.to, MLMesh.Ribbon(p, 1.6f, 2.2f, u0, tint), o.wide, world).gameObject;
+                var o = new LegObj { index = li, leg = leg, mat = new Material(routeShader) };
+                o.go = Add("Route " + leg.from + "-" + leg.to, MLMesh.Ribbon(p, u0, tint), o.mat, world).gameObject;
                 legs.Add(o);
                 for (int i = 1; i < n; i++) u0 += Vector2.Distance(new Vector2(p[i].x, p[i].z), new Vector2(p[i - 1].x, p[i - 1].z));
             }
@@ -149,7 +148,6 @@ namespace MissionLens
             panoMat = new Material(Resources.Load<Shader>("MLShaders/MLPano"));
             var pg = new GameObject("Surface image"); panoT = pg.transform; panoF = pg.AddComponent<MeshFilter>(); panoR = pg.AddComponent<MeshRenderer>(); panoR.sharedMaterial = panoMat; panoR.enabled = false;
 
-            if (!rig.xr) BuildMockRoom();
         }
 
         // The slope layer's classes (our class breaks): 10-15, 15-20, over 20 degrees. Below 10: no colour.
@@ -170,18 +168,8 @@ namespace MissionLens
             return m;
         }
 
-        // Desktop stand-in for what passthrough shows: a floor and a desk under the model.
-        void BuildMockRoom()
-        {
-            mockRoom = new GameObject("Mock room").transform; mockRoom.SetParent(tableFrame, false);
-            var floor = Add("Floor", MLMesh.Box(new Vector3(9, .02f, 9)), ColorMat(new Color(.2f, .215f, .24f, 1), 2398), mockRoom); floor.transform.localPosition = new Vector3(0, -.772f, 0);
-            var top = Add("Desk", MLMesh.Box(new Vector3(1.5f, .04f, .95f)), ColorMat(new Color(.42f, .4f, .37f, 1), 2401), mockRoom); top.transform.localPosition = new Vector3(0, -.026f, 0);
-            foreach (var (x, z) in new[] { (-.68f, -.42f), (.68f, -.42f), (-.68f, .42f), (.68f, .42f) })
-            { var l = Add("Leg", MLMesh.Box(new Vector3(.05f, .72f, .05f)), ColorMat(new Color(.33f, .32f, .29f, 1), 2399), mockRoom); l.transform.localPosition = new Vector3(x, -.406f, z); }
-        }
-
         // ---------- placing the terrain ----------
-        View TableView() => new View { S = STable, ex = 1, ax = winCx, az = winCz, ground = false, yaw = tableFrame.eulerAngles.y, w = tableFrame.position };
+        View TableView() => new View { S = tv.S, ex = tableEx, ax = tv.ax, az = tv.az, ground = false, yaw = tableFrame.eulerAngles.y + tv.yawRel, w = tableFrame.position };
         View AtStation(string id, float groundY, float yaw) => new View { S = 1, ex = 1, ax = St(id).x, az = St(id).z, ground = true, yaw = yaw, w = new Vector3(rig.Head.position.x, groundY, rig.Head.position.z) };
         Vector3 AnchorLocal(View v) => new Vector3(v.ax, v.ground ? D.Elev(v.ax, v.az) : baseY, -v.az);
 
@@ -208,19 +196,19 @@ namespace MissionLens
         }
 
         /// <summary>
-        /// Puts the table model in front of the person, at a height that suits how they are: about waist height
-        /// when standing, desk height when seated.
+        /// Puts the table in front of the person: the model within easy reach, its base about 64 cm below the eyes
+        /// (waist height standing, desk height seated), with the briefing wall just behind it.
         /// </summary>
         public void PlaceTable()
         {
             var h = rig.Head; var fwd = Vector3.ProjectOnPlane(h.forward, Vector3.up); if (fwd.sqrMagnitude < .01f) fwd = Vector3.forward; fwd.Normalize();
-            // High enough that the model and the timeline are seen without bending the neck far down.
-            float y = rig.xr ? Mathf.Clamp(h.position.y - .64f, .68f, 1.02f) : .762f;
-            tableFrame.position = new Vector3(h.position.x, y, h.position.z) + fwd * 1.05f;
+            float y = rig.xr ? Mathf.Clamp(h.position.y - EyeAboveTable, .68f, 1.02f) : 1.6f - EyeAboveTable;
+            tableFrame.position = new Vector3(h.position.x, y, h.position.z) + fwd * TableAhead;
             tableFrame.rotation = Quaternion.LookRotation(fwd, Vector3.up);
             if (OnTable) { view = TableView(); ApplyView(); }
-            placed = true; lastPlaced = Time.time; Refresh();
+            placed = true; lastPlaced = Time.time; PlaceStudio(); Refresh();
         }
+        const float EyeAboveTable = .64f, TableAhead = .84f, TableLookPitch = -21;   // the last: where the desktop camera looks at the table
 
         // ---------- stage changes ----------
         public void SelectStation(string id)
@@ -228,14 +216,18 @@ namespace MissionLens
             sel = id; var t = M.tasks.FirstOrDefault(x => x.station == id && x.index >= taskIndex) ?? M.tasks.FirstOrDefault(x => x.station == id);
             if (t != null) selTask = t.index; Refresh();
         }
-        public void SelectTask(int i) { selTask = i; sel = M.tasks[i].station; Refresh(); }
+        public void SelectTask(int i)
+        {
+            selTask = i; sel = M.tasks[i].station; Refresh();
+            if (followTasks && stage == Stage.Table && introDone && !busy) TableTo(FramingFor(M.tasks[i]));   // bring its leg or station onto the table
+        }
 
         public void ToTable() { if (!busy) StartCoroutine(CoToTable()); }
         IEnumerator CoToTable()
         {
             busy = moving = true; HideBanner(); sfx.Play("whoosh", .8f);
             panoTarget = 0; roomTarget = 1; stage = Stage.Table; preview = null; selTask = Mathf.Min(taskIndex, M.tasks.Length - 1); sel = M.tasks[selTask].station; Refresh();
-            if (!rig.xr) StartCoroutine(Look(2.2f, tableFrame.eulerAngles.y, -30));
+            if (!rig.xr) StartCoroutine(Look(2.2f, tableFrame.eulerAngles.y, TableLookPitch));
             yield return FlyTo(TableView());
             busy = moving = false; Refresh();
             if (Finished) sfx.Play("ready", .7f);
@@ -322,7 +314,7 @@ namespace MissionLens
         }
 
         public void ToggleHeight() { if (!busy) StartCoroutine(CoHeight()); }
-        IEnumerator CoHeight() { busy = true; var target = view; target.ex = view.ex > 1 ? 1 : 2; yield return FlyTo(target, .6f); busy = false; Refresh(); }
+        IEnumerator CoHeight() { busy = true; tableEx = tableEx > 1 ? 1 : 2; yield return FlyTo(TableView(), .6f); busy = false; Refresh(); }
 
         public void SetLayer(string name) { layer = layer == name ? "none" : name; sfx.Play("toggle", .7f); Refresh(); }
         public void CompleteTask()
@@ -344,8 +336,10 @@ namespace MissionLens
             wristUp = false; travelling = null; pendingPano = null; preview = null; flashMsg = ""; restartArmedUntil = 0;
             panoTarget = 0; roomTarget = 1; introDone = false; frontR = 0; routeDraw = 0; plateK = 0; moving = false;
             foreach (var p in pins) p.shown = false;
+            if (framing != null) framing = null;
+            tv = tvDefault; tableEx = 1; baseY = BaseFor(tv); grabs.Clear();
             stage = Stage.Title; view = TableView(); ApplyView();
-            if (!rig.xr) StartCoroutine(Look(1.2f, tableFrame.eulerAngles.y, -8));
+            if (!rig.xr) StartCoroutine(Look(1.2f, tableFrame.eulerAngles.y, -3));
             Refresh();
         }
 
@@ -435,7 +429,8 @@ namespace MissionLens
             if (!rig.xr && rig.wristToggle) ToggleWrist();
             if (stage == Stage.Title && !busy && rig.anyKey) Begin();
             // Both hands (or both triggers) held for a moment: bring the table to where you are looking.
-            if (rig.xr && stage == Stage.Table && !busy && rig.right.HeldFor > 1.2f && rig.left.HeldFor > 1.2f && Time.time - lastPlaced > 2.5f) { PlaceTable(); sfx.Play("ready", .6f); }
+            // (Not while the hands are on the model: there, two held pinches are stretching the map.)
+            if (rig.xr && stage == Stage.Table && !busy && grabs.Count == 0 && rig.right.HeldFor > 1.2f && rig.left.HeldFor > 1.2f && Time.time - lastPlaced > 2.5f) { PlaceTable(); sfx.Play("ready", .6f); }
 
             float dt = Time.deltaTime;
             roomO = Mathf.MoveTowards(roomO, roomTarget, dt * .9f);
@@ -444,24 +439,25 @@ namespace MissionLens
             string lay = stage == Stage.Table ? layer : "none";
             oSlope = Mathf.MoveTowards(oSlope, lay == "slope" ? 1 : 0, dt * 3); oCrism = Mathf.MoveTowards(oCrism, lay == "crism" ? 1 : 0, dt * 3);
             clipG = Mathf.MoveTowards(clipG, OnTable ? 0 : 1, dt * 1.6f);
-            terrainMat.SetFloat("_OSlope", oSlope); terrainMat.SetFloat("_OCrism", oCrism); terrainMat.SetFloat("_ClipG", clipG); terrainMat.SetFloat("_Dim", panoOpacity);
+            // On the table the terrain is cut to the table's patch; leaving it, the cut opens out to the whole area.
+            float open = Mathf.Exp(clipG * 8.5f);
+            Shader.SetGlobalMatrix("_MLTableInv", tableFrame.worldToLocalMatrix); Shader.SetGlobalVector("_MLTableClip", new Vector4(FootHx * open, FootHz * open, 0, 0));
+            terrainMat.SetFloat("_OSlope", oSlope); terrainMat.SetFloat("_OCrism", oCrism); terrainMat.SetFloat("_Dim", panoOpacity);
             terrainMat.SetFloat("_Contour", oSlope);
             terrainMat.SetFloat("_Fog", clipG * (1 - panoOpacity)); terrainMat.SetFloat("_InvS", 1 / world.localScale.x);
             panoMat.SetFloat("_Opacity", panoOpacity); panoR.enabled = shownPano != null && panoOpacity > .01f;
             panoT.position = rig.Head.position; panoT.rotation = Quaternion.Euler(0, view.yaw, 0);
-            rig.SetBackground(roomO > .01f, MockRoom); rig.showHands = roomO < .5f;
-            if (mockRoom != null)
-            {   // the stand-in room fades as passthrough would
-                mockRoom.gameObject.SetActive(roomO > .01f);
-                foreach (var r in mockRoom.GetComponentsInChildren<MeshRenderer>()) { var c = r.sharedMaterial.GetColor("_Color"); c.a = Ease(roomO); r.sharedMaterial.SetColor("_Color", c); }
-            }
+            // What is behind the table: the real room (passthrough) or, if chosen, the plain studio room.
+            studioK = Mathf.MoveTowards(studioK, rig.xr && !studio ? 0 : 1, dt * 1.5f);
+            float realRoom = roomO * (1 - studioK);
+            rig.SetBackground(realRoom > .01f, MockRoom); rig.handPresence = 1 - realRoom;
 
             // Each of these is kept apart: on a headset this code has not been run on, a fault in one of them
             // should cost that part and be logged once, not stop the frame for the others.
-            Guard(0, () => UpdateFx(dt)); Guard(1, () => UpdateSurfaces(dt)); Guard(2, Point);
+            Guard(0, () => UpdateFx(dt)); Guard(1, () => UpdateSurfaces(dt)); Guard(2, Point); Guard(3, () => UpdateTable(dt));
             if (flashMsg.Length > 0 && Time.time > flashUntil) { flashMsg = ""; DrawHud(); }
         }
-        readonly bool[] guardLogged = new bool[3];
+        readonly bool[] guardLogged = new bool[4];
         void Guard(int i, Action step)
         {
             try { step(); }
@@ -478,7 +474,7 @@ namespace MissionLens
             foreach (var p in rig.xr ? new[] { rig.right, rig.left, rig.gaze } : debugGaze ? new[] { rig.gaze } : new[] { rig.mouse })
             {
                 bool gaze = p == rig.gaze;
-                p.hitDistance = -1; if (!p.active) { p.hoverPanel = null; p.hoverKey = null; continue; }
+                p.hitDistance = -1; p.overSurface = false; if (!p.active) { p.hoverPanel = null; p.hoverKey = null; continue; }
                 var ray = p.Ray; MLPanel hit = null; MLPanel.Btn btn = null; float best = float.MaxValue;
                 foreach (var s in Surfaces())
                 {
@@ -504,7 +500,7 @@ namespace MissionLens
                 }
                 if (hit != null)
                 {
-                    p.hitDistance = best;
+                    p.hitDistance = best; p.overSurface = true;
                     if (btn != null && !busy)
                     {
                         hovered[hit] = btn;
@@ -538,7 +534,7 @@ namespace MissionLens
         {
             stage = stage.ToString(), here = here, sel = sel, selTask = selTask, taskIndex = taskIndex, busy = busy, layer = layer, wrist = wristUp, xr = rig.xr,
             pano = panoOpacity, room = roomO, S = view.S, ax = view.ax, az = view.az, yaw = view.yaw, heading = HeadingNow, marks = marks.Count, done = done.OrderBy(i => i).ToArray(),
-            buttons = Surfaces().SelectMany(s => s.buttons.Select(b => b.key)).ToArray(), scale = scaleText, placed = placed, intro = introDone, banner = banner.Show, finished = Finished, preview = preview ?? "",
+            buttons = Surfaces().SelectMany(s => s.buttons.Select(b => b.key)).ToArray(), scale = ScaleText, placed = placed, intro = introDone, banner = banner.Show, finished = Finished, preview = preview ?? "",
         });
         [Serializable] class StateDump { public string stage, here, sel, layer, scale, preview; public int selTask, taskIndex, marks; public bool busy, wrist, xr, placed, intro, banner, finished; public float pano, room, S, ax, az, yaw, heading; public int[] done; public string[] buttons; }
 
@@ -564,7 +560,11 @@ namespace MissionLens
         }
         public void LookAt(float yaw, float pitch) { rig.lookYaw = yaw; rig.lookPitch = pitch; }
         /// <summary>Desktop check: aim the pointer through a viewport point as the mouse would, and optionally click. Aim(-1, -1) gives the mouse back.</summary>
-        public void Aim(float vx, float vy, bool click = false) { rig.debugAim = vx < 0 ? (Vector2?)null : new Vector2(vx, vy); rig.debugClick = click; }
+        public void Aim(float vx, float vy, bool click = false) { rig.debugAim = vx < 0 ? (Vector2?)null : new Vector2(vx, vy); rig.debugClick = click; if (vx < 0) rig.debugHold = false; }
+        /// <summary>Desktop check: hold (or let go of) the pointer's button while it is aimed with Aim, to drag the table's map.</summary>
+        public void Hold(bool on) { rig.debugHold = on; }
+        /// <summary>The table view, for checks: map point at the table's centre, scale and turn.</summary>
+        public string TableState() => $"ax={tv.ax:0.0} az={tv.az:0.0} scale=1:{1 / tv.S:0} yaw={tv.yawRel:0.0} baseY={baseY:0.0} grabs={grabs.Count} framing={(framing != null)}";
         /// <summary>Desktop check: show the headset's comfort vignette, which a desktop never triggers.</summary>
         public bool debugVignette;
         /// <summary>Desktop check: point with the direction of the camera and press by waiting, as the headset does when no hand is tracked.</summary>
