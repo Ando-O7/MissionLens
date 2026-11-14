@@ -162,7 +162,7 @@ def main():
         tasks.append(tk)
         t += task["planned_min"]
 
-    out = {k: src[k] for k in ("id", "aoi", "title", "subtitle", "scenario_note", "science_objective", "timeline_basis", "assumptions", "events")}
+    out = {k: src[k] for k in ("id", "aoi", "title", "subtitle", "scenario_note", "science_objective", "timeline_basis", "assumptions", "events", "record_note")}
     out.update({
         "stations": list(stations.values()), "legs": legs, "tasks": tasks, "planned_total_min": t,
         "route_total_m": round(sum(l["dist_m"] for l in legs), 1),

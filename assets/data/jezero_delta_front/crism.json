@@ -1,0 +1,29 @@
+{
+ "file": "crism_phy.png",
+ "grid": [
+  72,
+  66
+ ],
+ "m_per_px": 18.0,
+ "coverage": 1.0,
+ "observation": "FRT00005C5E",
+ "product": "FRT00005C5E_07_BRPHYJ_MTR3 (MTRDR browse product PHY)",
+ "bands_rgb": [
+  "D2300",
+  "D2200",
+  "BD1900R2"
+ ],
+ "nasa_description": "Shows information related to hydroxylated minerals including phyllosilicate. Mg/Fe-OH bearing minerals may appear red, or magenta when hydrated. Al/Si-OH bearing minerals may appear green, or cyan when hydrated. Blue colors may indicate other hydrated minerals. See Viviano-Beck et al. [2014] for details. Analysis of CRISM spectra must be used to match absorption band positions and relative strength for positive mineral identification.",
+ "source": "MRO CRISM Map-projected Targeted Reduced Data Record, browse product (NASA PDS Geosciences Node; JHU/APL)",
+ "url": "https://pds-geosciences.wustl.edu/mro/mro-m-crism-5-rdr-mptargeted-v1/mrocr_4001/browse/2007/2007_139/frt00005c5e/frt00005c5e_07_brphyj_mtr3.png",
+ "ours": {
+  "shift_px": [
+   9,
+   13
+  ],
+  "shift_m": 285,
+  "shift_note": "Constant shift found by matching the CRISM true-colour browse product to the HiRISE base over this area (correlation 0.26 -> 0.78). One translation; residual not evaluated.",
+  "display_gain": 2.78,
+  "gain_note": "One brightness gain for all three bands, so hues are unchanged."
+ }
+}

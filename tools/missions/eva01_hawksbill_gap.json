@@ -31,7 +31,16 @@
       "waypoint": "32_1184",
       "pano": "mcz_three_forks",
       "pano_navcam": "three_forks_sol686",
-      "note": "Hypothetical egress point on level crater floor, at Three Forks where Perseverance laid out its sample depot. The rover was parked here on sols 686–693."
+      "note": "Hypothetical egress point on level crater floor, at Three Forks where Perseverance laid out its sample depot. The rover was parked here on sols 686–693.",
+      "why": "Start and finish. Level ground on the crater floor at the foot of the fan front, where the whole route can be checked against the real skyline before leaving.",
+      "view": {
+        "az": 298,
+        "fov": 90,
+        "el": [
+          9,
+          -18
+        ]
+      }
     },
     {
       "id": "A",
@@ -40,7 +49,16 @@
       "waypoint": "26_0",
       "pano": "mcz_rose_river_falls",
       "pano_navcam": "rose_river_falls_sol449",
-      "note": "Foot of the climb through Hawksbill Gap onto the fan front. Perseverance was here on sols 449–454."
+      "note": "Foot of the climb through Hawksbill Gap onto the fan front. Perseverance was here on sols 449–454.",
+      "why": "Last stop before the climb. The outcrops to be sampled sit higher up and out of sight from here, so this is where the slope ahead is surveyed and the way up through the gap is confirmed.",
+      "view": {
+        "az": 315,
+        "fov": 100,
+        "el": [
+          12,
+          -18
+        ]
+      }
     },
     {
       "id": "B",
@@ -50,7 +68,16 @@
       "pano": "mcz_skinner_ridge",
       "pano_navcam": "skinner_ridge_sol477",
       "sample_outcrop": "Skinner Ridge",
-      "note": "Perseverance workspace, sols 477–500."
+      "note": "Perseverance workspace, sols 477–500.",
+      "why": "First of the two outcrops named in the objective. NASA's sampling record lists two rock cores taken here and classes the rock as sedimentary, at the fan front.",
+      "view": {
+        "az": 320,
+        "fov": 110,
+        "el": [
+          11,
+          -22
+        ]
+      }
     },
     {
       "id": "C",
@@ -60,7 +87,16 @@
       "pano": "mcz_wildcat_ridge",
       "pano_navcam": "wildcat_ridge_sol502",
       "sample_outcrop": "Wildcat Ridge",
-      "note": "Perseverance workspace, sols 502–534."
+      "note": "Perseverance workspace, sols 502–534.",
+      "why": "Second outcrop, a short walk along the bench from Skinner Ridge. NASA's sampling record lists two more sedimentary rock cores here. Comparing the two outcrops decides where to sample.",
+      "view": {
+        "az": 330,
+        "fov": 100,
+        "el": [
+          10,
+          -20
+        ]
+      }
     }
   ],
   "legs": [
@@ -107,8 +143,9 @@
       "planned_min": 30,
       "checks": [
         "Mark layered outcrops visible upslope",
-        "Confirm line of sight to Station B"
-      ]
+        "Confirm the way up through the gap to Station B"
+      ],
+      "record_check": 0
     },
     {
       "station": "B",
@@ -136,7 +173,8 @@
       "checks": [
         "Locate the 2022 core site on the ledge",
         "Flag one fresh candidate nearby"
-      ]
+      ],
+      "record_check": 1
     },
     {
       "station": "C",
@@ -164,7 +202,8 @@
       "checks": [
         "Locate the 2022 core site on the slab",
         "Flag one fresh candidate nearby"
-      ]
+      ],
+      "record_check": 1
     },
     {
       "station": "C",
@@ -229,5 +268,6 @@
         }
       ]
     }
-  ]
+  ],
+  "record_note": "Marks placed in FIELD are a simulated record. Their map position is our calculation: the pointing direction intersected with the HiRISE terrain model (2 m grid), so it is approximate, more so near the horizon."
 }

@@ -90,10 +90,17 @@ Phase 0(データ実現性の検証)。公式課題の確認、Jezero と Gale �
 .venv/bin/python tools/build_vectors.py jezero_delta_front
 .venv/bin/python tools/build_pano.py wildcat_ridge_sol502 502 26_1222 --seq NCAM02502,NCAM03502,NCAM04502
 
+.venv/bin/python tools/build_crism.py jezero_delta_front            # CRISM の地図レイヤー
+.venv/bin/python tools/build_mission.py eva01_hawksbill_gap          # Marswalk 定義(tools/missions/ の手書き → assets/data/missions/)
+.venv/bin/python tools/build_station_views.py eva01_hawksbill_gap    # 地点ごとのパノラマの切り抜き
+
 # 表示
 python3 -m http.server 8765
-# http://localhost:8765/experiments/phase0/index.html
-# 状態指定: ?mode=2d|3d|pov  &layers=oSlope,oHill,oThN,oThD  &hdg=45&pitch=-4  &site=Wildcat%20Ridge  &ex=1.5
+# 空間 UI の擬似版(いまの主な確認対象): http://localhost:8765/experiments/spatial/index.html
+#   状態指定: ?stage=table|giant|walk|field  &station=B  &layer=slope|crism  &task=3  &wrist=1  &hdg=20&pitch=-5
+#   操作の自動確認: node experiments/spatial/drive.mjs http://localhost:8765/experiments/spatial/index.html experiments/spatial/out <空の一時フォルダ>
+# Phase 0 の表示: http://localhost:8765/experiments/phase0/index.html
+#   状態指定: ?mode=2d|3d|pov  &layers=oSlope,oHill,oThN,oThD  &hdg=45&pitch=-4  &site=Wildcat%20Ridge  &ex=1.5
 ```
 
 確認用の画像: `experiments/phase0/out/`(`shot_3d.jpg` `shot_2d_themis.jpg` `shot_pov.jpg` `shot_pov_ne.jpg` `registration_check.jpg` `pano_dtm_horizon_check.jpg`)。

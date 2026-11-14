@@ -7,39 +7,40 @@
 <style>
   html,body { margin:0; height:100%; background:#0b0d10; color:#e9e6df; font:13px/1.45 -apple-system,"Helvetica Neue",Arial,sans-serif; overflow:hidden; user-select:none; }
   canvas { display:block; }
-  .panel { position:absolute; background:rgba(14,17,22,.78); border:1px solid rgba(255,255,255,.14); border-radius:8px; padding:8px 14px; }
-  #top { left:50%; top:12px; transform:translateX(-50%); text-align:center; min-width:320px; }
-  #top b { font-size:15px; letter-spacing:.1em; }
-  #top div { color:#9aa0a8; font-size:11.5px; }
-  #keys { right:12px; top:12px; color:#9aa0a8; font-size:11.5px; max-width:250px; }
-  #note { left:12px; bottom:12px; max-width:560px; font-size:11.5px; color:#9aa0a8; }
-  #note b { color:#ffb347; font-weight:600; }
-  #err { left:12px; top:12px; color:#ff8a80; max-width:520px; display:none; white-space:pre-wrap; }
+  .panel { position:absolute; background:rgba(14,17,22,.78); border:1px solid rgba(255,255,255,.14); border-radius:8px; padding:8px 14px; font-size:11.5px; color:#9aa0a8; }
+  #note { left:12px; top:12px; max-width:232px; }
+  #note b { display:block; color:#e9e6df; font-size:12.5px; letter-spacing:.06em; margin-bottom:3px; }
+  #note i { color:#ffb347; font-style:normal; font-weight:600; }
+  #sub { margin-top:4px; font-variant-numeric:tabular-nums; }
+  #keys { right:12px; top:12px; max-width:250px; }
+  #err { left:12px; bottom:12px; color:#ff8a80; max-width:520px; display:none; white-space:pre-wrap; }
 </style>
 </head>
 <body>
-<div id="top" class="panel"><b id="stage">…</b><div id="sub"></div></div>
-<div id="keys" class="panel">Drag: look · Click: pinch / select<br>W A S D: move · Shift: faster<br>The panel at lower left stands in for a wrist display</div>
-<div id="note" class="panel"></div>
+<div id="note" class="panel"><b id="stage">…</b><span id="prov"></span><div id="sub"></div></div>
+<div id="keys" class="panel">Drag: look · Click: pinch / point<br>Click a station label: select it, or walk there<br>Space: raise or lower the wrist panel<br>W A S D: move · Esc: back to the table</div>
 <div id="err" class="panel"></div>
 <script>addEventListener('error', e => { const d = document.getElementById('err'); d.style.display = 'block'; d.textContent += e.message + '\n'; });
 addEventListener('unhandledrejection', e => { const d = document.getElementById('err'); d.style.display = 'block'; d.textContent += (e.reason && e.reason.stack || e.reason) + '\n'; });</script>
 <script type="importmap">{ "imports": { "three": "../phase0/vendor/three.module.js" } }</script>
 <script type="module">
-// Desktop stand-in for the Quest experience: one continuous space that goes from a tabletop model in the
-// room (MR), to standing inside the terrain (VR), to the real surface image at a station (VR), with a
-// wrist panel as the tool itself. Throwaway experiment for judging flow and behaviour, not product code.
+// Desktop stand-in for the Quest experience. PLAN: a tabletop terrain model in the room (MR) with a
+// briefing board behind it and the task timeline along its near edge. FIELD: the terrain at true scale
+// and the real surface image at each station (VR), with a head-up strip and a wrist panel on demand.
+// One mission state runs through both. Throwaway experiment for judging flow and behaviour, not product code.
 import * as THREE from 'three';
 const ROOT = '../../assets/data/', AOI = ROOT + 'jezero_delta_front/', q = new URLSearchParams(location.search), $ = id => document.getElementById(id);
+const INK = '#e9e6df', GRAY = '#9aa0a8', DIM = '#6b7178', CYAN = '#5fd4ff', AMBER = '#ffb347';
 THREE.ColorManagement.enabled = false;
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight); document.body.prepend(renderer.domElement);
 
-const [L, M, MEDA, buf] = await Promise.all([
+const [L, M, MEDA, CR, buf] = await Promise.all([
   fetch(AOI + 'layers.json').then(r => r.json()),
   fetch(ROOT + 'missions/eva01_hawksbill_gap.json').then(r => r.json()),
   fetch(ROOT + 'conditions/meda_sol0502.json').then(r => r.json()),
+  fetch(AOI + 'crism.json').then(r => r.json()),
   fetch(AOI + 'dtm_2m_f32.bin').then(r => r.arrayBuffer()),
 ]);
 const dtm = new Float32Array(buf), [gw, gh] = L.dtm.grid, [sx, sy] = L.size_m, zMin = L.dtm.elev_min;
@@ -51,6 +52,10 @@ function elevLocal(x, z) {
   return (dtm[i] * (1 - u) + dtm[i + 1] * u) * (1 - v) + (dtm[i + gw] * (1 - u) + dtm[i + gw + 1] * u) * v - zMin;
 }
 const tl = new THREE.TextureLoader(), loadTex = u => tl.loadAsync(u);
+// Per station: the panorama's metadata and a small crop of it for the briefing board (tools/build_station_views.py).
+const PM = Object.fromEntries(await Promise.all(M.stations.map(async s => [s.id, await fetch(ROOT + 'pano/' + s.pano + '.json').then(r => r.json())])));
+const viewImg = {}; await Promise.all(M.stations.map(s => new Promise(res => { const im = new Image(); im.onload = () => { viewImg[s.id] = im; res(); }; im.onerror = res; im.src = ROOT + 'pano/view_' + s.pano + '.jpg'; })));
+const solsText = pm => pm.sols[0] === pm.sols[1] ? 'sol ' + pm.sols[0] : 'sols ' + pm.sols[0] + '–' + pm.sols[1];
 
 // ---------- scene ----------
 const scene = new THREE.Scene(), ROOM_BG = new THREE.Color(0x23262b), MARS_SKY = new THREE.Color(0xc9a67e), skyNow = MARS_SKY.clone();
@@ -69,7 +74,7 @@ const rm = (color, o = 1) => { const m = new THREE.MeshBasicMaterial({ color, tr
   const wall = new THREE.Mesh(new THREE.PlaneGeometry(9, 3), rm(0x2b2f35)); wall.position.set(0, 1.5, -4.5); room.add(wall); }
 const DESK_Y = .762;
 
-// Terrain: every DTM sample is a vertex; unlit; one optional slope overlay.
+// Terrain: every DTM sample is a vertex; unlit; optional slope and CRISM overlays (table only).
 const world = new THREE.Group(); scene.add(world);
 const pos = new Float32Array(gw * gh * 3), uv = new Float32Array(gw * gh * 2), idx = new Uint32Array((gw - 1) * (gh - 1) * 6);
 for (let r = 0, k = 0; r < gh; r++) for (let c = 0; c < gw; c++, k++) {
@@ -78,43 +83,70 @@ for (let r = 0, k = 0; r < gh; r++) for (let c = 0; c < gw; c++, k++) {
 for (let r = 0, k = 0; r < gh - 1; r++) for (let c = 0; c < gw - 1; c++) { const a = r * gw + c, b = a + 1, d = a + gw, e = d + 1; idx.set([a, d, b, b, d, e], k); k += 6; }
 const geo = new THREE.BufferGeometry();
 geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setIndex(new THREE.BufferAttribute(idx, 1));
-const [tOrtho, tSlope] = await Promise.all([loadTex(AOI + 'ortho.jpg'), loadTex(AOI + 'slope.png')]);
+const [tOrtho, tSlope, tCrism] = await Promise.all([loadTex(AOI + 'ortho.jpg'), loadTex(AOI + 'slope.png'), loadTex(AOI + CR.file)]);
 tOrtho.anisotropy = renderer.capabilities.getMaxAnisotropy();
-const tUni = { tOrtho: { value: tOrtho }, tSlope: { value: tSlope }, oSlope: { value: 0 }, dim: { value: 0 } };
+tCrism.magFilter = tCrism.minFilter = THREE.NearestFilter; tCrism.generateMipmaps = false;  // show the 18 m cells as they are
+// On the table only the part of the area this Marswalk uses is shown, so stations a few tens of metres apart
+// stay distinct. The window is the route's bounding box plus a margin, in the table's proportions.
+const WIN = (() => { const pts = M.legs.flatMap(l => l.route).concat(M.stations.map(s => [s.x, s.y])), xs = pts.map(p => p[0]), zs = pts.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs), AR = .86 / .79, hx = Math.max((x1 - x0) / 2 + 60, ((z1 - z0) / 2 + 60) * AR), hz = hx / AR;
+  const cx = Math.max(-sx / 2 + hx, Math.min(sx / 2 - hx, (x0 + x1) / 2)), cz = Math.max(-sy / 2 + hz, Math.min(sy / 2 - hz, (z0 + z1) / 2)); let lo = Infinity;
+  for (let z = cz - hz; z <= cz + hz; z += 4) for (let x = cx - hx; x <= cx + hx; x += 4) lo = Math.min(lo, elevLocal(x, z));
+  return { cx, cz, hx, hz, baseY: lo - 3 }; })();
+const tUni = { tOrtho: { value: tOrtho }, tSlope: { value: tSlope }, tCrism: { value: tCrism }, oSlope: { value: 0 }, oCrism: { value: 0 }, dim: { value: 0 },
+  win: { value: new THREE.Vector4(WIN.cx, WIN.cz, WIN.hx, WIN.hz) }, full: { value: new THREE.Vector2(sx / 2, sy / 2) }, clipG: { value: 0 } };
 world.add(new THREE.Mesh(geo, new THREE.ShaderMaterial({ uniforms: tUni, side: THREE.DoubleSide,
-  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
-  fragmentShader: 'uniform sampler2D tOrtho, tSlope; uniform float oSlope, dim; varying vec2 vUv; void main(){ vec3 c = texture2D(tOrtho, vUv).rgb; vec4 s = texture2D(tSlope, vUv); c = mix(c, s.rgb, s.a * oSlope); gl_FragColor = vec4(mix(c, vec3(.2, .16, .13) + c * .12, dim), 1.); }' })));
-{ const slab = new THREE.Mesh(new THREE.BoxGeometry(sx, 24, sy), new THREE.MeshBasicMaterial({ color: 0x15171a })); slab.position.y = -12.2; world.add(slab); }
+  vertexShader: 'varying vec2 vUv; varying vec3 vP; void main(){ vUv = uv; vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
+  // clipG 0 = only the Marswalk window (table), 1 = the whole area; in between the map spreads out from the table.
+  fragmentShader: 'uniform sampler2D tOrtho, tSlope, tCrism; uniform float oSlope, oCrism, dim, clipG; uniform vec4 win; uniform vec2 full; varying vec2 vUv; varying vec3 vP; void main(){ vec2 h = mix(win.zw, full, clipG), o = win.xy * (1. - clipG); if (abs(vP.x - o.x) > h.x || abs(vP.z - o.y) > h.y) discard; vec3 c = texture2D(tOrtho, vUv).rgb; vec4 s = texture2D(tSlope, vUv); c = mix(c, s.rgb, s.a * oSlope); vec4 k = texture2D(tCrism, vUv); c = mix(c, k.rgb, k.a * oCrism * .72); gl_FragColor = vec4(mix(c, vec3(.2, .16, .13) + c * .12, dim), 1.); }' })));
+{ const slab = new THREE.Mesh(new THREE.BoxGeometry(WIN.hx * 2, 3, WIN.hz * 2), new THREE.MeshBasicMaterial({ color: 0x15171a })); slab.position.set(WIN.cx, WIN.baseY + 1.4, WIN.cz); world.add(slab); }
 
-// Planned route: a 1 px line (readable on the table) plus a 1.2 m wide ribbon on the ground (readable at 1:1).
-const legObjs = M.legs.map(leg => {
+// Where each station sits in the CRISM product: rank of its red band (3 x 3 cells) within the area. Our reading of a NASA product.
+const crismRank = {};
+{ const im = tCrism.image, cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height; const cx = cv.getContext('2d'); cx.drawImage(im, 0, 0);
+  const d = cx.getImageData(0, 0, im.width, im.height).data, red = Float32Array.from({ length: im.width * im.height }, (_, i) => d[i * 4]), sorted = Float32Array.from(red).sort();
+  for (const s of M.stations) { const c = Math.floor((s.x / sx + .5) * im.width), r = Math.floor((s.y / sy + .5) * im.height); let v = 0, n = 0;
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const cc = c + i, rr = r + j; if (cc >= 0 && cc < im.width && rr >= 0 && rr < im.height) { v += red[rr * im.width + cc]; n++; } }
+    v /= n; let k = 0; while (k < sorted.length && sorted[k] < v) k++; crismRank[s.id] = Math.round(100 * k / sorted.length); } }
+
+// Planned route: a 0.5 m wide ribbon on the ground (readable at 1:1) and a 3 m wide one for the table model.
+const legObjs = M.legs.map((leg, li) => {
   const p = leg.route.map(([x, z]) => new THREE.Vector3(x, elevLocal(x, z) + 1.2, z));
   const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(p), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true }));
   const v = [], wv = [], ix = [];
   p.forEach((a, i) => { const b = p[Math.min(i + 1, p.length - 1)], a0 = p[Math.max(i - 1, 0)], dx = b.x - a0.x, dz = b.z - a0.z, n = Math.hypot(dx, dz) || 1, y = a.y - .9;
-    v.push(a.x - dz / n * .4, y, a.z + dx / n * .4, a.x + dz / n * .4, y, a.z - dx / n * .4); wv.push(a.x - dz / n * 4, a.y + 2, a.z + dx / n * 4, a.x + dz / n * 4, a.y + 2, a.z - dx / n * 4); if (i) ix.push(2 * i - 2, 2 * i - 1, 2 * i, 2 * i - 1, 2 * i + 1, 2 * i); });
+    v.push(a.x - dz / n * .25, y, a.z + dx / n * .25, a.x + dz / n * .25, y, a.z - dx / n * .25); wv.push(a.x - dz / n * 1.6, a.y + 1, a.z + dx / n * 1.6, a.x + dz / n * 1.6, a.y + 1, a.z - dx / n * 1.6); if (i) ix.push(2 * i - 2, 2 * i - 1, 2 * i, 2 * i - 1, 2 * i + 1, 2 * i); });
   const mk = arr => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); g.setIndex(ix); return new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x5fd4ff, transparent: true, opacity: .5, side: THREE.DoubleSide, depthWrite: false })); };
   const ribbon = mk(v), wide = mk(wv);
   line.renderOrder = 7; ribbon.renderOrder = 6; wide.renderOrder = 6; world.add(line, ribbon, wide);
-  return { leg, line, ribbon, wide };
+  return { leg, li, line, ribbon, wide };
 });
 
 // Station labels live outside the scaled group so they keep a constant on-screen size.
 const pins = new THREE.Group(); scene.add(pins);
-function makeLabel(text, sub, color) {
+function makeLabel(text, sub, color, left = false) {  // left: the label extends to the left of its anchor ring
   const c = document.createElement('canvas'); c.width = 640; c.height = 128; const g = c.getContext('2d');
   g.font = '600 38px -apple-system,Helvetica,Arial'; g.textBaseline = 'middle';
-  const w = Math.max(g.measureText(text).width, sub ? g.measureText(sub).width * .72 : 0) + 96;
-  g.fillStyle = 'rgba(8,10,14,.74)'; g.beginPath(); g.roundRect(0, 14, Math.min(w, 640), 100, 20); g.fill();
-  g.strokeStyle = color; g.lineWidth = 7; g.beginPath(); g.arc(46, 64, 17, 0, 7); g.stroke();
-  g.fillStyle = color; g.fillText(text, 80, sub ? 46 : 64);
-  if (sub) { g.font = '27px -apple-system,Helvetica,Arial'; g.fillStyle = '#b8bec6'; g.fillText(sub, 80, 88); }
+  const w = Math.min(640, Math.max(g.measureText(text).width, sub ? g.measureText(sub).width * .72 : 0) + 96);
+  g.fillStyle = 'rgba(8,10,14,.74)'; g.beginPath(); g.roundRect(left ? 640 - w : 0, 14, w, 100, 20); g.fill();
+  g.strokeStyle = color; g.lineWidth = 7; g.beginPath(); g.arc(left ? 594 : 46, 64, 17, 0, 7); g.stroke();
+  g.textAlign = left ? 'right' : 'left'; const tx = left ? 560 : 80; g.fillStyle = color; g.fillText(text, tx, sub ? 46 : 64);
+  if (sub) { g.font = '27px -apple-system,Helvetica,Arial'; g.fillStyle = '#b8bec6'; g.fillText(sub, tx, 88); }
   const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t;
 }
+const LEFT = { C: true };  // B and C are 20 m apart: their labels go to opposite sides
 const pinObjs = M.stations.map(s => {
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ depthTest: false, sizeAttenuation: false, transparent: true }));
-  sp.center.set(46 / 640, .5); sp.scale.set(.34, .068, 1); sp.renderOrder = 10; sp.userData = { id: s.id, local: new THREE.Vector3(s.x, elevLocal(s.x, s.y) + 1.5, s.y) }; pins.add(sp); return sp;
+  sp.center.set(LEFT[s.id] ? 594 / 640 : 46 / 640, .5); sp.scale.set(.34, .068, 1); sp.renderOrder = 10; sp.userData = { id: s.id, local: new THREE.Vector3(s.x, elevLocal(s.x, s.y) + 1.5, s.y) }; pins.add(sp); return sp;
 });
+
+// Records made in FIELD (simulated): numbered marks that sit at a terrain point, so they show on the table too.
+const marks = [], markSprites = new THREE.Group(); scene.add(markSprites); let markSeq = 0;
+function markTex(n) {
+  const c = document.createElement('canvas'); c.width = c.height = 96; const g = c.getContext('2d'); g.translate(48, 48); g.rotate(Math.PI / 4);
+  g.fillStyle = 'rgba(8,10,14,.78)'; g.strokeStyle = AMBER; g.lineWidth = 7; g.beginPath(); g.rect(-23, -23, 46, 46); g.fill(); g.stroke(); g.rotate(-Math.PI / 4);
+  g.fillStyle = AMBER; g.font = '700 34px -apple-system,Helvetica,Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(n, 0, 2); return new THREE.CanvasTexture(c);
+}
 
 // Surface image: the official Mastcam-Z panorama for a station, north-aligned, drawn over the 1:1 terrain.
 const panoCache = {}, panoUni = { map: { value: null }, opacity: { value: 0 } };
@@ -125,7 +157,7 @@ const panoMat = new THREE.ShaderMaterial({ uniforms: panoUni, side: THREE.Double
 let panoMesh = null;
 async function loadPano(id) {
   if (!panoCache[id]) {
-    const name = ST[id].pano, meta = await fetch(ROOT + 'pano/' + name + '.json').then(r => r.json()), tex = await loadTex(ROOT + 'pano/' + name + '.jpg');
+    const meta = PM[id], tex = await loadTex(ROOT + 'pano/' + ST[id].pano + '.jpg');
     tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
     const na = 180, ne = 64, p = [], t = [], ix = [], R = 400;
     for (let j = 0; j <= ne; j++) for (let i = 0; i <= na; i++) {
@@ -149,10 +181,10 @@ async function showPano(id) {
 // ---------- view state ----------
 // The user never moves through the room; the terrain is placed around them. `view` says which terrain
 // point (ax, az) sits at which room position (wx, wy, wz) and at what scale.
-const S_TABLE = 1 / 1500, S_GIANT = 1 / 25;
-const view = { S: S_TABLE, ex: 1, ax: 0, az: 0, ground: false, wx: 0, wy: DESK_Y, wz: 0 };
+const S_TABLE = .43 / WIN.hx, S_GIANT = 1 / 25, SCALE_TXT = '1 : ' + Math.round(1 / S_TABLE / 10) * 10;
+const TABLE = { S: S_TABLE, ex: 1, ax: WIN.cx, az: WIN.cz, ground: false, wx: 0, wy: DESK_Y, wz: 0 }, view = { ...TABLE };
 function applyView(v = view) {
-  const h = v.ground ? elevLocal(v.ax, v.az) : 0;
+  const h = v.ground ? elevLocal(v.ax, v.az) : WIN.baseY;
   world.scale.set(v.S, v.S * v.ex, v.S); world.position.set(v.wx - v.S * v.ax, v.wy - v.S * v.ex * h, v.wz - v.S * v.az);
 }
 const tweens = [];
@@ -160,33 +192,41 @@ const tween = (dur, fn) => new Promise(res => tweens.push({ t: 0, dur, fn, res }
 const ease = k => k * k * (3 - 2 * k);
 async function flyTo(target, dur = 2.6) {
   // Keep the destination point fixed as the pivot, so the model grows (or shrinks) around where you are going.
-  const lp = new THREE.Vector3(target.ax, target.ground ? elevLocal(target.ax, target.az) : 0, target.az);
+  const lp = new THREE.Vector3(target.ax, target.ground ? elevLocal(target.ax, target.az) : WIN.baseY, target.az);
   const w0 = lp.clone().applyMatrix4(world.matrixWorld), w1 = new THREE.Vector3(target.wx, target.wy, target.wz), s0 = Math.log(view.S), s1 = Math.log(target.S), e0 = view.ex;
   await tween(dur, k => { const e = ease(k), S = Math.exp(s0 + (s1 - s0) * e), ex = e0 + (target.ex - e0) * e, w = w0.clone().lerp(w1, e);
     world.scale.set(S, S * ex, S); world.position.set(w.x - S * lp.x, w.y - S * ex * lp.y, w.z - S * lp.z); });
   Object.assign(view, target); applyView();
 }
 
-let stage = 'table', here = 'BASE', sel = 'A', busy = false, taskIndex = +(q.get('task') ?? 0), done = new Set();
-let roomT = 1, roomO = 1, panoT = 0, slopeT = 0, hdg = 0, pitch = -34, lastDrag = 0;
+let stage = 'table', here = 'BASE', busy = false, taskIndex = +(q.get('task') ?? 0), done = new Set(), layer = 'none', wristUp = false, travelling = null;
+let selTask = Math.min(taskIndex, M.tasks.length - 1), sel = M.tasks[selTask].station;
+let roomT = 1, roomO = 1, panoT = 0, hdg = 0, pitch = -30, lastDrag = 0, flashMsg = '', flashUntil = 0;
 const task = () => M.tasks[Math.min(taskIndex, M.tasks.length - 1)], finished = () => taskIndex >= M.tasks.length;
 const pet = () => M.tasks.slice(0, taskIndex).reduce((a, t) => a + t.planned_min, 0);
-const hm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.round(m % 60)).padStart(2, '0')}`;
-function bearing(a, b) { const dx = ST[b].x - ST[a].x, dz = ST[b].y - ST[a].y; return { az: (Math.atan2(dx, -dz) * 180 / Math.PI + 360) % 360, d: Math.hypot(dx, dz) }; }
+const hm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.round(m % 60)).padStart(2, '0')}`, deg3 = a => String(Math.round(a) % 360).padStart(3, '0');
+const bearingXZ = (x, z, b) => ({ az: (Math.atan2(ST[b].x - x, -(ST[b].y - z)) * 180 / Math.PI + 360) % 360, d: Math.hypot(ST[b].x - x, ST[b].y - z) });
+const bearing = (a, b) => bearingXZ(ST[a].x, ST[a].y, b);
 const atStation = id => ({ S: 1, ex: 1, ax: ST[id].x, az: ST[id].y, ground: true, wx: cam.position.x, wz: cam.position.z });
+// Turn the head as part of a transition (the desktop stand-in for where a person would naturally look).
+const turn = (dur, h1, p1) => { const h0 = hdg, p0 = pitch, dh = ((h1 - h0 + 540) % 360) - 180; return tween(dur, k => { const e = ease(k); hdg = (h0 + dh * e + 360) % 360; pitch = p0 + (p1 - p0) * e; }); };
+const flash = (msg, ms = 3500) => { flashMsg = msg; flashUntil = performance.now() + ms; drawHud(); };
+function selectStation(id) { sel = id; const t = M.tasks.find(t => t.station === id && t.index >= taskIndex) || M.tasks.find(t => t.station === id); if (t) selTask = t.index; refresh(); }
+function selectTask(i) { selTask = i; sel = M.tasks[i].station; refresh(); }
 
 async function toTable() {
-  if (busy) return; busy = true; panoT = 0; roomT = 1; stage = 'table'; refresh();
-  await flyTo({ S: S_TABLE, ex: 1, ax: 0, az: 0, ground: false, wx: 0, wy: DESK_Y, wz: 0 }); busy = false; refresh();
+  if (busy) return; busy = true; panoT = 0; roomT = 1; stage = 'table'; selTask = Math.min(taskIndex, M.tasks.length - 1); sel = M.tasks[selTask].station; refresh();
+  await Promise.all([flyTo({ ...TABLE }), turn(2.2, 0, -30)]); busy = false; refresh();
 }
 async function enterTerrain(id, S) {
-  if (busy) return; busy = true; panoT = 0; roomT = 0; slopeT = 0; stage = S === 1 ? 'walk' : 'giant'; sel = id; refresh();
-  await flyTo({ ...atStation(id), S, wy: 0 }, stage === 'giant' ? 2.4 : 3.2); busy = false; refresh();
+  if (busy) return; busy = true; panoT = 0; roomT = 0; stage = S === 1 ? 'walk' : 'giant'; sel = id; wristUp = true; refresh();
+  const dur = stage === 'giant' ? 2.4 : 3.2; await Promise.all([flyTo({ ...atStation(id), S, wy: 0 }, dur), turn(dur, hdg, S === 1 ? -6 : -14)]); busy = false; refresh();
 }
 async function toField(id) {
-  if (busy) return; busy = true; roomT = 0; slopeT = 0; sel = here = id; const load = showPano(id); stage = 'field'; refresh();
-  // Eye sits 2 m above the ground here, the height of the camera that took the image.
-  await flyTo({ ...atStation(id), wy: EYE - 2.0 }, view.S === 1 ? 1.2 : 3.0); await load; panoT = 1; busy = false; refresh();
+  if (busy) return; busy = true; roomT = 0; sel = here = id; wristUp = false; const load = showPano(id), dur = view.S === 1 ? 1.2 : 3.0, fromTable = stage === 'table'; stage = 'field'; refresh();
+  // Eye sits 2 m above the ground here, the height of the camera that took the image. Coming from the
+  // table you land facing the same way as the preview on the briefing board.
+  await Promise.all([flyTo({ ...atStation(id), wy: EYE - 2.0 }, dur), turn(dur, fromTable ? ST[id].view.az : hdg, -6)]); await load; panoT = 1; busy = false; refresh();
 }
 function routeBetween(a, b) {
   const f = M.legs.find(l => l.from === a && l.to === b), r = M.legs.find(l => l.from === b && l.to === a);
@@ -195,7 +235,7 @@ function routeBetween(a, b) {
 async function travel(to) {
   if (busy || to === here) return; busy = true; const from = here, pts = routeBetween(from, to), cum = [0];
   for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
-  const total = cum.at(-1), load = showPanoLater(to); panoT = 0; stage = 'walk'; refresh();
+  const total = cum.at(-1), load = showPanoLater(to); panoT = 0; stage = 'walk'; wristUp = false; travelling = to; refresh();
   Object.assign(view, { ...atStation(from), wy: 0 }); await tween(.7, k => { view.wy = (EYE - 2.0) * (1 - k); applyView(); });
   await tween(Math.max(3, Math.min(8, total / 45)), k => {
     const d = ease(k) * total; let i = 1; while (i < pts.length - 1 && cum[i] < d) i++;
@@ -203,103 +243,202 @@ async function travel(to) {
     if (performance.now() - lastDrag > 1500) {  // face the way you are walking unless the user is looking around
       const want = (Math.atan2(pts[i][0] - pts[i - 1][0], -(pts[i][1] - pts[i - 1][1])) * 180 / Math.PI + 360) % 360, dh = ((want - hdg + 540) % 360) - 180; hdg = (hdg + dh * .06 + 360) % 360; pitch += (-6 - pitch) * .05; }
   });
-  await tween(.6, k => { view.wy = (EYE - 2.0) * k; applyView(); }); await load; here = to; sel = to; stage = 'field'; panoT = 1;
+  await tween(.6, k => { view.wy = (EYE - 2.0) * k; applyView(); }); await load; here = to; sel = to; stage = 'field'; panoT = 1; travelling = null;
   if (!finished() && task().leg !== undefined && task().station === to) { taskIndex++; done = new Set(); }  // an Approach task ends on arrival
   busy = false; refresh();
 }
 let pendingPano = null; const showPanoLater = id => (pendingPano = id, loadPano(id).then(() => 0));
-
-// ---------- wrist panel ----------
-const PW = 600, PH = 780, pc = document.createElement('canvas'); pc.width = PW; pc.height = PH; const pg = pc.getContext('2d'), pTex = new THREE.CanvasTexture(pc); pTex.anisotropy = 8;
-const panel = new THREE.Mesh(new THREE.PlaneGeometry(.215, .215 * PH / PW), new THREE.MeshBasicMaterial({ map: pTex, transparent: true, depthTest: false }));
-panel.position.set(-.33, -.1, -.46); panel.rotation.set(-.1, .5, 0); panel.renderOrder = 100; cam.add(panel);
-if (q.get('panel') === '0') panel.visible = false;
-let buttons = [];
-function drawPanel() {
-  const g = pg, F = (s, w = 400) => g.font = `${w} ${s}px -apple-system,Helvetica,Arial`; buttons = []; g.clearRect(0, 0, PW, PH);
-  g.fillStyle = 'rgba(12,15,20,.9)'; g.beginPath(); g.roundRect(0, 0, PW, PH, 34); g.fill(); g.strokeStyle = 'rgba(255,255,255,.22)'; g.lineWidth = 3; g.stroke();
-  g.textBaseline = 'alphabetic'; let y = 54;
-  const text = (s, x, yy, col = '#e9e6df') => { g.fillStyle = col; g.fillText(s, x, yy); };
-  const wrap = (s, x, w, lh, col) => { let line = ''; for (const word of s.split(' ')) { if (g.measureText(line + word).width > w && line) { text(line, x, y, col); y += lh; line = ''; } line += word + ' '; } text(line, x, y, col); y += lh; };
-  const btn = (label, x, yy, w, h, fn, on = false, dim = false) => { g.fillStyle = on ? '#5fd4ff' : dim ? 'rgba(255,255,255,.05)' : 'rgba(255,255,255,.11)'; g.beginPath(); g.roundRect(x, yy, w, h, 14); g.fill();
-    F(25, 600); g.fillStyle = on ? '#04121a' : dim ? '#6b7178' : '#e9e6df'; g.textAlign = 'center'; g.fillText(label, x + w / 2, yy + h / 2 + 9); g.textAlign = 'left'; if (!dim) buttons.push({ x, y: yy, w, h, fn, label }); };
-  F(20, 600); text('MISSION LENS', 34, y, '#9aa0a8');
-  const chip = { table: 'PLAN · MR', giant: 'TERRAIN · VR', walk: 'TERRAIN · VR', field: 'FIELD · VR' }[stage]; g.textAlign = 'right'; text(chip, PW - 34, y, '#5fd4ff'); g.textAlign = 'left'; y += 44;
-  F(34, 700); text(M.title, 34, y); y += 36; F(22); text(`PET ${hm(pet())}  ·  planned ${hm(M.planned_total_min)}  ·  task ${Math.min(taskIndex + 1, M.tasks.length)}/${M.tasks.length}`, 34, y, '#b8bec6'); y += 18;
-  g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(34, y, PW - 68, 6); g.fillStyle = '#5fd4ff'; g.fillRect(34, y, (PW - 68) * pet() / M.planned_total_min, 6); y += 44;
-  const T = task(), nextId = finished() ? null : T.station;
-  if (stage === 'table') {
-    F(21, 600); text('STATIONS', 34, y, '#9aa0a8'); y += 12;
-    for (const s of M.stations) { const on = s.id === sel; g.fillStyle = on ? 'rgba(95,212,255,.18)' : 'rgba(255,255,255,.05)'; g.beginPath(); g.roundRect(34, y, PW - 68, 50, 12); g.fill();
-      F(26, 600); text(`${s.id}`, 50, y + 34, on ? '#5fd4ff' : '#e9e6df'); F(26); text(s.name, 130, y + 34); F(20); g.textAlign = 'right'; text(s.id === here ? 'you are here' : s.id === nextId ? 'next' : '', PW - 50, y + 33, s.id === here ? '#5fd4ff' : '#ffb347'); g.textAlign = 'left';
-      buttons.push({ x: 34, y, w: PW - 68, h: 50, fn: () => { sel = s.id; refresh(); }, label: 'row:' + s.id }); y += 58; }
-    y += 30; const s = ST[sel]; F(21); wrap(s.note, 34, PW - 68, 28, '#b8bec6');
-    if (s.nasa_sample) { y += 2; F(21); wrap(`NASA record: cores ${s.nasa_sample.sample_name}, ${s.nasa_sample.rock_type.toLowerCase()}, ${s.nasa_sample.date}.`, 34, PW - 68, 28, '#e9e6df'); }
-    const yb = PH - 196; btn('Slope layer', 34, yb, 258, 62, () => { slopeT = slopeT ? 0 : 1; refresh(); }, slopeT > 0); btn('Height ×2', 308, yb, 258, 62, () => flyTo({ ...view, ex: view.ex > 1 ? 1 : 2 }, .6).then(refresh), view.ex > 1);
-    btn('Walk the terrain', 34, yb + 76, 258, 62, () => enterTerrain(sel, S_GIANT)); btn('Stand at ' + sel, 308, yb + 76, 258, 62, () => toField(sel));
-  } else if (stage === 'giant' || stage === 'walk') {
-    F(26, 600); text(stage === 'giant' ? 'Inside the terrain model, 1 : 25' : 'Inside the terrain model, true scale', 34, y); y += 40;
-    F(21); wrap('Orbital data only: shape from the HiRISE terrain model, colour from the HiRISE image. No rover imagery here.', 34, PW - 68, 28, '#b8bec6'); y += 8;
-    wrap(`Planned route is the blue path. Nearest station: ${nearest().id} ${ST[nearest().id].name}, ${nearest().d.toFixed(0)} m.`, 34, PW - 68, 28, '#e9e6df');
-    const yb = PH - 196; btn('1 : 25', 34, yb, 258, 62, () => rescale(S_GIANT), stage === 'giant'); btn('True scale', 308, yb, 258, 62, () => rescale(1), stage === 'walk');
-    btn('Surface image at ' + nearest().id, 34, yb + 76, 340, 62, () => toField(nearest().id)); btn('Table', 390, yb + 76, 176, 62, toTable);
-  } else {
-    const s = ST[here], pm = panoCache[here]?.meta; F(30, 700); text(`${s.id}  ${s.name}`, 34, y); y += 32;
-    F(20); if (pm) wrap(`Mastcam-Z panorama, sol${pm.sols[0] === pm.sols[1] ? ' ' + pm.sols[0] : 's ' + pm.sols[0] + '–' + pm.sols[1]}. ${pm.credit}. Direction assigned by us.`, 34, PW - 68, 26, '#9aa0a8'); y += 14;
-    if (finished()) { F(26, 600); text('All tasks complete', 34, y, '#5fd4ff'); y += 40; }
-    else if (T.station === here && T.leg === undefined) {
-      F(21, 600); text(`TASK · ${T.planned_min} MIN`, 34, y, '#9aa0a8'); y += 36; F(28, 600); text(T.phase, 34, y); y += 22;
-      T.checks.forEach((c, i) => { const on = done.has(i), y0 = y; g.strokeStyle = on ? '#5fd4ff' : '#8b9097'; g.lineWidth = 3; g.beginPath(); g.roundRect(36, y + 6, 30, 30, 7); g.stroke(); if (on) { g.fillStyle = '#5fd4ff'; g.fill(); }
-        F(22); y += 30; const yy = y; wrap(c, 84, PW - 124, 28, on ? '#8b9097' : '#e9e6df'); y += 6; buttons.push({ x: 30, y: y0, w: PW - 60, h: y - y0, fn: () => { on ? done.delete(i) : done.add(i); refresh(); }, label: 'check:' + i }); void yy; });
-    } else { F(21, 600); text('NEXT', 34, y, '#9aa0a8'); y += 36; const b = bearing(here, T.station); F(28, 600); text(`${T.phase} · ${ST[T.station].name}`, 34, y); y += 36;
-      F(23); text(`${b.d.toFixed(0)} m straight · bearing ${String(Math.round(b.az)).padStart(3, '0')}° · ${s.sees[T.station] ? 'in view' : 'behind terrain'}`, 34, y, s.sees[T.station] ? '#e9e6df' : '#ffb347'); y += 34; }
-    if (here === 'C') { const i = MEDA.series.lmst_h.findIndex((h, k) => h > 13 && MEDA.series.air_temp_k[k] != null && MEDA.series.pressure_pa[k] != null), v = k => MEDA.series[k][i]; F(20); y = PH - 232;
-      text(`Measured here, sol 502, ${hm(MEDA.series.lmst_h[i] * 60)} local: ${v('pressure_pa')?.toFixed(0)} Pa · air ${(v('air_temp_k') - 273.15).toFixed(0)} °C`, 34, y, '#9aa0a8'); }
-    const yb = PH - 196, go = !finished() && T.station !== here;
-    if (go) btn(`Walk to ${T.station} ${ST[T.station].name}`, 34, yb, PW - 68, 62, () => travel(T.station), true);
-    else btn(finished() ? 'Mission complete' : 'Complete task', 34, yb, PW - 68, 62, () => { taskIndex++; done = new Set(); refresh(); }, !finished() && done.size === T.checks.length, finished());
-    btn('Table', 34, yb + 76, 170, 62, toTable); btn('Step out to terrain', 220, yb + 76, 346, 62, () => enterTerrain(here, 1));
-  }
-  F(18); text('Hypothetical Marswalk · data: NASA', 34, PH - 22, '#6b7178'); pTex.needsUpdate = true;
-}
 function nearest() { let best = null; for (const s of M.stations) { const d = Math.hypot(s.x - view.ax, s.y - view.az); if (!best || d < best.d) best = { id: s.id, d }; } return best; }
 async function rescale(S) { if (busy) return; busy = true; stage = S === 1 ? 'walk' : 'giant'; refresh(); await flyTo({ ...view, S, ex: 1, ground: true, wx: cam.position.x, wy: 0, wz: cam.position.z }, 1.8); busy = false; refresh(); }
 
+// A mark is where the pointing ray from the eye first meets the terrain model. Approximate: the model is a 2 m grid.
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+function pointOnTerrain() {
+  const inv = new THREE.Matrix4().copy(world.matrixWorld).invert(), o = ray.ray.origin.clone().applyMatrix4(inv), d = ray.ray.direction.clone().transformDirection(inv);
+  for (let t = .5; t < 900; t += t < 60 ? .1 : .5) { const x = o.x + d.x * t, z = o.z + d.z * t; if (Math.abs(x) > sx / 2 - 1 || Math.abs(z) > sy / 2 - 1) return null;
+    const y = elevLocal(x, z); if (o.y + d.y * t <= y) return { x, y, z, d: t, az: (Math.atan2(d.x, -d.z) * 180 / Math.PI + 360) % 360, el: Math.asin(d.y) * 180 / Math.PI }; }
+  return null;
+}
+function addMark(p) {
+  const n = ++markSeq, sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: markTex(n), depthTest: false, sizeAttenuation: false, transparent: true }));
+  sp.renderOrder = 12; sp.userData.local = new THREE.Vector3(p.x, p.y + .15, p.z); markSprites.add(sp); marks.push({ n, station: here, task: task().phase, ...p, sp });
+  if (task().record_check !== undefined) done.add(task().record_check); refresh(); flash(`Candidate ${n} marked · ${p.d.toFixed(0)} m · bearing ${deg3(p.az)}° · simulated record`);
+}
+function undoMark() {
+  const i = marks.findLastIndex(m => m.station === here); if (i < 0) return; markSprites.remove(marks[i].sp); marks.splice(i, 1);
+  if (!marks.some(m => m.station === here) && task().record_check !== undefined) done.delete(task().record_check); refresh();
+}
+
+// ---------- surfaces: canvases placed in the space, with their own buttons ----------
+function surface(w, h, widthM, depthTest) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const tex = new THREE.CanvasTexture(c); tex.anisotropy = 8;
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(widthM, widthM * h / w), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest, depthWrite: false })); mesh.renderOrder = 100;
+  return { g: c.getContext('2d'), tex, mesh, w, h, buttons: [] };
+}
+function pen(s) {
+  const g = s.g; s.buttons = []; g.clearRect(0, 0, s.w, s.h); g.textBaseline = 'alphabetic'; g.textAlign = 'left'; s.tex.needsUpdate = true;
+  const F = (px, wt = 400) => g.font = `${wt} ${px}px -apple-system,Helvetica,Arial`;
+  const text = (t, x, y, col = INK) => { g.fillStyle = col; g.fillText(t, x, y); };
+  const wrap = (t, x, y, w, lh, col = INK) => { let line = ''; for (const word of t.split(' ')) { if (g.measureText(line + word).width > w && line) { text(line, x, y, col); y += lh; line = ''; } line += word + ' '; } text(line, x, y, col); return y + lh; };
+  const box = (x, y, w, h, r, fill, stroke) => { g.beginPath(); g.roundRect(x, y, w, h, r); if (fill) { g.fillStyle = fill; g.fill(); } if (stroke) { g.strokeStyle = stroke; g.lineWidth = 3; g.stroke(); } };
+  const btn = (label, x, y, w, h, fn, { on = false, dim = false, primary = false, px = 25 } = {}) => { box(x, y, w, h, 14, on ? CYAN : primary ? 'rgba(95,212,255,.2)' : dim ? 'rgba(255,255,255,.05)' : 'rgba(255,255,255,.11)', primary && !on ? CYAN : null);
+    F(px, 600); g.fillStyle = on ? '#04121a' : dim ? DIM : INK; g.textAlign = 'center'; g.fillText(label, x + w / 2, y + h / 2 + px * .36); g.textAlign = 'left'; if (!dim) s.buttons.push({ x, y, w, h, fn, label }); };
+  const tag = (label, x, y, col = INK) => { F(18, 700); box(x, y, g.measureText(label).width + 24, 30, 15, 'rgba(8,10,14,.78)'); text(label, x + 12, y + 21, col); };
+  return { g, F, text, wrap, box, btn, tag };
+}
+
+// PLAN, in the room: a briefing board behind the table. Left: what the Marswalk is for and why the selected
+// station serves it. Right: the NASA evidence for that station. The table itself stays free for the model.
+const board = surface(2200, 860, 2.2, true); board.mesh.position.set(0, 1.215, -.61); board.mesh.rotation.x = -.26; scene.add(board.mesh);
+function drawBoard() {
+  const s = board, { g, F, text, wrap, box, btn, tag } = pen(s), st = ST[sel], X1 = 48, W1 = 980, X2 = 1090, W2 = 1062;
+  box(1.5, 1.5, s.w - 3, s.h - 3, 36, 'rgba(12,15,20,.92)', 'rgba(255,255,255,.2)');
+  F(24, 600); text('MISSION LENS', X1, 62, GRAY); text('PLAN', X1 + 196, 62, CYAN); g.textAlign = 'right'; text('HYPOTHETICAL MARSWALK', X1 + W1, 62, AMBER); g.textAlign = 'left';
+  F(46, 700); text(M.title, X1, 120); F(27); text(`${M.subtitle} · ${Math.round(M.route_total_m)} m on foot · ${hm(M.planned_total_min)} planned`, X1, 160, GRAY);
+  F(24, 600); text('SCIENCE OBJECTIVE', X1, 216, GRAY); F(32); let y = wrap(M.science_objective.text, X1, 258, W1, 41);
+  F(25); y = wrap('NASA record · ' + M.science_objective.basis[0], X1, y - 2, W1, 32, GRAY);
+  F(24, 600); text(`WHY STATION ${st.id} · ${st.name.toUpperCase()}`, X1, y + 32, CYAN); F(32); y = wrap(st.why, X1, y + 72, W1, 41);
+  const seen = Object.keys(st.sees).filter(k => st.sees[k]), hid = Object.keys(st.sees).filter(k => !st.sees[k]), mk = marks.filter(m => m.station === st.id).length;
+  F(25); y = wrap(`Elevation ${st.elev.toFixed(1)} m · ground slope ${st.slope_deg}° · in view from here: ${seen.join(', ') || 'none'}${hid.length ? ' · hidden: ' + hid.join(', ') : ''} (our calculation from the terrain model)`, X1, y, W1, 32, GRAY);
+  if (mk) { F(25, 600); text(`Recorded in FIELD · simulated: ${mk} candidate${mk > 1 ? 's' : ''}, marked on the map`, X1, y + 2, AMBER); }
+  F(21); wrap(M.scenario_note, X1, 816, W1, 26, DIM);
+
+  const im = viewImg[sel], pm = PM[sel], ih = 270; g.save(); g.beginPath(); g.roundRect(X2, 48, W2, ih, 16); g.clip(); g.fillStyle = '#1b1e23'; g.fillRect(X2, 48, W2, ih);
+  if (im) { const sh = im.width * ih / W2; g.drawImage(im, 0, (im.height - sh) / 2, im.width, sh, X2, 48, W2, ih); } g.restore();
+  tag('NASA OBSERVATION', X2 + 14, 60); F(23); text(`Mastcam-Z panorama, ${solsText(pm)}, looking ${deg3(st.view.az)}° · ${pm.credit}`, X2, 48 + ih + 30, GRAY);
+  y = 48 + ih + 78; F(24, 600); text(st.nasa_sample ? 'NASA SAMPLING RECORD' : 'NASA ROVER RECORD', X2, y, GRAY); F(29);
+  y = wrap(st.nasa_sample ? `Rock cores ${st.nasa_sample.sample_name}: ${st.nasa_sample.rock_type.toLowerCase()}, ${st.nasa_sample.sample_location.toLowerCase()}. Taken ${st.nasa_sample.date} (sols ${st.nasa_sample.sol}).` : st.note, X2, y + 38, W2, 37);
+  const p = crismRank[sel]; F(24, 600); text(`SPECTRAL CONTEXT · MRO CRISM · ${CR.m_per_px.toFixed(0)} M PER PIXEL`, X2, y + 24, GRAY); F(27);
+  wrap(`${CR.bands_rgb[0]} band here: ${p >= 50 ? `stronger than in ${p}%` : `weaker than in ${100 - p}%`} of this area (our reading). NASA label: Mg/Fe-OH bearing minerals may appear red; spectra are needed for positive identification.`, X2, y + 60, W2, 35);
+  let x = X2; const by = 724, B = (label, w, fn, o) => { btn(label, x, by, w, 64, fn, { px: 26, ...o }); x += w + 16; };
+  B('Slope', 150, () => { layer = layer === 'slope' ? 'none' : 'slope'; refresh(); }, { on: layer === 'slope' }); B('Spectral', 180, () => { layer = layer === 'crism' ? 'none' : 'crism'; refresh(); }, { on: layer === 'crism' });
+  B('Height ×2', 190, () => flyTo({ ...view, ex: view.ex > 1 ? 1 : 2 }, .6).then(refresh), { on: view.ex > 1 }); B('Preview 1 : 25', 230, () => enterTerrain(sel, S_GIANT)); B('Stand at ' + sel, 240, () => toField(sel), { primary: true });
+  F(23); const ly = 826;
+  if (layer === 'slope') { let lx = X2; for (const [c, t] of [['rgb(255,214,64)', '10–15°'], ['rgb(255,140,40)', '15–20°'], ['rgb(235,50,50)', 'over 20°']]) { box(lx, ly - 19, 22, 22, 4, c); text(t, lx + 30, ly, INK); lx += 46 + g.measureText(t).width; } text('· slope from the HiRISE terrain model; class breaks are ours', lx, ly, GRAY); }
+  else if (layer === 'crism') text(`${CR.observation} PHY: R ${CR.bands_rgb[0]}, G ${CR.bands_rgb[1]}, B ${CR.bands_rgb[2]} · moved ${CR.ours.shift_m} m by us to fit HiRISE · brightness ×${CR.ours.display_gain}`, X2, ly, GRAY);
+  else text(`On the table: MRO HiRISE image over the HiRISE terrain model, ${SCALE_TXT}`, X2, ly, GRAY);
+}
+
+// PLAN: the task timeline along the near edge of the table. Each segment selects its task, station and leg.
+const strip = surface(1600, 270, 1.0, true); strip.mesh.position.set(0, .81, .52); strip.mesh.rotation.x = -.97; scene.add(strip.mesh);
+function drawStrip() {
+  const s = strip, { g, F, text, box } = pen(s), T = M.tasks[selTask], X0 = 30, W = s.w - 60, k = W / M.planned_total_min, leg = T.leg !== undefined ? M.legs[T.leg] : null;
+  box(1.5, 1.5, s.w - 3, s.h - 3, 28, 'rgba(12,15,20,.92)', 'rgba(255,255,255,.2)');
+  F(30, 600); text(`${T.station} ${ST[T.station].name} · ${T.phase}`, X0, 52); g.textAlign = 'right'; F(25);
+  text(`${T.planned_min} min · ${hm(T.start_min)}–${hm(T.end_min)}${T.index === taskIndex ? ' · current task' : T.index < taskIndex ? ' · done' : ''}`, X0 + W, 52, T.index === taskIndex ? AMBER : GRAY); g.textAlign = 'left';
+  F(23); text(leg ? `Walk ${leg.dist_m.toFixed(0)} m from ${leg.from}: climb ${leg.ascent_m.toFixed(0)} m, steepest ${leg.slope_max_deg.toFixed(0)}°, ${Math.round(leg.pct_on_rover_track * 100)}% on ground Perseverance drove. About ${Math.round(leg.est_walk_min)} min at ${M.assumptions.walk_speed_mps} m/s (our assumption).` : T.checks.join('  ·  '), X0, 90, GRAY);
+  for (const t of M.tasks) { const x = X0 + t.start_min * k, w = t.planned_min * k - 4, on = t.index === selTask;
+    box(x, 114, w, 62, 8, on ? CYAN : t.station === sel ? 'rgba(95,212,255,.32)' : t.index < taskIndex ? 'rgba(255,255,255,.27)' : 'rgba(255,255,255,.12)', t.index === taskIndex ? AMBER : null);
+    if (w > 44) { F(24, 700); g.textAlign = 'center'; text((t.leg !== undefined ? '→ ' : '') + t.station, x + w / 2, 154, on ? '#04121a' : INK); g.textAlign = 'left'; }
+    s.buttons.push({ x, y: 106, w: w + 4, h: 78, fn: () => selectTask(t.index), label: 'task:' + t.index }); }
+  F(20); for (let m = 0; m < M.planned_total_min; m += 60) text(hm(m), X0 + m * k, 212, GRAY);
+  g.textAlign = 'right'; text(hm(M.planned_total_min), X0 + W, 212, GRAY); g.textAlign = 'left';
+  text('Task structure and planned durations follow the BASALT-2 planned EVA timeline (Beaton et al. 2019, Table 2) · amber outline: current task', X0, 248, DIM);
+}
+
+// FIELD: a wrist panel for details, raised on demand, and a head-up strip that stays out of the scenery.
+const wrist = surface(600, 780, .215, false); wrist.mesh.position.set(-.33, -.1, -.46); wrist.mesh.rotation.set(-.1, .5, 0); cam.add(wrist.mesh);
+function drawWrist() {
+  const s = wrist, { g, F, text, wrap, box, btn } = pen(s), PW = s.w, PH = s.h, T = task(); let y = 54;
+  box(1.5, 1.5, PW - 3, PH - 3, 34, 'rgba(12,15,20,.9)', 'rgba(255,255,255,.22)');
+  F(20, 600); text('MISSION LENS', 34, y, GRAY); g.textAlign = 'right'; text(stage === 'giant' ? 'PLAN · ROUTE PREVIEW' : 'FIELD', PW - 34, y, CYAN); g.textAlign = 'left'; y += 44;
+  F(34, 700); text(M.title, 34, y); y += 36; F(22); text(`T+ ${hm(pet())} of ${hm(M.planned_total_min)} planned · task ${Math.min(taskIndex + 1, M.tasks.length)}/${M.tasks.length}`, 34, y, '#b8bec6'); y += 18;
+  box(34, y, PW - 68, 6, 3, 'rgba(255,255,255,.12)'); if (pet()) box(34, y, (PW - 68) * pet() / M.planned_total_min, 6, 3, CYAN); y += 44;
+  const yb = PH - 196;
+  if (stage === 'giant' || stage === 'walk') {
+    const n = nearest(); F(26, 600); text(stage === 'giant' ? 'Inside the terrain model, 1 : 25' : 'Inside the terrain model, true scale', 34, y); y += 40;
+    F(21); y = wrap('Orbital data only: shape from the HiRISE terrain model, colour from the HiRISE image. No rover imagery here.', 34, y, PW - 68, 28, '#b8bec6') + 8;
+    wrap(`Planned route is the blue path. Nearest station: ${n.id} ${ST[n.id].name}, ${n.d.toFixed(0)} m.`, 34, y, PW - 68, 28);
+    btn('1 : 25', 34, yb, 258, 62, () => rescale(S_GIANT), { on: stage === 'giant' }); btn('True scale', 308, yb, 258, 62, () => rescale(1), { on: stage === 'walk' });
+    btn('Surface image at ' + n.id, 34, yb + 76, 340, 62, () => toField(n.id)); btn('Table', 390, yb + 76, 176, 62, toTable);
+  } else {
+    const st = ST[here], pm = PM[here], mine = marks.filter(m => m.station === here).length, rec = !finished() && T.station === here && T.record_check !== undefined;
+    F(30, 700); text(`${st.id}  ${st.name}`, 34, y); y += 32;
+    F(20); y = wrap(`Mastcam-Z panorama, ${solsText(pm)}. ${pm.credit}. Direction assigned by us.`, 34, y, PW - 68, 26, GRAY);
+    if (st.nasa_sample) y = wrap(`NASA record: rock cores ${st.nasa_sample.sample_name} were taken within about ${Math.ceil(Math.hypot(st.nasa_sample.x - st.x, st.nasa_sample.y - st.y))} m of this stop.`, 34, y, PW - 68, 26, '#b8bec6');
+    y += 22;
+    if (finished()) { F(26, 600); text('All tasks complete', 34, y, CYAN); }
+    else if (T.station === here && T.leg === undefined) {
+      F(21, 600); text(`TASK · ${T.planned_min} MIN`, 34, y, GRAY); y += 36; F(28, 600); text(T.phase, 34, y); y += 22;
+      T.checks.forEach((c, i) => { const on = done.has(i), y0 = y; box(36, y + 6, 30, 30, 7, on ? CYAN : null, on ? CYAN : '#8b9097');
+        F(22); y = wrap(c, 84, y + 30, PW - 124, 28, on ? '#8b9097' : INK) + 6; s.buttons.push({ x: 30, y: y0, w: PW - 60, h: y - y0, fn: () => { on ? done.delete(i) : done.add(i); refresh(); }, label: 'check:' + i }); });
+      if (rec) { F(20); wrap(mine ? `${mine} candidate${mine > 1 ? 's' : ''} marked here. Simulated record; position from the terrain model, approximate.` : 'Lower this panel (Space), then point at the scene and pinch to mark a candidate.', 34, y + 26, PW - 68, 26, AMBER); }
+    } else { F(21, 600); text('NEXT', 34, y, GRAY); y += 36; const b = bearing(here, T.station); F(28, 600); text(`${T.phase} · ${ST[T.station].name}`, 34, y); y += 36;
+      F(23); text(`${b.d.toFixed(0)} m straight · bearing ${deg3(b.az)}° · ${st.sees[T.station] ? 'in view' : 'behind terrain'}`, 34, y, st.sees[T.station] ? INK : AMBER); }
+    if (here === 'C') { const i = MEDA.series.lmst_h.findIndex((h, k) => h > 13 && MEDA.series.air_temp_k[k] != null && MEDA.series.pressure_pa[k] != null), v = k => MEDA.series[k][i]; F(20);
+      text(`Measured here, sol 502, ${hm(MEDA.series.lmst_h[i] * 60)} local: ${v('pressure_pa')?.toFixed(0)} Pa · air ${(v('air_temp_k') - 273.15).toFixed(0)} °C`, 34, PH - 222, GRAY); }
+    const go = !finished() && T.station !== here, cw = rec && mine ? 350 : PW - 68;
+    if (go) btn(`Walk to ${T.station} ${ST[T.station].name}`, 34, yb, PW - 68, 62, () => travel(T.station), { on: true });
+    else btn(finished() ? 'Mission complete' : 'Complete task', 34, yb, cw, 62, () => { taskIndex++; done = new Set(); refresh(); }, { on: !finished() && done.size === T.checks.length, dim: finished() });
+    if (!go && rec && mine) btn('Undo mark', 34 + cw + 14, yb, PW - 68 - cw - 14, 62, undoMark);
+    btn('Table', 34, yb + 76, 170, 62, toTable); btn('Step out to terrain', 220, yb + 76, 346, 62, () => enterTerrain(here, 1));
+  }
+  F(18); text('Hypothetical Marswalk · data: NASA', 34, PH - 22, DIM);
+}
+const hud = surface(1200, 170, .5, false); hud.mesh.position.set(0, -.262, -.6); cam.add(hud.mesh);
+function drawHud() {
+  const s = hud, { g, F, text, box } = pen(s), T = task(), W = s.w, fin = finished(); let top, main, sub, col = INK, target = fin ? null : T.station;
+  if (stage === 'field') { const st = ST[here]; top = `${st.id} · ${st.name.toUpperCase()}`;
+    if (fin) { main = 'All tasks complete'; sub = 'Go back to the table to review the Marswalk'; }
+    else if (T.station === here && T.leg === undefined) { target = null; main = T.phase; sub = `${done.size}/${T.checks.length} checks · ${T.planned_min} min planned${T.record_check !== undefined ? ' · point and pinch to mark a candidate' : ''}`; }
+    else { const b = bearing(here, T.station); main = `Next: ${T.station} ${ST[T.station].name}`; col = AMBER; sub = `${T.phase} · ${b.d.toFixed(0)} m · bearing ${deg3(b.az)}° · ${st.sees[T.station] ? 'in view' : 'behind terrain'}`; }
+  } else { const n = nearest(); top = stage === 'giant' ? 'ROUTE PREVIEW · 1 : 25' : 'TERRAIN MODEL · TRUE SCALE'; if (travelling) target = travelling;
+    main = travelling ? `Walking to ${travelling} ${ST[travelling].name}` : 'Orbital data only'; sub = `Nearest station: ${n.id} ${ST[n.id].name}, ${n.d.toFixed(0)} m`; }
+  if (flashMsg) { sub = flashMsg; }
+  box(0, 0, W, s.h, 26, 'rgba(10,12,16,.62)');
+  F(23, 600); text(top, 40, 48, GRAY); g.textAlign = 'center'; text(`T+ ${hm(pet())} / ${hm(M.planned_total_min)}`, W / 2, 48, GRAY); g.textAlign = 'right'; text(`HDG ${deg3(hdg)}°`, W - 40, 48, GRAY); g.textAlign = 'left';
+  F(38, 700); text(main, 40, 104, col); F(24); text(sub, 40, 146, flashMsg ? AMBER : '#b8bec6');
+  g.textAlign = 'right';
+  if (target) {  // which way to turn when the next station is outside the view
+    const rel = ((bearingXZ(view.ax, view.az, target).az - hdg + 540) % 360) - 180, half = Math.atan(Math.tan(cam.fov * Math.PI / 360) * cam.aspect) * 180 / Math.PI;
+    if (Math.abs(rel) > half - 6) { F(34, 700); text(rel < 0 ? `◀ ${target}` : `${target} ▶`, W - 40, 104, AMBER); } }
+  F(20); text(wristUp ? 'Space: lower wrist panel' : 'Space: wrist panel', W - 40, 146, DIM); g.textAlign = 'left';
+  s.buttons.push({ x: 0, y: 0, w: W, h: s.h, fn: () => { wristUp = !wristUp; refresh(); }, label: 'hud' });
+}
+const showPanels = q.get('panel') !== '0', surfaces = [wrist, hud, board, strip];
+
 function refresh() {
-  const T = task();
-  for (const sp of pinObjs) { const s = ST[sp.userData.id], isNext = !finished() && T.station === s.id && s.id !== here;
-    let sub = ''; if (stage !== 'table' && s.id !== here) { const b = bearing(here, s.id); sub = `${b.d.toFixed(0)} m${stage === 'field' && !ST[here].sees[s.id] ? ' · behind terrain' : ''}`; }
-    const full = stage === 'table' ? s.id === sel : isNext || (finished() && s.id !== here);
-    sp.material.map?.dispose(); sp.material.map = makeLabel(full ? `${s.id} ${s.name}` : s.id, full ? sub : sub.split(' · ')[0], stage === 'table' && s.id === sel ? '#5fd4ff' : isNext ? '#ffb347' : '#ffffff'); sp.material.needsUpdate = true; sp.renderOrder = full ? 11 : 10; }
-  for (const o of legObjs) { const next = !finished() && ((o.leg.from === here && o.leg.to === T.station) || (o.leg.to === here && o.leg.from === T.station));
-    o.line.visible = false; o.ribbon.visible = stage !== 'table'; o.wide.visible = stage === 'table'; o.ribbon.material.opacity = next ? .5 : .18; o.wide.material.opacity = next ? .9 : .4; o.wide.material.color.set(next ? 0x5fd4ff : 0xffffff); }
-  $('stage').textContent = { table: 'PLAN — tabletop model in the room (MR)', giant: 'TERRAIN — walking the model at 1 : 25 (VR)', walk: 'TERRAIN — inside the model at true scale (VR)', field: `FIELD — surface image at ${ST[stage === 'field' ? sel : here].name} (VR)` }[stage];
-  $('note').innerHTML = { table: '<b>Room is a mock.</b> On Quest this would be passthrough: the terrain model sits on your real desk. Model: MRO HiRISE terrain and image, 1 : 1500.',
-    giant: '<b>Orbital data only.</b> MRO HiRISE terrain model and image, scaled so you stand 40 m tall. No overlays except the planned route. Sky is a flat placeholder.',
-    walk: '<b>Orbital data only.</b> MRO HiRISE terrain model and image at true scale. Near ground is blurred because the image is 0.3 m per pixel. Sky is a flat placeholder.',
-    field: '<b>NASA observation + our overlay.</b> Official Mastcam-Z panorama; its direction was assigned by us (skyline fit to the HiRISE terrain). Station labels and the blue path are placed from map coordinates. Where the mosaic has no pixels, the terrain model shows through.' }[stage];
-  drawPanel();
+  const T = task(), selLeg = M.tasks[selTask].leg;
+  for (const sp of pinObjs) { const s = ST[sp.userData.id], isNext = !finished() && T.station === s.id && s.id !== here, table = stage === 'table';
+    const mk = marks.filter(m => m.station === s.id).length;
+    let sub = ''; if (table) sub = [s.id === here ? 'you are here' : '', mk ? `${mk} marked` : ''].filter(Boolean).join(' · '); else if (s.id !== here) { const b = bearingXZ(view.ax, view.az, s.id); sub = `${(stage === 'field' ? bearing(here, s.id).d : b.d).toFixed(0)} m${stage === 'field' && !ST[here].sees[s.id] ? ' · behind terrain' : ''}`; }
+    const full = table ? s.id === sel : isNext || (finished() && s.id !== here);
+    sp.material.map?.dispose(); sp.material.map = makeLabel(full ? `${s.id} ${s.name}` : s.id, full ? sub : sub.split(' · ')[0], table && s.id === sel ? CYAN : isNext && !table ? AMBER : '#ffffff', LEFT[s.id]); sp.material.needsUpdate = true; sp.renderOrder = full ? 11 : 10;
+    const k = table && !full ? .72 : 1; sp.scale.set(.34 * k, .068 * k, 1); }
+  for (const o of legObjs) { const next = stage === 'table' ? o.li === selLeg : !finished() && ((o.leg.from === here && o.leg.to === T.station) || (o.leg.to === here && o.leg.from === T.station));
+    o.line.visible = false; o.ribbon.visible = stage !== 'table'; o.wide.visible = stage === 'table'; o.ribbon.material.opacity = next ? .42 : .14; o.wide.material.opacity = next ? .95 : .4; o.wide.material.color.set(next ? 0x5fd4ff : 0xffffff); }
+  $('stage').textContent = { table: 'PLAN — tabletop model in the room (MR)', giant: 'PLAN — route preview at 1 : 25 (VR)', walk: 'FIELD — terrain model at true scale (VR)', field: `FIELD — surface image at ${ST[here].name} (VR)` }[stage];
+  $('prov').innerHTML = { table: '<i>Room is a mock.</i> On Quest this is passthrough: the model sits on your real desk, the briefing board stands behind it. Model: MRO HiRISE terrain and image, ' + SCALE_TXT + ', cut to the area this Marswalk uses.',
+    giant: '<i>Orbital data only.</i> MRO HiRISE terrain model and image, scaled so you stand 40 m tall. Only the planned route is drawn on it. Sky is a flat placeholder.',
+    walk: '<i>Orbital data only.</i> MRO HiRISE terrain model and image at true scale. Near ground is blurred because the image is 0.3 m per pixel. Sky is a flat placeholder.',
+    field: '<i>NASA observation + our overlay.</i> Official Mastcam-Z panorama; its direction was assigned by us (skyline fit to the HiRISE terrain). Labels, path and marks are placed from map coordinates. Where the mosaic has no pixels, the terrain model shows through.' }[stage];
+  if (stage === 'table') { drawBoard(); drawStrip(); } else { drawWrist(); drawHud(); }
 }
 
 // ---------- input ----------
-const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(); let down = null; const keys = {};
+let down = null; const keys = {};
 renderer.domElement.addEventListener('pointerdown', e => down = { x: e.clientX, y: e.clientY, hdg, pitch, moved: false });
 addEventListener('pointermove', e => { if (!down) return; if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) down.moved = true; if (!down.moved) return;
   const k = cam.fov / innerHeight; hdg = (down.hdg - (e.clientX - down.x) * k + 360) % 360; pitch = Math.max(-85, Math.min(60, down.pitch + (e.clientY - down.y) * k)); lastDrag = performance.now(); });
 addEventListener('pointerup', e => { const d = down; down = null; if (!d || d.moved || busy) return;
   mouse.set(e.clientX / innerWidth * 2 - 1, -e.clientY / innerHeight * 2 + 1); ray.setFromCamera(mouse, cam);
-  const ph = panel.visible && ray.intersectObject(panel)[0];
-  if (ph) { const x = ph.uv.x * PW, y = (1 - ph.uv.y) * PH, b = buttons.findLast(b => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h); if (b) b.fn(); return; }
+  for (const s of surfaces) { if (!s.mesh.visible || ((s === board || s === strip) && stage !== 'table')) continue; const h = ray.intersectObject(s.mesh)[0]; if (!h) continue;
+    const x = h.uv.x * s.w, y = (1 - h.uv.y) * s.h, b = s.buttons.findLast(b => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h); if (b) b.fn(); return; }
   // Labels of nearby stations overlap; take the one whose anchor is closest to the pinch, not the nearest in depth.
   const d2 = o => { const p = o.position.clone().project(cam); return Math.hypot((p.x + 1) / 2 * innerWidth - e.clientX, (1 - p.y) / 2 * innerHeight - e.clientY); };
-  const hit = ray.intersectObjects(pinObjs).sort((a, b) => d2(a.object) - d2(b.object))[0]; if (hit) { const id = hit.object.userData.id; if (stage === 'table') { sel = id; refresh(); } else if (stage === 'field' && id !== here) travel(id); else if (stage !== 'field') toField(id); } });
-addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; if (e.key === 'Escape') toTable(); }); addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+  const hit = ray.intersectObjects(pinObjs.filter(p => p.visible)).sort((a, b) => d2(a.object) - d2(b.object))[0];
+  if (hit) { const id = hit.object.userData.id; if (stage === 'table') selectStation(id); else if (stage === 'field' && id !== here) travel(id); else if (stage !== 'field') toField(id); return; }
+  // Pointing at the scenery during a search task records a candidate where the ray meets the terrain model.
+  if (stage === 'field' && !finished() && task().station === here && task().record_check !== undefined) { const p = pointOnTerrain(); if (p) addMark(p); else flash('No terrain model in that direction'); } });
+addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; if (e.key === 'Escape') toTable(); if (e.key === ' ') { e.preventDefault(); if (stage !== 'table' && !e.repeat) { wristUp = !wristUp; refresh(); } } }); addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); });
 
-// URL presets so states can be captured without input: ?stage=table|giant|walk|field&station=B&hdg=20&pitch=-5&slope=1&task=3&panel=0
-{ const st = q.get('station'), sg = q.get('stage') || 'table'; if (st) sel = st; if (q.get('hdg')) hdg = +q.get('hdg'); if (q.get('pitch')) pitch = +q.get('pitch'); if (q.get('slope')) { slopeT = 1; tUni.oSlope.value = 1; } if (q.get('here')) here = q.get('here');
-  if (sg !== 'table') { stage = sg; roomT = roomO = 0; Object.assign(view, atStation(sel), { S: sg === 'giant' ? S_GIANT : 1, wy: sg === 'field' ? EYE - 2.0 : 0 }); if (sg === 'field') { here = sel; await showPano(sel); panoT = 1; panoUni.opacity.value = 1; } }
-  applyView(); refresh(); }
+// URL presets so states can be captured without input: ?stage=table|giant|walk|field&station=B&hdg=20&pitch=-5&layer=slope|crism&task=3&seltask=5&wrist=1&panel=0
+{ const st = q.get('station'), sg = q.get('stage') || 'table'; if (st) selectStation(st); if (q.get('seltask')) selectTask(+q.get('seltask')); if (q.get('hdg')) hdg = +q.get('hdg'); if (q.get('pitch')) pitch = +q.get('pitch');
+  layer = q.get('layer') || (q.get('slope') ? 'slope' : 'none'); if (sg === 'table') { tUni.oSlope.value = +(layer === 'slope'); tUni.oCrism.value = +(layer === 'crism'); } if (q.get('here')) here = q.get('here');
+  if (sg !== 'table') { stage = sg; roomT = roomO = 0; wristUp = q.get('wrist') ? q.get('wrist') === '1' : sg !== 'field'; if (!q.get('pitch')) pitch = -6; Object.assign(view, atStation(sel), { S: sg === 'giant' ? S_GIANT : 1, wy: sg === 'field' ? EYE - 2.0 : 0 });
+    if (sg === 'field') { here = sel; if (!q.get('hdg')) hdg = ST[sel].view.az; await showPano(sel); panoT = 1; panoUni.opacity.value = 1; } }
+  applyView(); world.updateMatrixWorld(); refresh(); }
 
 // Scripted run for unattended checks: ?auto=field:BASE,travel:A,done,giant:B,walk:B,table,wait:800
 if (q.get('auto')) (async () => { for (const c of q.get('auto').split(',')) { const [k, v] = c.split(':');
@@ -310,14 +449,17 @@ if (q.get('auto')) (async () => { for (const c of q.get('auto').split(',')) { co
 let frames = 0;
 const toScreen = v => { const p = v.clone().project(cam); return [Math.round((p.x + 1) / 2 * innerWidth), Math.round((1 - p.y) / 2 * innerHeight)]; };
 window.__ml = {
-  state: () => ({ stage, here, sel, busy, taskIndex, done: [...done], pano: +panoUni.opacity.value.toFixed(2), room: +roomO.toFixed(2), hdg: +hdg.toFixed(1), S: view.S, ax: +view.ax.toFixed(1), az: +view.az.toFixed(1), frames, slope: +tUni.oSlope.value.toFixed(2) }),
-  btn: label => { const b = buttons.find(b => b.label === label) || buttons.find(b => b.label && b.label.startsWith(label)); if (!b) return null; const g = panel.geometry.parameters;
-    return toScreen(panel.localToWorld(new THREE.Vector3(((b.x + b.w / 2) / PW - .5) * g.width, (.5 - (b.y + b.h / 2) / PH) * g.height, 0))); },
+  state: () => ({ stage, here, sel, selTask, busy, taskIndex, done: [...done], layer, wrist: wristUp, pano: +panoUni.opacity.value.toFixed(2), room: +roomO.toFixed(2), hdg: +hdg.toFixed(1), pitch: +pitch.toFixed(1), S: view.S, ax: +view.ax.toFixed(1), az: +view.az.toFixed(1), frames,
+    slope: +tUni.oSlope.value.toFixed(2), crism: +tUni.oCrism.value.toFixed(2), board: board.mesh.visible, hud: hud.mesh.visible, wristShown: wrist.mesh.visible, crismRank,
+    marks: marks.map(m => ({ n: m.n, station: m.station, d: +m.d.toFixed(1), az: +m.az.toFixed(1), x: +m.x.toFixed(1), z: +m.z.toFixed(1) })) }),
+  btn: label => { const vis = surfaces.filter(s => s.mesh.visible); let s, b;
+    for (const f of [x => x.label === label, x => x.label && x.label.startsWith(label)]) { for (s of vis) if ((b = s.buttons.find(f))) break; if (b) break; }
+    if (!b) return null; const g = s.mesh.geometry.parameters; return toScreen(s.mesh.localToWorld(new THREE.Vector3(((b.x + b.w / 2) / s.w - .5) * g.width, (.5 - (b.y + b.h / 2) / s.h) * g.height, 0))); },
   pin: id => { const sp = pinObjs.find(p => p.userData.id === id); return sp && sp.visible ? toScreen(sp.position) : null; },
-  labels: () => buttons.map(b => b.label),
+  labels: () => surfaces.filter(s => s.mesh.visible).flatMap(s => s.buttons.map(b => b.label)),
 };
 
-let last = performance.now();
+let last = performance.now(), hudKey = '';
 renderer.setAnimationLoop(now => { frames++;
   const dt = Math.min(.1, (now - last) / 1000); last = now;
   for (let i = tweens.length - 1; i >= 0; i--) { const t = tweens[i]; t.t = Math.min(1, t.t + dt / t.dur); t.fn(t.t); if (t.t === 1) { tweens.splice(i, 1); t.res(); } }
@@ -328,12 +470,18 @@ renderer.setAnimationLoop(now => { frames++;
   }
   roomO += (roomT - roomO) * Math.min(1, dt * 3); for (const m of roomMats) m.opacity = m.userData.o * roomO; room.visible = roomO > .01;
   scene.background.copy(ROOM_BG).lerp(skyNow, 1 - roomO);
+  board.mesh.material.opacity = strip.mesh.material.opacity = roomO; board.mesh.visible = strip.mesh.visible = showPanels && roomO > .02;
+  wrist.mesh.visible = showPanels && stage !== 'table' && wristUp; hud.mesh.visible = showPanels && stage !== 'table';
   panoUni.opacity.value += (panoT - panoUni.opacity.value) * Math.min(1, dt * 2.5); if (panoMesh) { panoMesh.visible = panoUni.opacity.value > .01; panoMesh.position.copy(cam.position); }
   if (pendingPano && panoT === 0 && panoUni.opacity.value < .02) { const id = pendingPano; pendingPano = null; showPano(id); }
-  tUni.oSlope.value += ((stage === 'table' ? slopeT : 0) - tUni.oSlope.value) * Math.min(1, dt * 5); tUni.dim.value = panoUni.opacity.value * .85;
+  const lay = stage === 'table' ? layer : 'none', kf = Math.min(1, dt * 5);
+  tUni.oSlope.value += ((lay === 'slope') - tUni.oSlope.value) * kf; tUni.oCrism.value += ((lay === 'crism') - tUni.oCrism.value) * kf; tUni.dim.value = panoUni.opacity.value * .85; tUni.clipG.value += ((stage !== 'table') - tUni.clipG.value) * Math.min(1, dt * 2);
   cam.rotation.set(pitch * Math.PI / 180, -a, 0); world.updateMatrixWorld();
   for (const sp of pinObjs) { sp.position.copy(sp.userData.local).applyMatrix4(world.matrixWorld); sp.visible = !(stage !== 'table' && sp.userData.id === here && Math.hypot(view.ax - ST[here].x, view.az - ST[here].y) < 6); }
-  $('sub').textContent = stage === 'table' ? `heading ${String(Math.round(hdg) % 360).padStart(3, '0')}°` : `heading ${String(Math.round(hdg) % 360).padStart(3, '0')}° · ${((view.ax / sx + .5) * (L.bounds.lon_max - L.bounds.lon_min) + L.bounds.lon_min).toFixed(5)}°E ${(L.bounds.lat_max - (view.az / sy + .5) * (L.bounds.lat_max - L.bounds.lat_min)).toFixed(5)}°N`;
+  const ms = stage === 'table' ? .03 : .058; for (const m of marks) { m.sp.position.copy(m.sp.userData.local).applyMatrix4(world.matrixWorld); m.sp.scale.set(ms, ms, 1); }
+  if (flashMsg && now > flashUntil) { flashMsg = ''; hudKey = ''; }
+  if (stage !== 'table') { const k = `${Math.round(hdg)}|${Math.round(view.ax)}|${Math.round(view.az)}`; if (k !== hudKey) { hudKey = k; drawHud(); } }
+  $('sub').textContent = stage === 'table' ? `heading ${deg3(hdg)}°` : `heading ${deg3(hdg)}° · ${((view.ax / sx + .5) * (L.bounds.lon_max - L.bounds.lon_min) + L.bounds.lon_min).toFixed(5)}°E ${(L.bounds.lat_max - (view.az / sy + .5) * (L.bounds.lat_max - L.bounds.lat_min)).toFixed(5)}°N`;
   renderer.render(scene, cam);
 });
 </script>
