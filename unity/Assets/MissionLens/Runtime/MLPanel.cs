@@ -16,7 +16,7 @@ namespace MissionLens
         public static readonly Color Ink = Hex("e9e6df"), Gray = Hex("9aa0a8"), Dim = Hex("6b7178"), Cyan = Hex("5fd4ff"), Amber = Hex("ffb347"), Soft = Hex("b8bec6"), OnCyan = Hex("04121a");
         public static readonly Color Back = new Color(12 / 255f, 15 / 255f, 20 / 255f, .92f), Line = new Color(1, 1, 1, .2f);
 
-        public class Btn { public float x, y, w, h; public Action fn; public string key; }
+        public class Btn { public float x, y, w, h, r = 14; public Action fn; public string key; public bool quiet; }
 
         public readonly GameObject go;
         public readonly RectTransform root;
@@ -24,6 +24,15 @@ namespace MissionLens
         public readonly List<Btn> buttons = new List<Btn>();
         readonly bool overlay;
         readonly TextMeshProUGUI measurer;
+        readonly CanvasGroup group;
+        readonly Canvas canvas;
+        readonly Image hoverFill, hoverRing;
+
+        /// <summary>Whether the surface should be showing. It fades toward this in Tick; alpha is where it is now.</summary>
+        public bool Show = true;
+        public float alpha { get; private set; } = 1;
+        public string hoverKey { get; private set; }
+        float worldWidth, pressedAt = -10;
 
         static Sprite sRound, sRing;
         static Material sOverlayImage, sOverlayFont;
@@ -32,23 +41,68 @@ namespace MissionLens
         public MLPanel(string name, int w, int h, float worldWidth, Transform parent, bool overlay = false)
         {
             this.w = w; this.h = h; this.overlay = overlay;
-            go = new GameObject(name, typeof(RectTransform), typeof(Canvas));
+            go = new GameObject(name, typeof(RectTransform), typeof(Canvas), typeof(CanvasGroup));
             go.transform.SetParent(parent, false);
-            go.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+            canvas = go.GetComponent<Canvas>(); canvas.renderMode = RenderMode.WorldSpace;
+            group = go.GetComponent<CanvasGroup>(); group.interactable = false; group.blocksRaycasts = false;
             root = (RectTransform)go.transform;
             root.sizeDelta = new Vector2(w, h);
             SetWorldWidth(worldWidth);
             measurer = New<TextMeshProUGUI>("measure"); measurer.enabled = false; measurer.textWrappingMode = TextWrappingModes.NoWrap;
+            EnsureSprites();
+            hoverFill = Sliced(sRound, 0, 0, 10, 10, 14, Color.clear); hoverRing = Sliced(sRing, 0, 0, 10, 10, 14, Color.clear);
+            hoverFill.name = hoverRing.name = "hover"; hoverFill.enabled = hoverRing.enabled = false;
         }
 
-        public void SetWorldWidth(float worldWidth) { float k = worldWidth / w; root.localScale = new Vector3(k, k, k); }
-        public bool Visible { get => go.activeSelf; set { if (go.activeSelf != value) go.SetActive(value); } }
+        public void SetWorldWidth(float width) { worldWidth = width; float k = width / w * (.94f + .06f * alpha * (2 - alpha)); root.localScale = new Vector3(k, k, k); }
+        // Hidden surfaces keep their objects active and only stop drawing: text made on an inactive object would
+        // lose the material it was given.
+        public bool Visible => canvas.enabled;
+
+        /// <summary>Hidden (or shown) at once, without the fade.</summary>
+        public void Snap(bool show) { Show = show; alpha = show ? 1 : 0; group.alpha = alpha; canvas.enabled = show; SetWorldWidth(worldWidth); }
+
+        /// <summary>Fades toward Show, with a slight growth as it appears, and keeps the hover highlight alive.</summary>
+        public void Tick(float dt, float perSecond = 5)
+        {
+            float to = Show ? 1 : 0;
+            if (alpha != to)
+            {
+                alpha = Mathf.MoveTowards(alpha, to, dt * perSecond); group.alpha = alpha * (2 - alpha);
+                if (canvas.enabled != alpha > 0) canvas.enabled = alpha > 0;
+                SetWorldWidth(worldWidth);
+            }
+            if (hoverFill.enabled)
+            {
+                float flash = Mathf.Clamp01(1 - (Time.time - pressedAt) / .22f);
+                hoverFill.color = new Color(1, 1, 1, .09f + .3f * flash); hoverRing.color = new Color(Cyan.r, Cyan.g, Cyan.b, .95f);
+            }
+        }
 
         public void Clear()
         {
             buttons.Clear();
-            for (int i = root.childCount - 1; i >= 0; i--) { var c = root.GetChild(i); if (c != measurer.transform) UnityEngine.Object.Destroy(c.gameObject); }
+            for (int i = root.childCount - 1; i >= 0; i--)
+            {
+                var c = root.GetChild(i);
+                if (c != measurer.transform && c != hoverFill.transform && c != hoverRing.transform) UnityEngine.Object.Destroy(c.gameObject);
+            }
         }
+
+        /// <summary>Highlights the button a pointer is on (null: none). Returns true when the pointer has just arrived on it.</summary>
+        public bool Hover(Btn b)
+        {
+            string key = b?.key; bool arrived = key != null && key != hoverKey; hoverKey = key;
+            hoverFill.enabled = hoverRing.enabled = b != null && !b.quiet;
+            if (b == null) return false;
+            foreach (var im in new[] { hoverFill, hoverRing })
+            {
+                Place(im.rectTransform, b.x - 3, b.y - 3, b.w + 6, b.h + 6, new Vector2(0, 1));
+                im.pixelsPerUnitMultiplier = 24f / Mathf.Max(1f, Mathf.Min(b.r + 3, Mathf.Min(b.w, b.h) / 2)); im.transform.SetAsLastSibling();
+            }
+            return arrived;
+        }
+        public void Pressed() => pressedAt = Time.time;
 
         // ---------- drawing ----------
         T New<T>(string name) where T : Component
@@ -78,15 +132,15 @@ namespace MissionLens
         }
 
         /// <summary>Word-wrapped text; returns the baseline for whatever comes next.</summary>
-        public float Wrap(string s, float x, float y, float width, float lineHeight, float px, Color col, bool bold = false)
+        public float Wrap(string s, float x, float y, float width, float lineHeight, float px, Color col, bool bold = false, int align = -1)
         {
             var line = "";
             foreach (var word in s.Split(' '))
             {
-                if (line.Length > 0 && Measure(line + word, px, bold) > width) { Text(line.TrimEnd(), x, y, px, col, bold); y += lineHeight; line = ""; }
+                if (line.Length > 0 && Measure(line + word, px, bold) > width) { Text(line.TrimEnd(), x, y, px, col, bold, align); y += lineHeight; line = ""; }
                 line += word + " ";
             }
-            Text(line.TrimEnd(), x, y, px, col, bold);
+            Text(line.TrimEnd(), x, y, px, col, bold, align);
             return y + lineHeight;
         }
 
@@ -96,11 +150,29 @@ namespace MissionLens
             if (fill.a > 0) Sliced(sRound, x, y, w, h, r, fill);
             if (stroke.HasValue) Sliced(sRing, x, y, w, h, r, stroke.Value);
         }
-        void Sliced(Sprite sp, float x, float y, float w, float h, float r, Color c)
+        Image Sliced(Sprite sp, float x, float y, float w, float h, float r, Color c)
         {
             var im = New<Image>("box"); Place(im.rectTransform, x, y, w, h, new Vector2(0, 1));
             im.sprite = sp; im.type = Image.Type.Sliced; im.pixelsPerUnitMultiplier = 24f / Mathf.Max(1f, Mathf.Min(r, Mathf.Min(w, h) / 2)); im.color = c; im.raycastTarget = false;
             if (overlay) im.material = OverlayImage();
+            return im;
+        }
+
+        /// <summary>A straight stroke from one point to another.</summary>
+        public void Stroke(float x0, float y0, float x1, float y1, float thickness, Color c)
+        {
+            EnsureSprites();
+            var im = New<Image>("line"); float len = Vector2.Distance(new Vector2(x0, y0), new Vector2(x1, y1));
+            Place(im.rectTransform, x0, y0, len + thickness, thickness, new Vector2(thickness / 2 / (len + thickness), .5f));
+            im.rectTransform.localRotation = Quaternion.Euler(0, 0, -Mathf.Atan2(y1 - y0, x1 - x0) * Mathf.Rad2Deg);
+            im.sprite = sRound; im.type = Image.Type.Sliced; im.pixelsPerUnitMultiplier = 24f / Mathf.Max(1f, thickness / 2); im.color = c; im.raycastTarget = false;
+            if (overlay) im.material = OverlayImage();
+        }
+
+        /// <summary>A tick mark inside the box (x, y, size).</summary>
+        public void Check(float x, float y, float size, Color c)
+        {
+            float t = size * .13f; Stroke(x + size * .22f, y + size * .52f, x + size * .43f, y + size * .72f, t, c); Stroke(x + size * .43f, y + size * .72f, x + size * .8f, y + size * .3f, t, c);
         }
 
         public RawImage Picture(Texture tex, float x, float y, float w, float h, Rect uv)
@@ -111,11 +183,12 @@ namespace MissionLens
 
         public void Button(string label, float x, float y, float w, float h, Action fn, bool on = false, bool dim = false, bool primary = false, float px = 25, string key = null)
         {
-            Box(x, y, w, h, 14, on ? Cyan : primary ? new Color(95 / 255f, 212 / 255f, 1, .2f) : new Color(1, 1, 1, dim ? .05f : .11f), primary && !on ? Cyan : (Color?)null);
+            Box(x, y, w, h, 14, on ? Cyan : primary ? new Color(95 / 255f, 212 / 255f, 1, .2f) : new Color(1, 1, 1, dim ? .05f : .11f), primary && !on ? Cyan : on || dim ? (Color?)null : new Color(1, 1, 1, .16f));
             Text(label, x + w / 2, y + h / 2 + px * .36f, px, on ? OnCyan : dim ? Dim : Ink, true, 0);
             if (!dim) Hit(key ?? label, x, y, w, h, fn);
         }
-        public void Hit(string key, float x, float y, float w, float h, Action fn) => buttons.Add(new Btn { x = x, y = y, w = w, h = h, fn = fn, key = key });
+        /// <summary>An area that can be pointed at and pressed. quiet: no highlight (large areas such as a whole strip).</summary>
+        public void Hit(string key, float x, float y, float w, float h, Action fn, float r = 14, bool quiet = false) => buttons.Add(new Btn { x = x, y = y, w = w, h = h, r = r, fn = fn, key = key, quiet = quiet });
 
         /// <summary>Small dark pill with a provenance word, e.g. "NASA OBSERVATION".</summary>
         public void Tag(string label, float x, float y, Color col)
@@ -129,17 +202,28 @@ namespace MissionLens
         public bool Raycast(Ray ray, out float distance, out Vector2 px)
         {
             distance = 0; px = default;
-            if (!go.activeInHierarchy) return false;
+            if (!canvas.enabled || alpha < .6f) return false;
             var plane = new Plane(root.forward, root.position);
             if (!plane.Raycast(ray, out distance) || distance <= 0) return false;
             var l = root.InverseTransformPoint(ray.GetPoint(distance));
             px = new Vector2(l.x + w / 2f, h / 2f - l.y);
             return px.x >= 0 && px.x <= w && px.y >= 0 && px.y <= h;
         }
-        public Btn ButtonAt(Vector2 px)
+        /// <summary>
+        /// The button under a point; failing that, the nearest one within `reach` pixels, so a hand that wavers
+        /// just off a small button still has it.
+        /// </summary>
+        public Btn ButtonAt(Vector2 px, float reach = 0)
         {
             for (int i = buttons.Count - 1; i >= 0; i--) { var b = buttons[i]; if (px.x >= b.x && px.x <= b.x + b.w && px.y >= b.y && px.y <= b.y + b.h) return b; }
-            return null;
+            Btn best = null; float bd = reach;
+            foreach (var b in buttons)
+            {
+                if (b.quiet) continue;
+                float dx = Mathf.Max(0, Mathf.Max(b.x - px.x, px.x - b.x - b.w)), dy = Mathf.Max(0, Mathf.Max(b.y - px.y, px.y - b.y - b.h)), d = Mathf.Sqrt(dx * dx + dy * dy);
+                if (d < bd) { bd = d; best = b; }
+            }
+            return best;
         }
         public Btn Find(string key) => buttons.Find(b => b.key == key) ?? buttons.Find(b => b.key != null && b.key.StartsWith(key));
         public Vector3 WorldPoint(Btn b) => root.TransformPoint(new Vector3(b.x + b.w / 2 - w / 2f, h / 2f - (b.y + b.h / 2), 0));

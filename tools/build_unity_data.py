@@ -9,6 +9,9 @@ files the other tools wrote under assets/data/.
 - ortho.jpg      HiRISE image, stretched to 4096 x 4096 (power of two, so it compresses with mipmaps)
 - slope.png, crism_phy.png, pano_<ID>.jpg, view_<ID>.jpg   copied as they are
 
+Each station also gets panoSky, the mean colour of its panorama's top rows, which the app uses for the sky
+it fills in above the mosaic (a fill of ours, not an observation).
+
     .venv/bin/python tools/build_unity_data.py eva01_hawksbill_gap
 """
 import json
@@ -51,6 +54,12 @@ def main():
         v = red[max(0, r - 1):r + 2, max(0, c - 1):c + 2].mean()
         return round(100 * np.searchsorted(flat, v) / flat.size)
 
+    # Mean colour of the mosaic's top rows (sRGB 0..1). The app eases its sky fill above the mosaic toward this.
+    def top_colour(path):
+        im = np.asarray(Image.open(path).convert("RGB")).astype(float)
+        rows = im[:max(4, im.shape[0] // 50)]
+        return [round(float(v) / 255, 3) for v in rows[rows.sum(axis=2) > 60].mean(axis=0)]
+
     stations = []
     for s in M["stations"]:
         pm = json.loads((data / "pano" / f"{s['pano']}.json").read_text())
@@ -70,6 +79,7 @@ def main():
             "crismRank": crism_rank(s),
             "panoSols": f"sol {sols[0]}" if sols[0] == sols[1] else f"sols {sols[0]}–{sols[1]}",
             "panoCredit": pm["credit"], "panoElMax": pm["el_max"], "panoElMin": pm["el_min"],
+            "panoSky": top_colour(data / "pano" / f"{s['pano']}.jpg"),
         })
 
     meda = json.loads((data / "conditions" / "meda_sol0502.json").read_text())["series"]

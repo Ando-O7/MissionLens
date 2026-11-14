@@ -18,6 +18,7 @@ namespace MissionLens
         public float sampleDistM;
         public string panoSols, panoCredit;
         public float panoElMax, panoElMin;
+        public float[] panoSky;   // mean colour of the mosaic's top rows, sRGB 0..1
     }
     [Serializable] public class Leg { public string from, to; public float distM, ascentM, slopeMaxDeg, pctOnTrack, estWalkMin; public float[] route; }
     [Serializable] public class MTask { public int index, plannedMin, startMin, endMin, leg, recordCheck; public string station, phase; public string[] checks; }

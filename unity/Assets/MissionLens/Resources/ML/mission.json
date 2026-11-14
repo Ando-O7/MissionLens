@@ -62,7 +62,12 @@
    "panoSols": "sols 690–692",
    "panoCredit": "NASA/JPL-Caltech/ASU/MSSS",
    "panoElMax": 13.109,
-   "panoElMin": -83.886
+   "panoElMin": -83.886,
+   "panoSky": [
+    0.823,
+    0.629,
+    0.446
+   ]
   },
   {
    "id": "A",
@@ -97,7 +102,12 @@
    "panoSols": "sol 454",
    "panoCredit": "NASA/JPL-Caltech/ASU/MSSS",
    "panoElMax": 18.862,
-   "panoElMin": -78.23
+   "panoElMin": -78.23,
+   "panoSky": [
+    1.0,
+    0.87,
+    0.618
+   ]
   },
   {
    "id": "B",
@@ -132,7 +142,12 @@
    "panoSols": "sols 484–492",
    "panoCredit": "NASA/JPL-Caltech/ASU/MSSS",
    "panoElMax": 24.859,
-   "panoElMin": -82.145
+   "panoElMin": -82.145,
+   "panoSky": [
+    0.929,
+    0.761,
+    0.53
+   ]
   },
   {
    "id": "C",
@@ -167,7 +182,12 @@
    "panoSols": "sols 518–534",
    "panoCredit": "NASA/JPL-Caltech/ASU/MSSS",
    "panoElMax": 24.939,
-   "panoElMin": -90.056
+   "panoElMin": -90.056,
+   "panoSky": [
+    0.755,
+    0.608,
+    0.438
+   ]
   }
  ],
  "legs": [
