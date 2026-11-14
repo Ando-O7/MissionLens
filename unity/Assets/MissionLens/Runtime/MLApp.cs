@@ -498,6 +498,10 @@ namespace MissionLens
                     }
                     continue;
                 }
+                // A ray that only just misses the strip or the panel was probably meant for a button, not the ground.
+                bool nearPanel = false;
+                foreach (var s in new[] { hud, wrist }) if (s.Raycast(ray, out _, out _, 70)) nearPanel = true;
+                if (nearPanel) continue;
                 if (CanMark && !busy && PointOnTerrain(ray, out var local, out float dist))
                 {
                     var at = world.TransformPoint(local); p.hitDistance = Vector3.Distance(ray.origin, at);

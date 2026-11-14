@@ -19,8 +19,8 @@ namespace MissionLens
         void BuildPanels()
         {
             // PLAN, in the room: a briefing board behind the table and the task timeline along its near edge.
-            board = new MLPanel("Board", 2200, 860, 2.2f, tableFrame);
-            board.go.transform.localPosition = new Vector3(0, .52f, .63f); board.go.transform.localRotation = Quaternion.Euler(15, 0, 0);
+            board = new MLPanel("Board", 2200, 900, 2.2f, tableFrame);
+            board.go.transform.localPosition = new Vector3(0, .53f, .63f); board.go.transform.localRotation = Quaternion.Euler(15, 0, 0);
             strip = new MLPanel("Timeline", 1600, 270, 1.0f, tableFrame);
             strip.go.transform.localPosition = new Vector3(0, rig.xr ? .075f : .048f, -.52f); strip.go.transform.localRotation = Quaternion.Euler(rig.xr ? 48 : 55.6f, 0, 0);
             // A small sign to the left of the model: north, a scale bar and the model's scale.
@@ -86,7 +86,9 @@ namespace MissionLens
                 if (stage == Stage.Title) Chase(title, ref titleChasing, head + yaw * new Vector3(0, -.06f, 1.3f), head, 30, 3, dt);
                 // Wrist panel: floats just above the left hand and shows while you look at it; or, asked for from
                 // the head-up strip, stays where it was called up, low and to the left.
-                var l = rig.left; bool looking = l.active && Vector3.Distance(l.origin, head) < .75f && Vector3.Angle(rig.Head.forward, l.origin - head) < 34;
+                // "Looking at it" means the hand is raised near the face and is not itself pointing ahead at something.
+                var l = rig.left; bool looking = l.active && !l.held && Vector3.Distance(l.origin, head) < .75f && Vector3.Angle(rig.Head.forward, l.origin - head) < 34
+                    && Vector3.Dot(l.rotation * Vector3.forward, rig.Head.forward) < .5f;
                 wrist.Show = !OnTable && (wristUp || looking);
                 if (wristUp) { if (!wristPlaced) { wristPlaced = true; Follow(wrist, head + yaw * new Vector3(-.3f, -.2f, .55f), head, 1); } }
                 else if (looking) Follow(wrist, l.origin + Vector3.up * .17f, head, 1);
@@ -253,12 +255,13 @@ namespace MissionLens
         void DrawLegend()
         {
             var s = legend; s.Clear(); float pxPerM = STable / (.26f / s.w), bar = 100 * pxPerM, x = s.w - 24 - bar; const float y = 150;
+            s.Box(x - 30, 4, s.w - x + 30 - 2, s.h - 8, 22, Back, Line);   // a backing, so it reads over whatever the room looks like
             s.Stroke(s.w - 44, 96, s.w - 44, 26, 6, Ink); s.Stroke(s.w - 44, 22, s.w - 62, 50, 6, Ink); s.Stroke(s.w - 44, 22, s.w - 26, 50, 6, Ink); s.Text("N", s.w - 82, 78, 44, Ink, true, 1);
             s.Box(x, y - 6, bar, 12, 3, Ink); s.Box(x, y - 6, bar / 2, 12, 3, Gray);
             s.Text("0", x, y - 20, 24, Soft, false, 0); s.Text("50", x + bar / 2, y - 20, 24, Soft, false, 0); s.Text("100 m", x + bar, y - 20, 24, Soft, false, 1);
             s.Text($"{scaleText} · height {(view.ex > 1 ? "×2" : "as measured")}", s.w - 24, y + 52, 30, Ink, true, 1);
             s.Text("MRO HiRISE terrain model, 2 m grid", s.w - 24, y + 90, 22, Gray, false, 1);
-            s.Text("Walls and base are drawn by us", s.w - 24, y + 120, 22, Dim, false, 1);
+            s.Text("Walls and base are drawn by us", s.w - 24, y + 120, 22, Gray, false, 1);
         }
 
         // PLAN: left, what the Marswalk is for and why the selected station serves it; right, the NASA evidence.
@@ -276,14 +279,15 @@ namespace MissionLens
                 b.Text("SCIENCE OBJECTIVE", X1, 216, 24, Gray, true); y = b.Wrap(M.objective, X1, 258, W1, 41, 32, Ink);
                 y = b.Wrap("NASA record · " + M.objectiveBasis, X1, y - 2, W1, 32, 25, Gray);
                 b.Text($"WHY STATION {st.id} · {st.name.ToUpper()}", X1, y + 32, 24, Cyan, true); y = b.Wrap(st.why, X1, y + 72, W1, 41, 32, Ink);
-                y = b.Wrap($"Elevation {st.elev:0.0} m · ground slope {st.slopeDeg}° · in view from here: {(st.sees.Length > 0 ? string.Join(", ", st.sees) : "none")}{(st.hidden.Length > 0 ? " · hidden: " + string.Join(", ", st.hidden) : "")} (our calculation from the terrain model)", X1, y, W1, 32, 25, Gray);
+                y = b.Wrap($"Elevation {st.elev:0.0} m (MOLA datum) · ground slope {st.slopeDeg}° · in view from here: {(st.sees.Length > 0 ? string.Join(", ", st.sees) : "none")}{(st.hidden.Length > 0 ? " · hidden: " + string.Join(", ", st.hidden) : "")} (our calculation from the terrain model)", X1, y, W1, 32, 25, Gray);
+                if (st.id == M.medaStation) { b.Text("NASA observation · MEDA · " + M.medaLine, X1, y, 25, Soft); y += 32; }
                 if (mk > 0) b.Text($"Recorded in FIELD · simulated: {mk} candidate{(mk > 1 ? "s" : "")}, marked on the map", X1, y + 2, 25, Amber, true);
                 // The way into FIELD proper: at the station the Marswalk has reached, with the task that is due.
                 var T = Task; string go = taskIndex == 0 ? "Begin Marswalk" : "Resume Marswalk";
-                b.Button(go, X1, 712, 330, 72, () => ToField(here), primary: true, px: 30, key: "Marswalk");
-                b.Text($"at {here} {St(here).name} · task {taskIndex + 1} of {M.tasks.Length}: {T.phase}{(T.station != here ? " " + T.station : "")}", X1 + 356, 742, 25, Soft);
-                b.Text("FIELD · real surface imagery at each station", X1 + 356, 774, 21, Dim);
-                b.Wrap(M.scenarioNote, X1, 822, W1, 24, 20, Dim);
+                b.Button(go, X1, 752, 330, 72, () => ToField(here), primary: true, px: 30, key: "Marswalk");
+                b.Text($"at {here} {St(here).name} · task {taskIndex + 1} of {M.tasks.Length}: {T.phase}{(T.station != here ? " " + T.station : "")}", X1 + 356, 782, 25, Soft);
+                b.Text("FIELD · real surface imagery at each station", X1 + 356, 814, 21, Dim);
+                b.Wrap(M.scenarioNote, X1, 862, W1, 24, 20, Dim);
             }
             else
             {
@@ -300,25 +304,25 @@ namespace MissionLens
                 y = b.Wrap(M.recordNote, X1, y + 4, W1, 31, 23, Gray);
                 b.Text("WHAT THIS RUN DID NOT MEASURE", X1, y + 30, 24, Gray, true);
                 b.Wrap("No time was measured: T+ follows the planned timeline, which keeps the task structure and durations of the BASALT-2 planned EVA. Nothing here was checked against a real crew, suit or surface operation.", X1, y + 70, W1, 34, 26, Soft);
-                b.Button("Start over", X1, 760, 240, 64, Restart, px: 26);
-                b.Text("Clears the run and returns to the title", X1 + 262, 801, 22, Dim);
+                b.Button("Start over", X1, 800, 240, 64, Restart, px: 26);
+                b.Text("Clears the run and returns to the title", X1 + 262, 841, 22, Dim);
             }
 
-            const float ih = 270; b.Box(X2, 48, W2, ih, 16, new Color(.1f, .12f, .14f, 1));
+            const float ih = 300; b.Box(X2, 48, W2, ih, 16, new Color(.1f, .12f, .14f, 1));
             if (viewTex.TryGetValue(sel, out var tex) && tex != null) { float vh = (tex.width * ih / W2) / tex.height; b.Picture(tex, X2, 48, W2, ih, new Rect(0, (1 - vh) / 2, 1, vh)); }
             b.Tag("NASA OBSERVATION", X2 + 14, 60, Ink); b.Text($"Mastcam-Z panorama, {st.panoSols}, looking {MLData.Deg3(st.viewAz)}° · {st.panoCredit}", X2, 48 + ih + 30, 23, Gray);
             y = 48 + ih + 78; b.Text(st.hasSample ? "NASA SAMPLING RECORD" : "NASA ROVER RECORD", X2, y, 24, Gray, true);
             y = b.Wrap(st.hasSample ? $"Rock cores {st.sampleName}: {st.sampleRock.ToLower()}, {st.sampleLocation.ToLower()}. Taken {st.sampleDate} (sols {st.sampleSol})." : st.note, X2, y + 38, W2, 37, 29, Ink);
             int p = st.crismRank; b.Text($"SPECTRAL CONTEXT · MRO CRISM · {M.crismMPerPx:0} M PER PIXEL", X2, y + 24, 24, Gray, true);
             b.Wrap($"{M.crismBands[0]} band here: {(p >= 50 ? $"stronger than in {p}%" : $"weaker than in {100 - p}%")} of this area (our reading). NASA label: Mg/Fe-OH bearing minerals may appear red; spectra are needed for positive identification.", X2, y + 60, W2, 35, 27, Ink);
-            float x = X2; const float by = 724; string s = sel;
+            float x = X2; const float by = 762; string s = sel;
             b.Text("ON THE MODEL", x, by - 14, 19, Dim, true); b.Text("LOOK AHEAD AT " + s, x + 584, by - 14, 19, Dim, true);
             b.Button("Slope", x, by, 150, 64, () => SetLayer("slope"), layer == "slope", px: 26); x += 166;
             b.Button("Spectral", x, by, 180, 64, () => SetLayer("crism"), layer == "crism", px: 26); x += 196;
             b.Button("Height ×2", x, by, 190, 64, ToggleHeight, view.ex > 1, px: 26); x += 222;
             b.Button("Preview 1 : 25", x, by, 230, 64, () => EnterTerrain(s, SGiant), px: 26); x += 246;
             b.Button("Stand at " + s, x, by, 228, 64, () => ToField(s), px: 26);
-            const float ly = 826;
+            const float ly = 866;
             if (layer == "slope")
             {
                 float lx = X2;
@@ -346,17 +350,23 @@ namespace MissionLens
             {
                 float x = X0 + t.startMin * k, w = t.plannedMin * k - 4; bool on = t.index == selTask; int i = t.index;
                 s.Box(x, 114, w, 62, 8, on ? Cyan : t.station == sel ? new Color(95 / 255f, 212 / 255f, 1, .32f) : new Color(1, 1, 1, t.index < taskIndex ? .27f : .12f), t.index == taskIndex && !Finished ? Amber : (Color?)null);
-                if (w > 44) s.Text((t.leg >= 0 ? "→ " : "") + t.station, x + w / 2, 154, 24, on ? OnCyan : Ink, true, 0);
+                // station, and under it what kind of task, where the segment is wide enough to hold the word
+                bool two = w >= 74;
+                if (w > 44) s.Text((t.leg >= 0 ? "→ " : "") + t.station, x + w / 2, two ? 143 : 154, 24, on ? OnCyan : Ink, true, 0);
+                if (two) s.Text(ShortPhase(t), x + w / 2, 165, 16, on ? OnCyan : Soft, false, 0);
                 s.Hit("task:" + i, x, 106, w + 4, 78, () => SelectTask(i), 10);
             }
             for (int m = 0; m < M.plannedTotalMin; m += 60) s.Text(MLData.Hm(m), X0 + m * k, 212, 20, Gray);
             s.Text(MLData.Hm(M.plannedTotalMin), X0 + W, 212, 20, Gray, false, 1);
-            s.Text("Task structure and planned durations follow the BASALT-2 planned EVA timeline (Beaton et al. 2019, Table 2) · amber outline: current task", X0, 248, 20, Dim);
+            s.Text("Tasks and durations follow the BASALT-2 planned EVA timeline (Beaton et al. 2019, Table 2) · amber outline: current task", X0, 248, 20, Dim);
             float bx = s.w - 30; bool armed = Time.time < restartArmedUntil;
             if (rig.xr) { bx -= 200; s.Button("Bring table here", bx, 222, 200, 40, PlaceTable, px: 19); bx -= 12; }
             float rw = armed ? 250 : 120; bx -= rw;
             s.Button(armed ? "Press again to restart" : "Restart", bx, 222, rw, 40, () => { if (Time.time < restartArmedUntil) Restart(); else { restartArmedUntil = Time.time + 3; Refresh(); } }, armed, px: 19, key: "Restart");
         }
+
+        static string ShortPhase(MTask t) => t.leg >= 0 ? (t.phase == "Return" ? "return" : "walk") : t.phase.StartsWith("Contextual") ? "survey" : t.phase.StartsWith("Candidate") ? "candidate search"
+            : t.phase.StartsWith("Presampling") ? "presampling survey" : t.phase.StartsWith("Sampling") ? "sampling" : t.phase.ToLower();
 
         void DrawWrist()
         {

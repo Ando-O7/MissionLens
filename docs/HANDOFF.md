@@ -124,6 +124,8 @@ $ADB install -r unity/Builds/MissionLens.apk && $ADB shell am start -n com.missi
 $ADB exec-out screencap -p > shot.png ; $ADB logcat -d -s Unity | tail -50      # ヘッドセットの画面とログ
 ```
 
+通しの自動確認は `tools/unity_check.sh`(Editor を開き、Play していない状態で実行。約 2 分。27 項目とコンソールのエラー 0 を確かめる)。
+
 - **もう一方の AI セッションの Editor(`mission-lens-codex/unity`)が同時に開いていることがある。`--project-path` を省くと、そちらを操作してしまうおそれがある。**
 - Editor 側の引数は `--` の後ろに書く(CLI 自身の `--timeout` などと衝突するため)。
 - 起動時にコンパイルエラーがあると Safe Mode になり、CLI から接続できない。エラーを直して Editor を開き直す。

@@ -199,7 +199,7 @@ namespace MissionLens
 
         // ---------- pointing ----------
         /// <summary>Where a ray meets this surface, in surface pixels. False when it misses or the surface is hidden.</summary>
-        public bool Raycast(Ray ray, out float distance, out Vector2 px)
+        public bool Raycast(Ray ray, out float distance, out Vector2 px, float margin = 0)
         {
             distance = 0; px = default;
             if (!canvas.enabled || alpha < .6f) return false;
@@ -207,7 +207,7 @@ namespace MissionLens
             if (!plane.Raycast(ray, out distance) || distance <= 0) return false;
             var l = root.InverseTransformPoint(ray.GetPoint(distance));
             px = new Vector2(l.x + w / 2f, h / 2f - l.y);
-            return px.x >= 0 && px.x <= w && px.y >= 0 && px.y <= h;
+            return px.x >= -margin && px.x <= w + margin && px.y >= -margin && px.y <= h + margin;
         }
         /// <summary>
         /// The button under a point; failing that, the nearest one within `reach` pixels, so a hand that wavers

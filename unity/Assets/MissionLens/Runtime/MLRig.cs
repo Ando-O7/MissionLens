@@ -38,11 +38,13 @@ namespace MissionLens
         public bool xr;
         public readonly Pointer right = new Pointer(), left = new Pointer(), mouse = new Pointer();
         /// <summary>
-        /// In the headset, when no hand or controller has been tracked for a few seconds: the direction of the
-        /// head, so the app can still be worked by looking at a button and waiting.
+        /// In the headset, a fallback for when pointing does not work: the direction of the head, so the app can be
+        /// worked by looking at a button and waiting. It is on while no hand or controller is tracked, and goes
+        /// away for good once a pinch or a trigger press has got through, so that someone resting their hands
+        /// does not press things by looking at them.
         /// </summary>
         public readonly Pointer gaze = new Pointer();
-        float lastHandTime;
+        float lastHandTime; bool everPressed;
         public Transform Head => cam.transform;
         public float HeadYaw => cam.transform.eulerAngles.y;
 
@@ -147,7 +149,8 @@ namespace MissionLens
             {
                 ReadHand(right, true); ReadHand(left, false); DrawHands();
                 if (right.active || left.active) lastHandTime = Time.time;
-                gaze.active = Time.time - lastHandTime > 2.5f; gaze.origin = Head.position; gaze.rotation = Head.rotation;
+                if (right.down || left.down) everPressed = true;
+                gaze.active = !everPressed && Time.time - lastHandTime > 2.5f; gaze.origin = Head.position; gaze.rotation = Head.rotation;
             }
             else ReadDesktop();
         }
