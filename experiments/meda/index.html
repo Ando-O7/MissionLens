@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MEDA conditions check</title>
+<style>
+  /* Verification view for tools/build_meda.py output. Throwaway experiment, not product UI. */
+  .viz-root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface-1: #fcfcfb; --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,.10); --night: rgba(11,11,11,.045);
+    --series-1: #2a78d6; --series-2: #eb6834;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface-1: #1a1a19; --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #898781;
+      --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,.10); --night: rgba(255,255,255,.05);
+      --series-1: #3987e5; --series-2: #d95926;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface-1: #1a1a19; --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,.10); --night: rgba(255,255,255,.05);
+    --series-1: #3987e5; --series-2: #d95926;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body.viz-root { background: var(--page); color: var(--text-primary); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 24px 16px 40px; }
+  main { max-width: 920px; margin: 0 auto; }
+  h1 { font-size: 18px; margin: 0 0 4px; font-weight: 600; }
+  .sub { color: var(--text-secondary); margin: 0 0 16px; max-width: 70ch; }
+  .card { position: relative; background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px 10px; margin-bottom: 12px; }
+  .card h2 { font-size: 13px; font-weight: 600; margin: 0; }
+  .card .unit { color: var(--text-muted); font-weight: 400; }
+  .legend { display: flex; gap: 16px; color: var(--text-secondary); font-size: 12.5px; margin: 4px 0 0; }
+  .legend span::before { content: ""; display: inline-block; width: 16px; height: 2px; border-radius: 1px; background: var(--k); vertical-align: middle; margin-right: 6px; }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  svg text { font: 11.5px system-ui, -apple-system, "Segoe UI", sans-serif; fill: var(--text-muted); font-variant-numeric: tabular-nums; }
+  svg text.lab { fill: var(--text-secondary); font-size: 12px; }
+  .plot:focus-visible { outline: 2px solid var(--series-1); outline-offset: 4px; border-radius: 6px; }
+  #tip { position: fixed; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; box-shadow: 0 4px 16px rgba(0,0,0,.12); display: none; min-width: 190px; z-index: 5; }
+  #tip .t { color: var(--text-secondary); margin-bottom: 4px; }
+  #tip .r { display: flex; align-items: center; gap: 8px; }
+  #tip .r i { width: 14px; height: 2px; border-radius: 1px; background: var(--k); flex: none; }
+  #tip .r b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  #tip .r span { color: var(--text-secondary); }
+  details { margin-top: 8px; color: var(--text-secondary); }
+  summary { cursor: pointer; }
+  table { border-collapse: collapse; margin-top: 8px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 3px 10px; border-bottom: 1px solid var(--grid); }
+  th { color: var(--text-secondary); font-weight: 600; }
+  .note { color: var(--text-secondary); font-size: 12.5px; max-width: 80ch; }
+</style>
+</head>
+<body class="viz-root">
+<main>
+  <h1 id="title">MEDA conditions</h1>
+  <p class="sub" id="sub"></p>
+  <div id="cards"></div>
+  <details><summary>Table view (10-minute means)</summary><div id="table"></div></details>
+  <p class="note" id="note"></p>
+</main>
+<div id="tip"></div>
+<script type="module">
+const q = new URLSearchParams(location.search);
+if (q.get('theme')) document.documentElement.dataset.theme = q.get('theme');  // ?theme=light|dark overrides the OS setting
+const D = await fetch('../../assets/data/conditions/meda_sol0502.json').then(r => r.json());
+const S = D.series, T = S.lmst_h, N = T.length, C = v => v == null ? null : v - 273.15;
+const PANELS = [
+  { title: 'Temperature', unit: '°C', digits: 0, series: [
+      { name: 'Ground (TIRS brightness temperature)', key: 'ground', k: '--series-2', v: S.ground_temp_k.map(C), mark: 'max' },
+      { name: 'Air (mast sensors, median of 3)', key: 'air', k: '--series-1', v: S.air_temp_k.map(C), mark: 'min' } ] },
+  { title: 'Pressure', unit: 'Pa', digits: 0, series: [{ name: 'Pressure', key: 'p', k: '--series-1', v: S.pressure_pa, mark: 'both' }] },
+  { title: 'Relative humidity at the sensor', unit: '%', digits: 1, series: [{ name: 'Relative humidity', key: 'rh', k: '--series-1', v: S.rel_humidity_pct, mark: 'max' }] },
+];
+const hhmm = h => { const m = Math.round(h * 60); return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
+const el = (tag, attrs = {}, text) => { const e = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
+const niceTicks = (lo, hi, n = 4) => { const span = hi - lo, step0 = span / n, mag = 10 ** Math.floor(Math.log10(step0)), step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= step0); const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(6)); return { out, step }; };
+
+document.getElementById('title').textContent = `MEDA conditions — sol ${D.sol}, Wildcat Ridge workspace`;
+const sm = D.summary, rise = sm.sun.crossings.find(c => c.rising), set = sm.sun.crossings.find(c => !c.rising);
+document.getElementById('sub').textContent = `Perseverance weather station, ${sm.utc[0].slice(0, 10)} to ${sm.utc[1].slice(0, 10)} UTC, Ls ${sm.solar_longitude_ls_deg[0].toFixed(0)}°. 10-minute means by local mean solar time. Gaps are times MEDA was not recording; nothing is interpolated.`;
+document.getElementById('note').textContent = `${D.archive}. ${D.notes.join(' ')} Sunrise and sunset (${hhmm(rise.lmst_h)}, ${hhmm(set.lmst_h)}) are interpolated across recording gaps of ${rise.gap_h} h and ${set.gap_h} h, so treat them as approximate. The rover moved ${sm.rover_moved_m} m during this sol.`;
+
+const W = 880, H = 190, M = { l: 46, r: 16, t: 10, b: 24 }, pw = W - M.l - M.r, ph = H - M.t - M.b, X = h => M.l + h / 24 * pw;
+const plots = [];
+for (const P of PANELS) {
+  const card = document.createElement('div'); card.className = 'card';
+  const h2 = document.createElement('h2'); h2.textContent = P.title + ' '; const u = document.createElement('span'); u.className = 'unit'; u.textContent = P.unit; h2.append(u); card.append(h2);
+  if (P.series.length > 1) { const lg = document.createElement('div'); lg.className = 'legend'; for (const s of P.series) { const sp = document.createElement('span'); sp.style.setProperty('--k', `var(${s.k})`); sp.textContent = s.name; lg.append(sp); } card.append(lg); }
+  const all = P.series.flatMap(s => s.v.filter(v => v != null)), pad = (Math.max(...all) - Math.min(...all)) * .12 || 1;
+  const tk = niceTicks(Math.min(...all) - pad, Math.max(...all) + pad), y0 = Math.min(tk.out[0], Math.min(...all) - pad), y1 = Math.max(tk.out.at(-1), Math.max(...all) + pad);
+  const Y = v => M.t + (1 - (v - y0) / (y1 - y0)) * ph;
+  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': `${P.title} in ${P.unit} over local mean solar time`, class: 'plot', tabindex: 0 });
+  // Night: sun below the horizon. A surface tint, not a data colour.
+  for (const [a, b] of [[0, rise.lmst_h], [set.lmst_h, 24]]) svg.append(el('rect', { x: X(a), y: M.t, width: X(b) - X(a), height: ph, fill: 'var(--night)' }));
+  if (P === PANELS[0]) { svg.append(el('text', { x: X(0) + 6, y: M.t + 13 }, 'Night')); svg.append(el('text', { x: X(set.lmst_h) + 6, y: M.t + 13 }, 'Night')); }
+  for (const v of tk.out) { svg.append(el('line', { x1: M.l, x2: W - M.r, y1: Y(v), y2: Y(v), stroke: 'var(--grid)', 'stroke-width': 1 })); svg.append(el('text', { x: M.l - 8, y: Y(v) + 4, 'text-anchor': 'end' }, String(v))); }
+  svg.append(el('line', { x1: M.l, x2: W - M.r, y1: M.t + ph, y2: M.t + ph, stroke: 'var(--axis)', 'stroke-width': 1 }));
+  for (let h = 0; h <= 24; h += 3) svg.append(el('text', { x: X(h), y: H - 6, 'text-anchor': h === 0 ? 'start' : h === 24 ? 'end' : 'middle' }, hhmm(h)));
+  for (const s of P.series) {
+    let run = [];
+    const flush = () => {
+      if (run.length > 1) svg.append(el('path', { d: 'M' + run.map(i => `${X(T[i]).toFixed(1)},${Y(s.v[i]).toFixed(1)}`).join('L'), fill: 'none', stroke: `var(${s.k})`, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+      else if (run.length === 1) svg.append(el('circle', { cx: X(T[run[0]]), cy: Y(s.v[run[0]]), r: 4, fill: `var(${s.k})`, stroke: 'var(--surface-1)', 'stroke-width': 2 }));
+      run = [];
+    };
+    for (let i = 0; i < N; i++) s.v[i] == null ? flush() : run.push(i);
+    flush();
+  }
+  // Selective direct labels: only the extremes named per series.
+  for (const s of P.series) {
+    const idx = s.v.map((v, i) => v == null ? -1 : i).filter(i => i >= 0), iMax = idx.reduce((a, b) => s.v[b] > s.v[a] ? b : a), iMin = idx.reduce((a, b) => s.v[b] < s.v[a] ? b : a);
+    for (const [i, up] of [[iMax, true], [iMin, false]].filter(([, up]) => s.mark === 'both' || (s.mark === 'max') === up)) {
+      svg.append(el('circle', { cx: X(T[i]), cy: Y(s.v[i]), r: 4, fill: `var(${s.k})`, stroke: 'var(--surface-1)', 'stroke-width': 2 }));
+      const right = X(T[i]) < W - 150;
+      svg.append(el('text', { x: X(T[i]) + (right ? 9 : -9), y: Y(s.v[i]) + (up ? -7 : 15), 'text-anchor': right ? 'start' : 'end', class: 'lab' }, `${s.v[i].toFixed(P.digits)} ${P.unit} at ${hhmm(T[i])}`));
+    }
+  }
+  const cross = el('line', { y1: M.t, y2: M.t + ph, stroke: 'var(--text-muted)', 'stroke-width': 1, visibility: 'hidden' }); svg.append(cross);
+  const hit = el('rect', { x: M.l, y: M.t, width: pw, height: ph, fill: 'transparent' }); svg.append(hit);
+  card.append(svg); document.getElementById('cards').append(card); plots.push({ svg, cross, hit });
+}
+
+// One crosshair across all panels; the readout lists every series at that time.
+const withData = [...Array(N).keys()].filter(i => PANELS.some(P => P.series.some(s => s.v[i] != null)));
+const tip = document.getElementById('tip'); let cur = null;
+function show(i, cx, cy) {
+  cur = i; for (const p of plots) { p.cross.setAttribute('x1', X(T[i])); p.cross.setAttribute('x2', X(T[i])); p.cross.setAttribute('visibility', 'visible'); }
+  tip.replaceChildren(); const t = document.createElement('div'); t.className = 't'; t.textContent = `${hhmm(T[i])} local mean solar time`; tip.append(t);
+  for (const P of PANELS) for (const s of P.series) { const r = document.createElement('div'); r.className = 'r'; const k = document.createElement('i'); k.style.setProperty('--k', `var(${s.k})`); const b = document.createElement('b'); b.textContent = s.v[i] == null ? '—' : `${s.v[i].toFixed(P.digits)} ${P.unit}`; const n = document.createElement('span'); n.textContent = s.name.split(' (')[0]; r.append(k, b, n); tip.append(r); }
+  tip.style.display = 'block'; const w = tip.offsetWidth; tip.style.left = Math.min(cx + 14, innerWidth - w - 8) + 'px'; tip.style.top = (cy + 14) + 'px';
+}
+const hide = () => { tip.style.display = 'none'; for (const p of plots) p.cross.setAttribute('visibility', 'hidden'); };
+for (const p of plots) {
+  p.hit.addEventListener('pointermove', e => { const r = p.svg.getBoundingClientRect(), h = ((e.clientX - r.left) / r.width * W - M.l) / pw * 24; show(withData.reduce((a, b) => Math.abs(T[b] - h) < Math.abs(T[a] - h) ? b : a), e.clientX, e.clientY); });
+  p.hit.addEventListener('pointerleave', hide);
+  p.svg.addEventListener('keydown', e => { if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return; e.preventDefault(); const j = Math.max(0, Math.min(withData.length - 1, (cur == null ? 0 : withData.indexOf(cur)) + (e.key === 'ArrowRight' ? 1 : -1))), r = p.svg.getBoundingClientRect(); show(withData[j], r.left + X(T[withData[j]]) / W * r.width, r.top + 20); });
+  p.svg.addEventListener('blur', hide);
+}
+
+const tb = document.createElement('table'), hr = tb.insertRow(); for (const h of ['LMST', 'Ground °C', 'Air °C', 'Pressure Pa', 'RH %', 'Sun elev °', 'Sun azimuth °']) { const th = document.createElement('th'); th.textContent = h; hr.append(th); }
+const f = (v, d) => v == null ? '—' : v.toFixed(d);
+for (const i of withData) { const r = tb.insertRow(); for (const c of [hhmm(T[i]), f(C(S.ground_temp_k[i]), 1), f(C(S.air_temp_k[i]), 1), f(S.pressure_pa[i], 1), f(S.rel_humidity_pct[i], 2), f(S.sun_elevation_deg[i], 1), f(S.sun_azimuth_deg[i], 1)]) r.insertCell().textContent = c; }
+document.getElementById('table').append(tb);
+if (q.get('probe')) show(withData.reduce((a, b) => Math.abs(T[b] - 13.1) < Math.abs(T[a] - 13.1) ? b : a), 620, 150);
+</script>
+</body>
+</html>

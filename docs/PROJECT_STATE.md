@@ -1,6 +1,6 @@
 # PROJECT STATE
 
-最終更新: 2026-11-14 14:35 JST(Unity のバージョン確定)
+最終更新: 2026-11-14 15:00 JST(MEDA の検証を反映)
 
 ## コンセプト
 
@@ -93,6 +93,7 @@ git の管理対象は `NASASpaceAppsChallenge/MissionLens/`(このリポジト�
 - データ加工: 正射画像の結合、DTM 切り出し、傾斜・陰影、THEMIS 切り出し、経路・地点の切り出し、生画像からのパノラマ再構成(4 地点)、パノラマ可否の調査、Marswalk 定義の生成(徒歩ルート・見通し・計画時間)。
 - 表示実験(`experiments/phase0/`): 3D 地形 + レイヤー切り替え + 2D/3D 切り替え + 地点カード + 地上視点(稜線・地点・経路の重ね描き)。
 - CRISM の入手・位置合わせの確認(`experiments/crism/`)。アプリには未組み込み。
+- 現地気象(MEDA)の集計(`tools/build_meda.py` → `assets/data/conditions/meda_sol0502.json`)と確認用グラフ(`experiments/meda/`)。アプリには未組み込み。
 - 本開発(Unity 版、Web 版): なし。
 
 ## 次に取り組むこと

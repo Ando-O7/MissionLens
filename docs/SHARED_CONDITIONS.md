@@ -1,6 +1,6 @@
 # SHARED CONDITIONS — 並行開発の共通条件
 
-作成: Claude Code セッション / 最終更新: 2026-11-14 14:20 JST
+作成: Claude Code セッション / 最終更新: 2026-11-14 15:00 JST
 用途: 同じ Mission Lens を独立に開発する別の AI セッションへ、比較の前提として渡す。UI/UX の設計判断は含めていない。
 
 **状態: 探査地域はユーザーが確定済み(2026-11-14)。** データ・座標・取得方法・検証結果は確定した事実。科学目標と地点割りは案で、今後手直しする。
@@ -92,10 +92,16 @@
 - AOI 内 129 停止点のうち 75 点にフレームあり。調査では 307 sol 中 214 sol 分の API 応答しか得られておらず、残りは未調査。
 - **[失敗]** 停止点データに記載のある公式パノラマ(`Layers/mosaics/*.jpg`)は HTTP 403 で取得できない。
 
-### 4.6 現地気象 — Mars 2020 / MEDA **[検証済: 取得のみ]**
+### 4.6 現地気象 — Mars 2020 / MEDA **[検証済]**
 
-- `https://atmos.nmsu.edu/PDS/data/PDS4/Mars2020/mars2020_meda/data_derived_env/sol_0420_0539/sol_0502/`
-- 1 Hz の CSV。`DER_PS`(気圧)、`DER_RHS`(湿度)、`DER_TIRS`(赤外放射)、`DER_ANCILLARY`(太陽高度など)。気温・地表温度は `data_calibrated_env/` 側 **[未検証]**。
+- `https://atmos.nmsu.edu/PDS/data/PDS4/Mars2020/mars2020_meda/<集合>/sol_0420_0539/sol_0502/WE__0502___________<製品>P01.CSV`。集合は `data_derived_env`(`DER_PS` 気圧、`DER_RHS` 湿度、`DER_ANCILLARY` 太陽とローバーの状態)と `data_calibrated_env`(`CAL_ATS` 気温、`CAL_TIRS` 地表温度と赤外放射)。sol のフォルダは範囲ごとに分かれている。
+- 1 Hz の CSV、1 ファイル 2〜10 MB。sol 502 の 1 日分は気圧・湿度・気温・地表温度・補助情報で約 16 MB。10 分平均にすると 17 KB。
+- sol 502(2022-07-18〜19 UTC、Ls 269°)の実測: 気圧 770〜809 Pa、気温 190〜253 K、地表温度 190〜265 K、相対湿度 0〜36%(夜明け前に最大)。太陽の最大高度 46°。
+- **記録は連続ではない。** 10 分の区間 144 個のうちデータがあるのは 78 個。日の出・日の入り(LMST 6.8 時、17.6 時)は記録の切れ目をまたいで補間した概算。
+- **列名の罠**: `DER_ANCILLARY` の `SOLAR_LONGITUDE_ANGLE` は季節(Ls)ではなく太陽の方位角で、北から**西回り**に測る(符号を反転すると北から時計回りの方位)。`SOLAR_ZENITHAL_ANGLE` は天頂角。Ls と UTC は各ファイルの XML ラベルにある。
+- 気温は `ATS_LOCAL_TEMP1`〜`3` がマスト、`4`〜`5` が車体前部(ラベルの記載)。`CAL_TIRS` には車体の影や車輪の映り込みを示すフラグ列がある。
+- sol 502 のフォルダに風の製品は無い。
+- この日ローバーは約 3 m 移動している(Wildcat Ridge の作業位置への移動)。
 
 ### 4.7 分光 — MRO / CRISM **[検証済: 入手と位置合わせのみ。解析はしていない]**
 
@@ -139,6 +145,7 @@
 | `jezero_delta_front/slope.png` `hillshade.jpg` | 傾斜の色分け(10 / 15 / 20°)と陰影 |
 | `jezero_delta_front/themis_*` | THEMIS 昼夜、AOI と周辺 |
 | `jezero_delta_front/vectors.json` | AOI 内の経路・停止点・採取地点 |
+| `conditions/meda_sol0502.json` | MEDA の sol 502 を 10 分平均にしたもの(気圧、気温、地表温度、湿度、太陽の高度と方位)。欠測は null |
 | `pano/*.jpg` `pano/*.json` | 4 地点のパノラマ。横 = 方位(北から時計回り 0〜360°)、縦 = 仰角 +45°〜−75°、4096×1365。使用フレームと出典つき |
 
 ラスターはすべて AOI の矩形ちょうどを覆う。
