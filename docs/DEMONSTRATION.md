@@ -1,0 +1,15 @@
+# About the demonstration
+
+[Back to the project](../README.md) · [Watch the demo](https://github.com/Ando-O7/MissionLens/releases/download/submission-2026-11-15/MissionLens_demo_30s.mp4) · [Read its saved plan](examples/observation_plan/README.md)
+
+## How the demonstration film was made
+
+`tools/record_briefing.sh` records a take in the Unity Editor and `tools/briefing_focus_edit.py` cuts the film from it. It is not a headset capture, and it is an edited sequence: the film's corner reads *Unity Editor capture · simulated room and input · edited sequence*.
+
+- **Input.** A script (`MLAppDirector.cs`, `CoBriefing`) moves a simulated head and hands; they point, pinch and press, and the app answers through the same buttons, shutter and save as on the headset. The title and the opening are passed before the recording starts and the plan is emptied; no result is put in by hand.
+- **Room.** On the headset the table stands in your own room (passthrough). The Editor has no real room, so the film uses the app's studio room with plain walls added: a drawn room, there to show the size of the model and the change from PLAN to FIELD and back. In FIELD the person stays where the panorama was taken and only turns.
+- **Edit.** The film follows one planned observation, at Wildcat Ridge. The take is 39.8 s long. The part of it in which a photo is framed at Skinner Ridge and a wider view is planned from it (9.9 s, with the walk on to Wildcat Ridge) is left out of the film. That photo, its planned observation and the relationship of the two outcrops are in the plan the take saved, and the film's last card names them. Nothing that is shown was staged again or replaced.
+- **Time.** The science cards and the way back to the table play at 1.5×, the framed view is held at half speed for 1.7 s, and the rest plays as recorded; the moves between the room and the stations had already been run faster than in the app while recording. [`demo/MissionLens_briefing_30s_en_focus_times.txt`](../demo/MissionLens_briefing_30s_en_focus_times.txt) lists each piece with its source frames and speed, the cut, the subtitles and the measured length (29.23 s).
+- **Last card.** The last 5.8 s are not a screen of the app. The app's own saved-plan card is shown just before. The card that follows, marked *Saved plan excerpt*, is drawn by the edit script from the `observation_plan.json` the same take saved: the photo taken at Wildcat Ridge, its purpose, the observation planned from it and what that leaves unresolved, in the app's own words for the saved ids. The app itself does not yet show a single item this large.
+- **What it saved.** The plan saved during that recording is in [`demo/MissionLens_briefing_30s_en_focus_plan/`](../demo/MissionLens_briefing_30s_en_focus_plan) (the same files as the [readable example](examples/observation_plan/README.md)).
+- **The earlier cut.** `tools/briefing_edit.py` plays the same take without a cut, at one speed (1.41×); its times are in [`demo/MissionLens_briefing_30s_en_room_times.txt`](../demo/MissionLens_briefing_30s_en_room_times.txt).
