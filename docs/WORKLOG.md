@@ -566,3 +566,10 @@
 - **ビルド**: `unity/Builds/MissionLens_plan_ui2_2026-11-15_2157.apk`(表示「2026-11-15 21:56 · 9b7f712+」、MD5 3108e8e1…、100 MB)。ソースの控えは同じ名前の `.patch` と `_newfiles.tgz`。**実機では未確認**(実行時に作る書体が Quest で出るかも未確認)。
 - **公開の差し替え**: `../MissionLens_submit`(ブランチ `submission`)にこの状態をコミットして origin/main に push。Release `submission-2026-11-15` の 3 つの添付(動画、字幕なしの動画、APK)を差し替えた。README(動画の作り方、静止画、出どころの印、書体)、`SUBMISSION.md` の 3、`docs/examples/`(最終の収録で保存された計画)、`docs/media/` を更新。企画側の照合(`saved_plan_artifact_20261115.json`)が見たのは 20:24 の収録の計画で、`demo/MissionLens_briefing_30s_en_plan/` に残してある。
 - **もとの作業ツリー(`MissionLens/`、main)**: コミットしていない。
+
+## 2026-11-15 22:10 JST — 公開した履歴から Co-Authored-By を外した(Claude Code、観測計画のセッション)
+
+- **起きたこと**: 公開した履歴(origin/main)に、`Co-Authored-By: Claude` の行が 4 つのコミットに残っていた(`3d77a0a`、`1763971`、`348304c`、`9b7f712`。11/15 06:12〜07:44 のもの)。このセッションが今日作った 3 つのコミットには入れていないが、公開の前に履歴を確かめずに push した。ユーザーの指摘で分かった。
+- **直したこと(ユーザーの承認: 置き換える)**: 別ツリーのブランチ `submission` を、59 コミットすべてからその行を外した履歴に置き換えて、origin/main に強制 push した。中身(ツリー)は同じで、コミットの ID だけ変わった。公開側の最新は `b943a7c`(以前の `b55aba5`)、その前が `0b1e265`(`5c9bb69`)、`f5a33a8`(`0e0b27d`)。Release のタグ `submission-2026-11-15` も `b943a7c` に付け直した(添付はそのまま)。origin/main に、その行は残っていない(数えて 0)。
+- **残っているもの**: もとの作業ツリーのブランチ `main`(ローカルだけ。公開していない)には、同じ 4 つのコミットがそのままある。タグ `tokyo-v1` もローカルの古い ID を指している。文書の中のコミット ID(`9b7f712`、`348304c`、ビルド表示の「9b7f712+」)は、ローカルの履歴の ID で、公開側の ID とは一致しない。置き換える前の `submission` は、ローカルのブランチ `backup-before-trailer-strip` に残してある。
+- **今後**: 公開・push の前に、`git log --format=%B | grep -ci co-authored-by` で履歴を確かめる。
