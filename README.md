@@ -8,7 +8,7 @@ Built in Unity for Meta Quest 3 (hands or controllers). The same app runs on a d
 
 | | |
 |---|---|
-| Demonstration, 30 seconds | [MissionLens_demo_30s.mp4](https://github.com/Ando-O7/MissionLens/releases/download/submission-2026-11-15/MissionLens_demo_30s.mp4) (29.3 s, 55 MB; how it was made is [below](#how-the-demonstration-film-was-made)) |
+| Demonstration, 30 seconds | [MissionLens_demo_30s.mp4](https://github.com/Ando-O7/MissionLens/releases/download/submission-2026-11-15/MissionLens_demo_30s.mp4) (29.2 s, 44 MB; an edited sequence that follows one planned observation: how it was made is [below](#how-the-demonstration-film-was-made)) |
 | App for Meta Quest 3 | [MissionLens_Quest3.apk](https://github.com/Ando-O7/MissionLens/releases/download/submission-2026-11-15/MissionLens_Quest3.apk) (96 MB; see [Run it](#run-it)) |
 | A saved plan, as the app writes it | [docs/examples/observation_plan/](docs/examples/observation_plan/) — a simulated example |
 | What was checked, and how | [What has been checked](#what-has-been-checked) · [docs/validation/](docs/validation/README.md) |
@@ -37,10 +37,10 @@ The briefing turns a science goal into what to look at on the ground and what to
 
 | | | |
 |---|---|---|
-| ![The model in the room](docs/media/film_1_plan_room.jpg) | ![Framing a view](docs/media/film_2_field_frame.jpg) | ![The next observation](docs/media/film_3_photo_and_next.jpg) |
-| PLAN: the model on its plinth, the plan and the evidence | FIELD: a view framed in the panorama | The photo, its purpose and the next observation |
-| ![Back in the room](docs/media/film_4_plan_back_in_the_room.jpg) | ![The saved plan](docs/media/film_5_saved_plan.jpg) | ![The saved plan, nearer](docs/media/film_6_saved_plan_near.jpg) |
-| PLAN again: the photo that was taken is open beside the plan | The saved plan | Each outcrop: photo, purpose, next observation |
+| ![The model in the room](docs/media/film_1_plan_room.jpg) | ![Framing a view](docs/media/film_focus_3_field_frame.jpg) | ![The next observation](docs/media/film_focus_4_photo_and_next.jpg) |
+| PLAN: the model on its plinth, the plan and the evidence | FIELD at Wildcat Ridge: a view framed in the panorama (a frame of the film, with its subtitle) | The photo, its purpose and the next observation |
+| ![Back in the room](docs/media/film_4_plan_back_in_the_room.jpg) | ![The saved plan](docs/media/film_5_saved_plan.jpg) | ![Saved plan excerpt](docs/media/film_focus_7_saved_plan_excerpt.jpg) |
+| PLAN again: the photo that was taken is open beside the plan | The saved plan, in the app | The last card of the film: an excerpt drawn from the saved file, not a screen of the app |
 
 The rest of the app, built for the Tokyo venue, is the panel's other face (*Tasks*): a 13-task Marswalk on the timeline, slope and spectral layers on the map, walks between stations with a route check, and regions pointed at in a panorama.
 
@@ -140,12 +140,15 @@ The raw inputs are not in git. Each tool downloads what it needs from the public
 
 ## How the demonstration film was made
 
-`tools/record_briefing.sh` records it in the Unity Editor. It is not a headset capture: the film's corner reads *Unity Editor capture · simulated room and input*.
+`tools/record_briefing.sh` records a take in the Unity Editor and `tools/briefing_focus_edit.py` cuts the film from it. It is not a headset capture, and it is an edited sequence: the film's corner reads *Unity Editor capture · simulated room and input · edited sequence*.
 
 - **Input.** A script (`MLAppDirector.cs`, `CoBriefing`) moves a simulated head and hands; they point, pinch and press, and the app answers through the same buttons, shutter and save as on the headset. The title and the opening are passed before the recording starts and the plan is emptied; no result is put in by hand.
 - **Room.** On the headset the table stands in your own room (passthrough). The Editor has no real room, so the film uses the app's studio room with plain walls added: a drawn room, there to show the size of the model and the change from PLAN to FIELD and back. In FIELD the person stays where the panorama was taken and only turns.
-- **Time.** The moves between the room and the stations run faster than in the app, and the part before the saved plan is played at one uniform speed (1.41×) to fit thirty seconds; the saved plan at the end runs at its own pace for 5.6 s. [`demo/MissionLens_briefing_30s_en_room_times.txt`](demo/MissionLens_briefing_30s_en_room_times.txt) gives the scenes, the factor and the measured length (29.30 s).
-- **What it saved.** The plan saved during that recording is in [`demo/MissionLens_briefing_30s_en_room_plan/`](demo/MissionLens_briefing_30s_en_room_plan/) (the same files as the example above); the last card in the film shows that plan.
+- **Edit.** The film follows one planned observation, at Wildcat Ridge. The take is 39.8 s long. The part of it in which a photo is framed at Skinner Ridge and a wider view is planned from it (9.9 s, with the walk on to Wildcat Ridge) is left out of the film. That photo, its planned observation and the relationship of the two outcrops are in the plan the take saved, and the film's last card names them. Nothing that is shown was staged again or replaced.
+- **Time.** The science cards and the way back to the table play at 1.5×, the framed view is held at half speed for 1.7 s, and the rest plays as recorded; the moves between the room and the stations had already been run faster than in the app while recording. [`demo/MissionLens_briefing_30s_en_focus_times.txt`](demo/MissionLens_briefing_30s_en_focus_times.txt) lists each piece with its source frames and speed, the cut, the subtitles and the measured length (29.23 s).
+- **Last card.** The last 5.8 s are not a screen of the app. The app's own saved-plan card is shown just before. The card that follows, marked *Saved plan excerpt*, is drawn by the edit script from the `observation_plan.json` the same take saved: the photo taken at Wildcat Ridge, its purpose, the observation planned from it and what that leaves unresolved, in the app's own words for the saved ids. The app itself does not yet show a single item this large.
+- **What it saved.** The plan saved during that recording is in [`demo/MissionLens_briefing_30s_en_focus_plan/`](demo/MissionLens_briefing_30s_en_focus_plan/) (the same files as the example above).
+- **The earlier cut.** `tools/briefing_edit.py` plays the same take without a cut, at one speed (1.41×); its times are in [`demo/MissionLens_briefing_30s_en_room_times.txt`](demo/MissionLens_briefing_30s_en_room_times.txt).
 
 ## Use of AI
 

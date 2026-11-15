@@ -1,0 +1,30 @@
+Edited sequence from one take: 1194 frames at 30 fps (39.8 s), 1920x1080.
+
+  in film      from the take (frames, seconds)       speed   what
+  0.00 s         0- 107    0.00-  3.57 s            1.00x   room
+  3.57 s       107- 288    3.57-  9.60 s            1.50x   roles
+              cut: frames 288-586 (9.60-19.53 s) of the take are left out: the photo framed at Skinner Ridge (B) and the walk to Wildcat Ridge
+  7.59 s       586- 668   19.53- 22.27 s            1.00x   c_arrive
+ 10.32 s       668- 694   22.27- 23.13 s            0.50x   c_frame
+ 12.06 s       694- 800   23.13- 26.67 s            1.00x   c_photo_next
+ 15.59 s       800- 890   26.67- 29.67 s            1.50x   back
+ 17.59 s       890-1001   29.67- 33.37 s            1.00x   save
+ 21.29 s      1001-1066   33.37- 35.53 s            1.00x   saved_card
+ 23.46 s      saved plan excerpt, held 5.8 s: a card drawn from the saved observation_plan.json, not a screen of the app
+ 29.26 s      end
+
+subtitles:
+  0.10- 3.47 s  Water history and timing: / what should a crew observe?
+  3.63- 7.52 s  Wildcat Ridge: water environments. / Skinner Ridge: timing clues.
+  7.66-10.29 s  At Wildcat Ridge, inspect grain texture.
+ 10.39-13.19 s  Grain-scale detail remains unresolved / in this view.
+ 13.29-15.19 s  Plan a close-up with scale.
+ 16.61-21.26 s  Save the purpose and open question.
+
+excerpt card, from observation_plan.json (session plan_20261115_124938_77a8, saved 2026-11-15T12:50:05Z), capture capture_02:
+  SAVED · Wildcat Ridge
+  Purpose: Inspect grain texture
+  Next: Close-up with scale
+  PLANNED · Detail and size unresolved
+
+measured length of the film: 29.23 s (within 30 s)

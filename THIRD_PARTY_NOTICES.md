@@ -53,6 +53,6 @@ The SIL Open Font License 1.1 and the copyright statements stay with the fonts. 
 
 ## Development tools
 
-Python, NumPy, Rasterio, Pillow and OpenCV were used for the data tools, Matplotlib for the plots in `docs/validation/`, and FFmpeg for the films; links are in `docs/SUBMISSION.md`, section 8. They are tools, not parts of the Quest app, and none of their binaries is in this repository or in the APK. FFmpeg's terms depend on its build; encoding the film is a different act from redistributing FFmpeg.
+Python, NumPy, Rasterio, Pillow and OpenCV were used for the data tools, Matplotlib for the plots in `docs/validation/`, and FFmpeg (the build distributed with imageio-ffmpeg) for the films; links are in `docs/SUBMISSION.md`, section 8. They are tools, not parts of the Quest app, and none of their binaries is in this repository or in the APK. FFmpeg's terms depend on its build; encoding the film is a different act from redistributing FFmpeg.
 
 Claude Code, ChatGPT and Codex assisted development as the README describes under [Use of AI](README.md#use-of-ai). The scientific papers cited in the README are references; citing a paper does not relicense its text or figures.

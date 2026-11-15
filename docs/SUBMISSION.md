@@ -57,7 +57,17 @@ Mission Lens — Plan the Science Before the Marswalk
 
 (80 語。企画側の `reports/MissionLens_submission_en_20261115.md` の A 版と同じ文。)
 
-## 3. Project Demonstration(必須)**[動画はできた(部屋の往復の版、21:50)。再生できる公開リンクが未定]**
+## 3. Project Demonstration(必須)**[動画はできた(Wildcat Ridge の一件を追う編集版、22:45)。再生できる公開リンクが未定]**
+
+- **出す動画(22:45。企画側の `../reports/MissionLens_demo_polish_handoff_20261115.md` による)**: `demo/MissionLens_briefing_30s_en_focus.mp4`(1920×1080、30 fps、**実測 29.23 秒**、英語の字幕 6 つ)。Release の `MissionLens_demo_30s.mp4` もこれに差し替えた。字幕なしは `_focus_nosub.mp4`、場面の静止画は `_focus_view_*.png`、区間・速度・カット・字幕の時刻は `_focus_times.txt`、最後のカードは `_focus_card.png`、保存された計画は `_focus_plan/`。
+- **流れ**: 部屋の PLAN と問い(Water history and timing)→ C と B の科学カードと役割 → Wildcat Ridge のパノラマへ。見回して、目的 Inspect grain texture を選ぶ → 構図を止めて撮影 → 写真のカードで Plan close-up with scale → 同じ部屋の PLAN へ戻り、両地点の関係を足して保存 → アプリの保存済みカード → 保存ファイルから作った一件のカード(5.8 秒)。
+- **編集の事実(動画の左上と README に明記)**: 21:50 の版と**同じ収録**(39.8 秒)から切り出した。新しい収録はしていない。Skinner Ridge で構図を決めて撮影し、周囲を含む写真を予定する部分(9.9 秒)を省いた(その写真・予定・両地点の関係は、同じ収録で保存された計画に入っていて、最後のカードの下に書いてある)。速度は、科学カードと部屋へ戻る部分が 1.5 倍、構図を止めた 0.87 秒を 0.5 倍、ほかは等速。表示は「Unity Editor capture · simulated room and input · edited sequence」。パノラマが映る間は「Panorama: NASA/JPL-Caltech/ASU/MSSS」。
+- **最後のカードはアプリの画面ではない**: 「Saved plan excerpt」と明示した。同じ収録で保存された `observation_plan.json` と写真から、編集のスクリプトが描く(`stationId == C` の写真、`purposeId`、その写真から予定した観測の `observationType`・`status`・`unresolvedIds` を、アプリの語(`MLAppPlan.cs`)と地点名(`mission.json`)に引き直したもの。手で書いた文は入れていない)。アプリに一件を大きく見せる画面を足すことは、時間が無くてやっていない。
+- **作り直し**: `.venv/bin/python tools/briefing_focus_edit.py demo/frames/briefing_en demo/MissionLens_briefing_30s_en_focus_plan demo/MissionLens_briefing_30s_en_focus.mp4 <ffmpeg>`(約 15 秒。収録のコマ `demo/frames/briefing_en/` が要る)。
+- **確かめたこと / いないこと**: 完成動画のコマを 0.75 秒おきに並べて見た(字幕と操作の対応、表示の重なり、1280×720 に縮めたときの字幕と最後のカードの読みやすさ)。カードの 4 行を保存された JSON と照合した。通しの再生と音は確かめていない。人に見てもらう確認はしていない。
+
+**以下は 21:50 の版(同じ収録をカットなし・一律 1.41 倍で出したもの)の記録。出す動画ではない。**
+
 
 - **動画**: `demo/MissionLens_briefing_30s_en_room.mp4`(1920×1080、30 fps、**実測 29.30 秒**、英語の字幕)。Release にも同じものがある(`MissionLens_demo_30s.mp4`)。字幕なしは `_nosub.mp4`、場面の静止画は `_view_*.png`(部屋の PLAN、FIELD、写真と次の観測、部屋に戻った PLAN、保存した計画)、時刻と速度は `_times.txt`、この収録で保存された計画は `_plan/`。
 - **流れ**: 部屋の中の模型と空の観測計画 → B・C の科学カードと役割 → 部屋が消えて B のパノラマへ。構図を決めて撮影(目的はタスクから継承)、周囲を含む写真を予定 → C で目的を選んで撮影、接写＋スケールを予定 → 同じ部屋へ戻る。撮った写真が計画の横に開いている。両地点の関係を追加して保存 → 保存した計画を 5.6 秒(全体 → 2 つの露頭の行に寄る)。
@@ -65,7 +75,7 @@ Mission Lens — Plan the Science Before the Marswalk
 - **作り直し**: `FFMPEG=<ffmpeg> tools/record_briefing.sh en demo/MissionLens_briefing_30s_en_room.mp4`(約 2 分)。
 - **以前の版**: `demo/MissionLens_briefing_30s_en.mp4`(20:24、UI の作り直しと部屋の壁が入る前。29.30 秒)は残してある。
 - 公開リンク: **[未: ブラウザでそのまま再生できる場所(YouTube か Google Drive)に上げて、その URL を入れる]**
-  - 上げるファイル: `demo/MissionLens_briefing_30s_en_room.mp4`
+  - 上げるファイル: `demo/MissionLens_briefing_30s_en_focus.mp4`(Google Drive に置き、ログインなしで再生できることを確かめる)
   - 予備(ダウンロードになる。再生はできない): https://github.com/Ando-O7/MissionLens/releases/download/submission-2026-11-15/MissionLens_demo_30s.mp4
 
 - **動画の説明欄(YouTube など。22:30 追加)**: `docs/DEMO_CREDITS.txt` の文面をそのまま貼る(収録の方法、NASA 素材ごとの機関名、手モデル、書体、リポジトリへのリンク、NASA の承認ではないこと)。動画の中には長いクレジットを足さない(30 秒の制限)。

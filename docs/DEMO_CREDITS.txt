@@ -1,6 +1,6 @@
 Mission Lens — NASA Space Apps Challenge 2026
 
-Unity Editor capture with a simulated room and input. Historical NASA observations support a hypothetical Marswalk briefing. See the project README for the recording method, timing adjustments and saved plan.
+Unity Editor capture with a simulated room and input; an edited sequence that follows one planned observation, and its last card is an excerpt drawn from the plan file saved in the same recording. Historical NASA observations support a hypothetical Marswalk briefing. See the project README for the recording method, timing adjustments and saved plan.
 
 Mars panoramas and WATSON imagery: NASA/JPL-Caltech/ASU/MSSS.
 Terrain and orbital imagery: NASA MRO/HiRISE/CTX, USGS and the University of Arizona. CRISM: NASA/JPL-Caltech/JHUAPL. Viking globe: NASA/JPL/USGS.
