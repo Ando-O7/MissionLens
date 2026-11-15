@@ -63,13 +63,17 @@ Mission Lens — Plan the Science Before the Marswalk
 - **流れ**: 目的(観測計画は空)→ B・C の科学カードと役割 → B で構図を決めて撮影(目的はタスクから継承)、周囲を含む写真を予定 → C で目的を選んで撮影、接写＋スケールを予定 → 机で両地点の関係を追加して保存 → 保存した計画を 5.2 秒。
 - **収録の事実(動画の左上と README に明記)**: Unity Editor での収録。手と頭は収録用のスクリプトで、アプリのボタン・シャッター・保存を通している。机と地点の間の移動はアプリより速く進め、保存した計画より前は一定の倍率(1.43 倍。`_times.txt` に記録)で再生している。結果を手で入れてはいない。
 - **作り直し**: `FFMPEG=<ffmpeg> tools/record_briefing.sh en`(約 2 分)。
-- 公開リンク: **[未]**(置き場所はユーザーが決める)
+- 公開リンク: **[未: ブラウザでそのまま再生できる場所(YouTube か Google Drive)に上げて、その URL を入れる]**
+  - 上げるファイル: `demo/MissionLens_briefing_30s_en.mp4`(Release にも同じものがある)
+  - 予備(ダウンロードになる。再生はできない): https://github.com/Ando-O7/MissionLens/releases/download/submission-2026-11-15/MissionLens_demo_30s.mp4
 
-## 4. Project(必須)**[README はできた。公開リンクが未定]**
+## 4. Project(必須)**[公開した: 2026-11-15 21:18]**
 
 - リポジトリの直下に英語の `README.md` を置いた(要約、流れ、保存した計画の実例、NASA データ、確認したこと、限界、実行方法、データの作り直し、動画の作り方、AI の利用)。実例は `docs/examples/observation_plan/`、検証は `docs/validation/`(企画側の監査の写し)。
-- リポジトリにはリモートが設定されていない。公開するなら、コミットと push が要る(ユーザーの指示待ち)。`demo/*.mp4` と `unity/Builds/*.apk` は git に入らない設定なので、動画と APK は別に置く。
-- 公開リンク: **[未]**
+- 公開リポジトリ: **https://github.com/Ando-O7/MissionLens** (ブランチ main。別の作業ツリー `../MissionLens_submit` のブランチ `submission` から push している。もとの作業ツリーの `main` はコミットしていない)
+- Release(動画と APK): https://github.com/Ando-O7/MissionLens/releases/tag/submission-2026-11-15
+- フォームの Project 欄に入れる URL: **https://github.com/Ando-O7/MissionLens**
+- ログインなしで開けることを確認した(リポジトリ、Release、動画と APK のダウンロード、README の画像)。
 
 ## 5. Project Details(必須、自由記述)**[仮: A 版、2026-11-15 20:20]**
 
