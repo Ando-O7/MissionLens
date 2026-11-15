@@ -18,7 +18,17 @@ namespace MissionLens
         public static bool Ja => lang == "ja";
         public static string L(string en, string ja) => Ja ? ja : en;
         /// <summary>The Japanese for a text from the mission data, or the text itself.</summary>
-        public static string T(string en) => Ja && en != null && Data.TryGetValue(en, out var ja) ? ja : en;
+        public static string T(string en) => en == null ? null : Ja ? (Data.TryGetValue(en, out var ja) ? ja : en) : Reworded.TryGetValue(en, out var now) ? now : en;
+
+        // Wording of the mission data that is shown differently from how the data file has it. The file is left as
+        // it is (its hash is what the evidence audit of 2026-11-15 refers to); the next regeneration of the data
+        // should carry these into tools/missions/. Station A's reason said the outcrops are "out of sight from
+        // here": what we have is a prediction about one target point per station, not about whole outcrops.
+        static readonly Dictionary<string, string> Reworded = new Dictionary<string, string>
+        {
+            { "Last stop before the climb. The outcrops to be sampled sit higher up and out of sight from here, so this is where the slope ahead is surveyed and the way up through the gap is confirmed.",
+              "Last stop before the climb. The outcrops to be sampled sit higher up; the terrain model predicts that their station targets are behind terrain from here. This is where the slope ahead is surveyed and the way up through the gap is confirmed." },
+        };
 
         static TMP_FontAsset font;
         /// <summary>
@@ -70,7 +80,7 @@ namespace MissionLens
             { "Foot of the climb through Hawksbill Gap onto the fan front. Perseverance was here on sols 449–454.",
               "Hawksbill Gap を抜けて扇状地前縁へ上がる登りのふもと。Perseverance は sol 449〜454 にここにいた。" },
             { "Last stop before the climb. The outcrops to be sampled sit higher up and out of sight from here, so this is where the slope ahead is surveyed and the way up through the gap is confirmed.",
-              "登りの前の最後の停止点。試料を採る露頭はこの上にあり、ここからは見えない。そのため、この先の斜面を観察し、ギャップを抜けて上がる道筋をここで確かめる。" },
+              "登りの前の最後の停止点。試料を採る露頭はこの上にあり、地形モデルでは、その地点の目標点はここから地形の陰になると予測される。この先の斜面を観察し、ギャップを抜けて上がる道筋をここで確かめる。" },
             { "Perseverance workspace, sols 477–500.", "Perseverance の作業場所(sol 477〜500)。" },
             { "First of the two outcrops named in the objective. NASA's sampling record lists two rock cores taken here and classes the rock as sedimentary, at the fan front.",
               "目標に挙げた 2 つの露頭の 1 つ目。NASA の試料採取記録には、ここで採った岩石コア 2 本が載っており、岩石は扇状地前縁の堆積岩に分類されている。" },

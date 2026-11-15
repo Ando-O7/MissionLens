@@ -16,6 +16,15 @@ namespace MissionLens
         public static readonly Color Ink = Hex("e9e6df"), Gray = Hex("9aa0a8"), Dim = Hex("6b7178"), Cyan = Hex("5fd4ff"), Amber = Hex("ffb347"), Soft = Hex("b8bec6"), OnCyan = Hex("04121a");
         public static readonly Color Back = new Color(12 / 255f, 15 / 255f, 20 / 255f, .92f), Line = new Color(1, 1, 1, .2f);
 
+        /// <summary>
+        /// The type scale: every size on every surface is one of these (pixels on the surface), so that what leads
+        /// and what follows can be told apart. Display: one figure or word on a surface. Title: what the surface is
+        /// about. Heading: the same on a narrow surface, and figures to be read at a glance. Body: what is read to
+        /// decide. Label: small headings, provenance tags, lesser buttons. Note: provenance, units, credits.
+        /// English and Japanese use the same size; a text that does not fit is shortened, not shrunk.
+        /// </summary>
+        public static class Size { public const float Display = 64, Title = 42, Heading = 34, Body = 28, Label = 24, Note = 20; }
+
         public class Btn { public float x, y, w, h, r = 14; public Action fn; public string key; public bool quiet; }
 
         public readonly GameObject go;
@@ -134,24 +143,34 @@ namespace MissionLens
             return measurer.GetPreferredValues(s).x;
         }
 
-        /// <summary>Word-wrapped text; returns the baseline for whatever comes next.</summary>
-        public float Wrap(string s, float x, float y, float width, float lineHeight, float px, Color col, bool bold = false, int align = -1)
+        /// <summary>Word-wrapped text; returns the baseline for whatever comes next. indent: how far in the first line begins.</summary>
+        public float Wrap(string s, float x, float y, float width, float lineHeight, float px, Color col, bool bold = false, int align = -1, float indent = 0)
         {
-            if (MLText.HasCjk(s)) return WrapCjk(s, x, y, width, lineHeight, px, col, bold, align);
+            if (MLText.HasCjk(s)) return WrapCjk(s, x, y, width, lineHeight, px, col, bold, align, indent);
             var line = "";
             foreach (var word in s.Split(' '))
             {
-                if (line.Length > 0 && Measure(line + word, px, bold) > width) { Text(line.TrimEnd(), x, y, px, col, bold, align); y += lineHeight; line = ""; }
+                if (line.Length > 0 && Measure(line + word, px, bold) > width - indent) { Text(line.TrimEnd(), x + indent, y, px, col, bold, align); y += lineHeight; line = ""; indent = 0; }
                 line += word + " ";
             }
-            Text(line.TrimEnd(), x, y, px, col, bold, align);
+            Text(line.TrimEnd(), x + indent, y, px, col, bold, align);
             return y + lineHeight;
+        }
+
+        /// <summary>
+        /// A note that begins with where it comes from, in that source's colour (NASA: ink, ours: cyan, simulated:
+        /// amber), and runs on from it. Returns the baseline for whatever comes next.
+        /// </summary>
+        public float Sourced(string source, Color col, string s, float x, float y, float width)
+        {
+            Text(source, x, y, Size.Note, col, true);
+            return Wrap(s, x, y, width, 27, Size.Note, Gray, indent: Measure(source, Size.Note, true) + 12);
         }
 
         // Japanese has no spaces to break at: a line may break after any Japanese character, runs of Latin letters and
         // digits stay whole, and a line does not begin with closing punctuation. Japanese glyphs are one em wide,
         // so only the Latin runs need measuring.
-        float WrapCjk(string s, float x, float y, float width, float lineHeight, float px, Color col, bool bold, int align)
+        float WrapCjk(string s, float x, float y, float width, float lineHeight, float px, Color col, bool bold, int align, float indent)
         {
             var line = new System.Text.StringBuilder(); float lw = 0; int i = 0;
             while (i < s.Length)
@@ -161,14 +180,14 @@ namespace MissionLens
                 else { while (j < s.Length && s[j] < 0x2E80 && s[j] != ' ') j++; tok = s.Substring(i, j - i); }
                 float tw = tok == " " ? px * .28f : tok[0] >= 0x2E80 ? px * (bold ? 1.03f : 1f) : Measure(tok, px, bold);
                 bool hang = tok.Length == 1 && MLText.NoLineStart(tok[0]);
-                if (lw + tw > width && line.Length > 0 && !hang)
+                if (lw + tw > width - indent && line.Length > 0 && !hang)
                 {
-                    Text(line.ToString().TrimEnd(), x, y, px, col, bold, align); y += lineHeight; line.Clear(); lw = 0;
+                    Text(line.ToString().TrimEnd(), x + indent, y, px, col, bold, align); y += lineHeight; line.Clear(); lw = 0; indent = 0;
                     if (tok == " ") { i = j; continue; }
                 }
                 line.Append(tok); lw += tw; i = j;
             }
-            Text(line.ToString().TrimEnd(), x, y, px, col, bold, align);
+            Text(line.ToString().TrimEnd(), x + indent, y, px, col, bold, align);
             return y + lineHeight;
         }
 
@@ -230,10 +249,12 @@ namespace MissionLens
         public RawImage Picture(Texture tex, float x, float y, float w, float h, Rect uv)
         {
             var im = New<RawImage>("picture"); Place(im.rectTransform, x, y, w, h, new Vector2(0, 1));
-            im.texture = tex; im.uvRect = uv; im.raycastTarget = false; return im;
+            im.texture = tex; im.uvRect = uv; im.raycastTarget = false;
+            if (overlay) im.material = OverlayImage();   // on a surface that is drawn over everything, a picture has to be too, or the surface's own ground covers it
+            return im;
         }
 
-        public void Button(string label, float x, float y, float w, float h, Action fn, bool on = false, bool dim = false, bool primary = false, float px = 25, string key = null)
+        public void Button(string label, float x, float y, float w, float h, Action fn, bool on = false, bool dim = false, bool primary = false, float px = Size.Label, string key = null)
         {
             Box(x, y, w, h, 14, on ? Cyan : primary ? new Color(95 / 255f, 212 / 255f, 1, .2f) : new Color(1, 1, 1, dim ? .05f : .11f), primary && !on ? Cyan : on || dim ? (Color?)null : new Color(1, 1, 1, .16f));
             Text(label, x + w / 2, y + h / 2 + px * .36f, px, on ? OnCyan : dim ? Dim : Ink, true, 0);
@@ -245,8 +266,8 @@ namespace MissionLens
         /// <summary>Small dark pill with a provenance word, e.g. "NASA OBSERVATION".</summary>
         public void Tag(string label, float x, float y, Color col)
         {
-            Box(x, y, Measure(label, 18, true) + 24, 30, 15, new Color(8 / 255f, 10 / 255f, 14 / 255f, .78f));
-            Text(label, x + 12, y + 21, 18, col, true);
+            Box(x, y, Measure(label, Size.Note, true) + 24, 32, 16, new Color(8 / 255f, 10 / 255f, 14 / 255f, .78f));
+            Text(label, x + 12, y + 23, Size.Note, col, true);
         }
 
         // ---------- pointing ----------

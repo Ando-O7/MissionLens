@@ -86,6 +86,8 @@ namespace MissionLens
             BuildPanels();
             BuildFx();
             BuildTools();
+            BuildGlobe();
+            BuildPlan();
             ApplyLayout();
             view = TableView();
             ApplyView();
@@ -111,7 +113,7 @@ namespace MissionLens
             tv = tvDefault; baseY = BaseFor(tv);
 
             // Terrain mesh: every second DTM sample (4 m) is a vertex; unlit, textured with the HiRISE image.
-            const int step = 2;
+            const int step = 1;
             int nx = Mathf.CeilToInt((D.gw - 1) / (float)step) + 1, nz = Mathf.CeilToInt((D.gh - 1) / (float)step) + 1;
             var v = new Vector3[nx * nz]; var uv = new Vector2[nx * nz]; var idx = new int[(nx - 1) * (nz - 1) * 6];
             for (int r = 0, k = 0; r < nz; r++) for (int c = 0; c < nx; c++, k++)
@@ -225,7 +227,7 @@ namespace MissionLens
         public void SelectStation(string id)
         {
             sel = id; var t = M.tasks.FirstOrDefault(x => x.station == id && x.index >= taskIndex) ?? M.tasks.FirstOrDefault(x => x.station == id);
-            if (t != null) selTask = t.index; selMark = -1; TaskLayer(); Refresh();
+            if (t != null) selTask = t.index; selMark = -1; selCap = -1; PlanPicked(id); TaskLayer(); Refresh();
         }
 
         // Each kind of task opens with what serves it on the map, so the person does not have to go looking for it:
@@ -238,12 +240,15 @@ namespace MissionLens
         void TaskLayer(bool force = false)
         {
             if (selTask == layerTask && !force) return;
-            layerTask = selTask; string want = LayerFor(M.tasks[selTask]);
+            // While the board shows the observation plan the map keeps the plain image: the plan is about the outcrops,
+            // and a walk's slope classes would cover them (picking an outcrop there selects the walk to it). On the
+            // board's other face each task has its own layer, as before. The layers stay on the menu on both.
+            layerTask = selTask; string want = planTab ? "none" : LayerFor(M.tasks[selTask]);
             if (want != layer) { layer = want; if (introDone && stage == Stage.Table) DrawMenu(); }
         }
-        static string LayerNote(string l) => l == "slope" ? L("slope classes on the route and around it (10° / 15° / 20°, from the terrain model; a reading aid, not a clearance to walk)", "ルートとその周りの傾斜の区分(10° / 15° / 20°。地形モデルから計算。読み取りの補助で、通行の可否の判定ではありません)")
-            : l == "crism" ? L("CRISM spectral context, 18 m per pixel (context only: it does not identify the minerals of any one rock)", "CRISM の分光データ(1 画素 18 m。周辺の状況で、個々の岩石の鉱物の特定ではありません)")
-            : L("the HiRISE image with contour lines, so the ground itself can be read; the NASA record, the surface image and the spectral reading for this station are on the other panel", "HiRISE の画像と等高線(地面そのものを見るため)。NASA の記録、現地の画像、この地点の分光の読み取りは、もう 1 枚のパネルに");
+        static string LayerNote(string l) => l == "slope" ? L("slope classes, from the terrain model (a reading aid, not a clearance to walk)", "傾斜の区分(地形モデルから計算。読み取りの補助で、通行の可否の判定ではない)")
+            : l == "crism" ? L("regional spectral context (CRISM), 18 m/pixel. Not a ranking of individual outcrops, and not the minerals of any one rock", "周辺の分光データ(CRISM、1 画素 18 m)。個々の露頭の順位でも、個々の岩石の鉱物の特定でもない")
+            : L("the HiRISE image with contour lines", "HiRISE の画像と等高線");
 
         /// <summary>
         /// Sets the simulated Marswalk to begin at the task that is being looked at (for a demonstration that starts
@@ -273,7 +278,7 @@ namespace MissionLens
         /// <param name="settling">More selections are about to follow (the timer is being turned): the big panels wait until it stops.</param>
         public void SelectTask(int i, bool settling = false)
         {
-            selTask = i; sel = M.tasks[i].station; if (selMark >= 0) { selMark = -1; foreach (var x in marks) DrawMarkLabel(x); }
+            selTask = i; sel = M.tasks[i].station; selCap = -1; pairView = false; if (selMark >= 0) { selMark = -1; foreach (var x in marks) DrawMarkLabel(x); }
             TaskLayer(); Refresh(settling);
             if (followTasks && stage == Stage.Table && introDone && !busy) TableTo(FramingFor(M.tasks[i]));   // bring its leg or station onto the table
         }
@@ -287,10 +292,25 @@ namespace MissionLens
             // which at true scale can be hundreds of metres away: the model then stayed a speck in the distance and
             // arrived all at once at the end.) The table shows the part of the map the person is coming back from.
             var standing = new Vector3(view.ax, D.Elev(view.ax, view.az), -view.az); var from = new Vector2(view.ax, view.az); string At0 = At;
-            panoTarget = 0; roomTarget = 1; stage = Stage.Table; preview = null; selTask = Mathf.Min(taskIndex, M.tasks.Length - 1); sel = M.tasks[selTask].station;
+            // Coming back from a look ahead, the briefing goes on where it was: the station that was looked at stays
+            // selected, with the task that was selected for it (or its first task), not the task the Marswalk is at.
+            // The same holds when a photo was taken during the Marswalk itself: the place and the photo that were
+            // worked on are what the table opens with, whatever task the Marswalk has moved on to.
+            bool ahead = preview != null && !Finished, photos = !Finished && PhotosThisStay(At0);
+            panoTarget = 0; roomTarget = 1; stage = Stage.Table; preview = null;
+            if (ahead || photos)
+            {
+                sel = At0;
+                if (!ahead && Task.station == At0 && Task.leg < 0) selTask = taskIndex;
+                else if (M.tasks[selTask].station != At0 || M.tasks[selTask].leg >= 0) selTask = (M.tasks.FirstOrDefault(x => x.station == At0 && x.leg < 0) ?? M.tasks[selTask]).index;
+                PlanCameBack(At0);
+            }
+            else { selTask = Mathf.Min(taskIndex, M.tasks.Length - 1); sel = M.tasks[selTask].station; }
             if (framing != null) { StopCoroutine(framing); framing = null; }
             string cameFrom = At0; var brought = marks.Where(m => m.station == cameFrom).ToList();
-            if (followTasks) { tv = brought.Count > 0 ? FramingMarks(cameFrom) : FramingFor(M.tasks[selTask]); if (!OnPatch(from.x, from.y, .03f)) tv = Framing(new[] { from }, 60); }
+            // The table shows what was brought back: the regions marked there, or the stations where views were framed for the plan.
+            var framed = caps.Select(c => c.station).Append(cameFrom).Distinct().Select(id => new Vector2(St(id).x, St(id).z)).ToList();
+            if (followTasks) { tv = brought.Count > 0 ? FramingMarks(cameFrom) : (ahead || photos) && caps.Count > 0 ? Framing(framed, 30) : FramingFor(M.tasks[selTask]); if (!OnPatch(from.x, from.y, .03f)) tv = Framing(new[] { from }, 60); }
             baseY = BaseFor(tv); selMark = -1; TaskLayer(true); Refresh();
             if (!rig.xr) StartCoroutine(Look(2.2f, tableFrame.eulerAngles.y, TableLookPitch));
             clipHold = 1;   // the table's edge closes in on the model as it lands, not before
@@ -302,9 +322,9 @@ namespace MissionLens
             {   // what was recorded out there is on the map now: say so, and let each mark show itself
                 foreach (var m in brought) { m.born = Time.time; Ripple(world.TransformPoint(m.local), MLPanel.Amber, .09f); }
                 sfx.Play("mark", .7f);
-                ShowBanner(L("SIMULATED RECORD · APPROXIMATE POSITIONS", "模擬の記録 · 概略位置"),
-                    L($"{brought.Count} candidate{(brought.Count > 1 ? "s" : "")} on the map", $"候補 {brought.Count} 件を地図に記録"),
-                    L($"Recorded at {cameFrom} {St(cameFrom).name}: {string.Join(", ", brought.Select(m => "#" + m.n.ToString("00")))}. Pick a mark on the map to see its task.", $"{cameFrom} {St(cameFrom).name} で記録: {string.Join("、", brought.Select(m => "#" + m.n.ToString("00")))}。地図の印を選ぶと、その作業が出ます。"), 3.2f);
+                ShowBanner(L("SIMULATED RECORD · NEEDS LOCAL VERIFICATION", "模擬の記録 · 現地での確認が必要"),
+                    L($"{brought.Count} observation region{(brought.Count > 1 ? "s" : "")} on the map", $"観測領域 {brought.Count} 件を地図に記録"),
+                    L($"Pointed at in the {cameFrom} {St(cameFrom).name} panorama: {string.Join(", ", brought.Select(m => "#" + m.n.ToString("00")))}. Each mark is an approximate terrain intersection, not a surveyed sample site.", $"{cameFrom} {St(cameFrom).name} のパノラマで指した領域: {string.Join("、", brought.Select(m => "#" + m.n.ToString("00")))}。印は地形モデルとのおおよその交点で、測量した採取位置ではありません。"), 3.2f);
             }
         }
 
@@ -312,7 +332,7 @@ namespace MissionLens
         IEnumerator CoEnterTerrain(string id, float S)
         {
             busy = moving = true; HideBanner(); sfx.Play("whoosh", .8f);
-            panoTarget = 0; roomTarget = 0; stage = S == 1 ? Stage.Walk : Stage.Giant; sel = id; wristUp = true; Refresh();
+            panoTarget = 0; roomTarget = 0; stage = S == 1 ? Stage.Walk : Stage.Giant; sel = id; wristUp = !rig.xr; wristPlaced = false; Refresh();   // on the headset the panel is on the opened left hand, as in FIELD: it is not left standing in the view
             float dur = stage == Stage.Giant ? 2.4f : 3.2f;
             if (!rig.xr) StartCoroutine(Look(dur, rig.lookYaw, S == 1 ? -6 : -14));
             var target = AtStation(id, 0, view.yaw); target.S = S;
@@ -334,8 +354,10 @@ namespace MissionLens
             float dur = view.S == 1 ? 1.2f : 3.0f;
             // The eye sits 2 m above the ground here, the height of the camera that took the image. Coming from the
             // table you arrive facing the same way as the picture on the briefing board.
-            float yaw = fromTable ? rig.HeadYaw - St(id).viewAz : view.yaw;
-            if (!rig.xr) StartCoroutine(Look(dur, rig.lookYaw, -6));
+            // Going back to a saved capture (MLAppPlan.cs) you arrive facing the way that capture looked.
+            float yaw = faceAz.HasValue ? rig.HeadYaw - faceAz.Value : fromTable ? rig.HeadYaw - St(id).viewAz : view.yaw;
+            if (!rig.xr) StartCoroutine(Look(dur, rig.lookYaw, faceAz.HasValue ? faceEl : -6));
+            faceAz = null;
             yield return FlyTo(AtStation(id, FloorY, yaw), dur);
             if (pendingPano != null) { ShowPano(pendingPano); pendingPano = null; }
             panoTarget = 1; busy = moving = false; Refresh(); Arrived(id);
@@ -383,7 +405,7 @@ namespace MissionLens
                 if (e * strides >= stepped + .5f) { sfx.Play((stepped & 1) == 0 ? "stepA" : "stepB", .5f); stepped++; }
                 if (hudSub != null && flashMsg.Length == 0)
                     hudSub.text = L($"{total - d:0} m to go", $"残り {total - d:0} m") + (legTask != null ? L($" · {legTask.plannedMin} min on the plan, shown faster", $" · 計画では {legTask.plannedMin} 分(早送りで表示)") : "");
-                if (hudClock != null && legTask != null) hudClock.text = $"T+ {MLData.Hm(Mathf.Lerp(legTask.startMin, legTask.endMin, e))} / {MLData.Hm(M.plannedTotalMin)}";
+                if (hudClock != null && legTask != null) hudClock.text = HudClock(Mathf.Lerp(legTask.startMin, legTask.endMin, e));
                 var p = RouteAt(pts, cum, d, out int i);
                 view.ax = p.x; view.az = p.y; view.w = new Vector3(rig.Head.position.x, 0, rig.Head.position.z); ApplyView();
                 if (!rig.xr && Time.time - rig.lastDragTime > 1.5f)
@@ -457,6 +479,7 @@ namespace MissionLens
             tv = tvDefault; tableEx = 1; baseY = BaseFor(tv); grabs.Clear(); ResetTools(); menuIntro = rig.xr; menuPinned = false;
             stage = Stage.Title; view = TableView(); ApplyView();
             if (!rig.xr) StartCoroutine(Look(1.2f, tableFrame.eulerAngles.y, -3));
+            NewPlan();   // the observation plan too starts empty (a plan that was saved stays on disk)
             Refresh();
         }
 
@@ -513,7 +536,10 @@ namespace MissionLens
         }
 
         // ---------- records ----------
-        // A mark is where the pointing ray first meets the terrain model. Approximate: the model is a 2 m grid.
+        // An observation region: a part of the panorama that was pointed at, to be looked at on site. What is recorded
+        // is the image and the direction from the place the image was taken (az, el: MLAppPlan.cs, PanoAim). The mark
+        // on the map is a second, approximate reading: where the pointing ray first meets the terrain model (a 2 m
+        // grid, which knows nothing of the rocks in the image). It is not a surveyed position of anything.
         bool PointOnTerrain(Ray ray, out Vector3 local, out float dist)
         {
             Vector3 o = world.InverseTransformPoint(ray.origin), d = world.InverseTransformDirection(ray.direction).normalized;
@@ -529,18 +555,22 @@ namespace MissionLens
             if (Time.time - lastMarkAt < .6f) return;   // a pinch that is read twice is still one record
             lastMarkAt = Time.time;
             var same = marks.Find(m => m.station == here && Vector2.Distance(new Vector2(m.x, m.z), new Vector2(local.x, -local.z)) < 1.5f);
-            if (same != null) { sfx.Play("deny"); Flash(L($"Already recorded here as candidate {same.n:00}", $"ここは候補 {same.n:00} として記録済みです")); return; }
+            if (same != null) { sfx.Play("deny"); Flash(L($"Already recorded here as region {same.n:00}", $"ここは領域 {same.n:00} として記録済みです")); return; }
             rig.Haptic(p, .8f, .08f); AddMark(local, dist, dirLocal);
         }
         void AddMark(Vector3 local, float dist, Vector3 dirLocal)
         {
             var m = new Mark { n = ++markSeq, ti = taskIndex, station = here, task = Task.phase, x = local.x, z = -local.z, d = dist, local = local + Vector3.up * .15f, born = Time.time,
                 az = (Mathf.Atan2(dirLocal.x, dirLocal.z) * Mathf.Rad2Deg + 360) % 360, el = Mathf.Asin(Mathf.Clamp(dirLocal.y, -1, 1)) * Mathf.Rad2Deg };
+            // The direction that is kept is the one from the panorama's centre to the part of the image pointed at,
+            // not the direction of the hand's own ray: the hand is beside the head, and the image has no depth to correct for that.
+            var dirW = world.TransformDirection(dirLocal).normalized;
+            if (PanoAim(new Ray(world.TransformPoint(local) - dirW * dist * world.localScale.x, dirW), out float paz, out float pel)) { m.az = paz; m.el = pel; }
             m.label = MakeMarkLabel(m.n); marks.Add(m); DrawMarkLabel(m);
             if (Task.recordCheck >= 0) done.Add(Task.recordCheck);
             sfx.Play("mark"); Ripple(world.TransformPoint(m.local), MLPanel.Amber, Mathf.Clamp(dist * .16f, .3f, 12f));
-            Log($"candidate {m.n} recorded at {here}, {dist:0} m, bearing {m.az:0}");
-            Refresh(); Flash(L($"Candidate {m.n:00} recorded · {dist:0} m away, bearing {MLData.Deg3(m.az)}° · simulated record, approximate position", $"候補 {m.n:00} を記録 · {dist:0} m 先、方位 {MLData.Deg3(m.az)}° · 模擬の記録、概略位置"), 4.5f);
+            Log($"observation region {m.n} recorded at {here}: image direction az {m.az:0.0} el {m.el:0.0}; terrain intersection {dist:0} m (approximate)");
+            Refresh(); Flash(L($"Observation region {m.n:00} · needs local verification · image direction {MLData.Deg3(m.az)}°", $"観測領域 {m.n:00} · 現地での確認が必要 · 画像の方向 {MLData.Deg3(m.az)}°"), 4.5f);
         }
         public void UndoMark()
         {
@@ -586,10 +616,10 @@ namespace MissionLens
             // Each of these is kept apart: on a headset this code has not been run on, a fault in one of them
             // should cost that part and be logged once, not stop the frame for the others.
             if (heavyDue > 0 && Time.time >= heavyDue) { heavyDue = 0; if (stage == Stage.Table) { DrawBoard(); DrawStrip(); } }
-            Guard(0, () => UpdateFx(dt)); Guard(1, () => UpdateSurfaces(dt)); Guard(2, Point); Guard(3, () => UpdateTools(dt)); Guard(4, () => UpdateTable(dt));
+            Guard(0, () => UpdateFx(dt)); Guard(1, () => UpdateSurfaces(dt)); Guard(2, Point); Guard(3, () => UpdateTools(dt)); Guard(4, () => UpdateTable(dt)); Guard(5, () => UpdatePlan(dt));
             if (flashMsg.Length > 0 && Time.time > flashUntil) { flashMsg = ""; DrawHud(); }
         }
-        readonly bool[] guardLogged = new bool[5];
+        readonly bool[] guardLogged = new bool[6];
         void Guard(int i, Action step)
         {
             try { step(); }
@@ -653,6 +683,8 @@ namespace MissionLens
                 bool nearPanel = false;
                 foreach (var s in new[] { hud, wrist }) if (s.Raycast(ray, out _, out _, 70)) nearPanel = true;
                 if (nearPanel) continue;
+                // The camera is up: a pinch, a trigger or a click that is on no button is the shutter (MLAppPlan.cs), and marks nothing.
+                if (camOn && stage == Stage.Field) { if (p.down && !busy && !gaze) Shoot(p); continue; }
                 if (CanMark && !busy && PointOnTerrain(ray, out var local, out float dist))
                 {
                     var at = world.TransformPoint(local); p.hitDistance = Vector3.Distance(ray.origin, at);

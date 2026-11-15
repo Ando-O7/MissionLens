@@ -177,15 +177,51 @@ namespace MissionLens
             float cx = 50, cy = 42, r = 24, th = tv.yawRel * Mathf.Deg2Rad; Vector2 up = new Vector2(Mathf.Sin(th), -Mathf.Cos(th)), side = new Vector2(-up.y, up.x);
             Vector2 c = new Vector2(cx, cy), tip = c + up * r, tail = c - up * r, barb = tip - up * 15;
             s.Stroke(tail.x, tail.y, tip.x, tip.y, 5, Ink); s.Stroke(tip.x, tip.y, barb.x + side.x * 10, barb.y + side.y * 10, 5, Ink); s.Stroke(tip.x, tip.y, barb.x - side.x * 10, barb.y - side.y * 10, 5, Ink);
-            s.Text("N", 92, 54, 32, Ink, true);
+            s.Text("N", 92, 54, Size.Heading, Ink, true);
             float len = 10; foreach (var l in new[] { 20f, 50f, 100f, 200f, 500f }) if (l * pxPerM <= 420) len = l;
             float bar = len * pxPerM, bx = 170; const float by = 50;
             s.Box(bx, by, bar, 9, 2, Ink); s.Box(bx, by, bar / 2, 9, 2, Gray);
             for (int i = 0; i <= 2; i++) s.Stroke(bx + bar * i / 2, by - 8, bx + bar * i / 2, by + 9, 3, Ink);
-            s.Text("0", bx, by - 14, 23, Soft, false, 0); s.Text($"{len / 2:0}", bx + bar / 2, by - 14, 23, Soft, false, 0); s.Text($"{len:0} m", bx + bar, by - 14, 23, Soft, false, 0);
+            s.Text("0", bx, by - 14, Size.Label, Soft, false, 0); s.Text($"{len / 2:0}", bx + bar / 2, by - 14, Size.Label, Soft, false, 0); s.Text($"{len:0} m", bx + bar, by - 14, Size.Label, Soft, false, 0);
             string ratio = $"{ScaleText} · {(tableEx > 1 ? L("height ×2", "高さ ×2") : L("height as measured", "高さ 実寸"))}";
-            s.Text(ratio, bx + 470, 55, 30, Ink, true);
-            s.Text(L($"HiRISE image on the HiRISE terrain model (2 m grid) · contours every {ContourStep:0} m", $"HiRISE の画像 + 地形モデル(2 m 格子)· 等高線 {ContourStep:0} m ごと"), bx + 470 + s.Measure(ratio, 30, true) + 40, 54, 21, Gray);
+            s.Text(ratio, bx + 470, 55, Size.Body, Ink, true);
+            // where the map comes from; the shorter form where the long one would run off the strip
+            float sx = bx + 470 + s.Measure(ratio, Size.Body, true) + 40; string contours = L($"contours every {ContourStep:0} m", $"等高線 {ContourStep:0} m ごと"), source = L("HiRISE image + terrain model (2 m grid) · ", "HiRISE の画像 + 地形モデル(2 m 格子)· ") + contours;
+            s.Text(s.Measure(source, Size.Label) <= s.w - 24 - sx ? source : "HiRISE · " + contours, sx, 54, Size.Label, Gray);
+        }
+
+        // ---------- where on Mars the model is ----------
+        // A small globe beside the model: the Viking Orbiter mosaic of the whole planet, with a ring round the place
+        // the model shows (the place is far smaller than the ring: on this globe it would be 0.03 mm across). It is
+        // there to be glanced at, at the table only; it takes no input and plays no part in any transition. The
+        // marked place faces where the person stands; the globe does not turn by itself.
+        const float GlobeR = .065f, GlobeRingDeg = 5, GlobeRingMm = 1;
+        Transform globeT; MeshRenderer globeR; Material globeMat; MLPanel globeTag;
+        void BuildGlobe()
+        {
+            globeMat = new Material(Sh("MLGlobe")); globeMat.SetTexture("_MainTex", Resources.Load<Texture2D>("ML/globe"));
+            globeMat.SetVector("_Mark", MLMesh.GlobePoint((float)((M.lonMin + M.lonMax) / 2), (float)((M.latMin + M.latMax) / 2)));
+            globeMat.SetColor("_RingColor", Ink); globeMat.SetFloat("_RingR", GlobeRingDeg * Mathf.Deg2Rad); globeMat.SetFloat("_RingW", GlobeRingMm * .001f / GlobeR);
+            globeR = Add("Globe", MLMesh.Globe(GlobeR), globeMat, tableFrame); globeT = globeR.transform; globeR.enabled = false;
+            globeTag = new MLPanel("Globe tag", 380, 132, .212f, tableFrame); globeTag.Snap(false); panels.Add(globeTag);   // wide enough for the Japanese name; its text is as large to the eye as the notes on the briefing panels
+            DrawGlobeTag();
+        }
+        // Right of the model (the menu comes on the left hand), clear of the timeline's end when the panels stand as a
+        // wall, and further back when they lie on the desk, where the right-hand panel is nearer the person.
+        void PlaceGlobe()
+        {
+            var at = layout == "wall" ? new Vector3(.60f, .10f, .03f) : new Vector3(.60f, .10f, .20f);
+            var toEye = (new Vector3(0, EyeAboveTable, -TableAhead) - at).normalized; var mark = (Vector3)globeMat.GetVector("_Mark");
+            globeT.localPosition = at; globeT.localRotation = Quaternion.LookRotation(toEye, Vector3.up) * Quaternion.Inverse(Quaternion.LookRotation(mark, Vector3.up));
+            globeTag.go.transform.localPosition = at + new Vector3(0, -.095f, -.05f); globeTag.go.transform.localRotation = Quaternion.Euler(50, 30, 0);
+        }
+        void DrawGlobeTag()
+        {
+            var s = globeTag; s.Clear();
+            s.Box(0, 0, s.w, s.h, 16, new Color(8 / 255f, 10 / 255f, 14 / 255f, .86f), Line);
+            s.Text(L("Jezero Crater, Mars", "火星 ジェゼロ・クレーター"), 22, 42, Size.Label, Ink, true);
+            s.Text(L("NASA OBSERVATION", "NASA の観測"), 22, 80, Size.Note, Ink, true);
+            s.Text(L("Viking Orbiter mosaic · USGS", "Viking Orbiter のモザイク · USGS"), 22, 108, Size.Note, Gray);
         }
 
         // The probe: point at the model and, after a moment, a tag gives the elevation of that point and how steep the
@@ -209,8 +245,8 @@ namespace MissionLens
                 probeShown = key; var s = probe; s.Clear(); var sc = SlopeClass(slope); if (sc.a == 0) sc = Ink;
                 s.Box(0, 0, s.w, s.h, 18, new Color(8 / 255f, 10 / 255f, 14 / 255f, .88f), new Color(1, 1, 1, .16f));
                 string e = L($"{elev} m", $"標高 {elev} m"), g = L($"slope {slope}°", $"傾斜 {slope}°");
-                s.Text(e, 24, 52, 38, Ink, true); s.Text(g, 24 + s.Measure(e, 38, true) + 26, 52, 38, sc, true);
-                s.Text(L("HiRISE terrain model, MOLA datum · slope computed by us", "HiRISE 地形モデル(MOLA 基準)· 傾斜はこちらで計算"), 24, 92, 21, Soft);
+                s.Text(e, 24, 52, Size.Heading, Ink, true); s.Text(g, 24 + s.Measure(e, Size.Heading, true) + 26, 52, Size.Heading, sc, true);
+                s.Text(L("HiRISE terrain model, MOLA datum", "HiRISE 地形モデル(MOLA 基準)"), 24, 92, Size.Label, Soft); s.Text(L("slope computed by us", "傾斜はこちらで計算"), 24, 124, Size.Label, Soft);
             }
             probeAt = probe.alpha < .05f ? at : Vector3.Lerp(probeAt, at, 1 - Mathf.Exp(-18 * dt));
             var rot = Quaternion.LookRotation(probeAt - head, Vector3.up); float w = .23f * d;

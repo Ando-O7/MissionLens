@@ -33,6 +33,7 @@ namespace MissionLens.EditorTools
             else if (name.StartsWith("panomask_")) { max = 1024; format = TextureImporterFormat.R8; ti.sRGBTexture = false; ti.wrapModeU = TextureWrapMode.Repeat; ti.wrapModeV = TextureWrapMode.Clamp; }   // observed / filled
             else if (name == "slope") { max = 2048; format = TextureImporterFormat.RGBA32; }
             else if (name.StartsWith("crism")) { max = 128; format = TextureImporterFormat.RGBA32; filter = FilterMode.Point; }  // show the 18 m cells as they are
+            else if (name == "globe") { max = 2048; mips = true; aniso = 4; ti.wrapModeU = TextureWrapMode.Repeat; ti.wrapModeV = TextureWrapMode.Clamp; }   // 2048 x 1024, the whole planet: longitude wraps
             ti.maxTextureSize = max; ti.mipmapEnabled = mips; ti.filterMode = filter; ti.anisoLevel = aniso;
             ti.textureCompression = TextureImporterCompression.Compressed;
             ti.SetPlatformTextureSettings(new TextureImporterPlatformSettings { name = "Android", overridden = true, maxTextureSize = max, format = format, compressionQuality = 50 });

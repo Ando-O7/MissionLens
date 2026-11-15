@@ -34,41 +34,41 @@ namespace MissionLens
 
         void DrawMenu()
         {
-            var s = menu; s.Clear(); const float X = 28; float W = s.w - 2 * X, col = (W - 28) / 2, bw = (col - 12) / 2, bh = 80; int px = Ja ? 23 : 25;
+            var s = menu; s.Clear(); const float X = 28; float W = s.w - 2 * X, col = (W - 28) / 2, bw = (col - 12) / 2, bh = 80;
             s.Frame(new Color(10 / 255f, 12 / 255f, 17 / 255f, .95f), Cyan);
             // the map as it lies on the table now: north (the arrow turns as the map is turned), scale, height
             float cx = X + 40, cy = 62, r = 34, th = tv.yawRel * Mathf.Deg2Rad; Vector2 up = new Vector2(Mathf.Sin(th), -Mathf.Cos(th)), side = new Vector2(-up.y, up.x);
             s.Box(cx - r, cy - r, 2 * r, 2 * r, r, new Color(0, 0, 0, 0), new Color(1, 1, 1, .28f));
             Vector2 c = new Vector2(cx, cy), tip = c + up * (r - 8), tail = c - up * (r - 11), barb = tip - up * 16;
             s.Stroke(tail.x, tail.y, tip.x, tip.y, 5, Ink); s.Stroke(tip.x, tip.y, barb.x + side.x * 10, barb.y + side.y * 10, 5, Ink); s.Stroke(tip.x, tip.y, barb.x - side.x * 10, barb.y - side.y * 10, 5, Ink);
-            s.Text("N", X + 92, 54, 22, Soft, true); s.Text(ScaleText, X + 118, 58, 36, Ink, true);
-            s.Text(tableEx > 1 ? L("height ×2", "高さ ×2") : L("height as measured", "高さ 実寸"), X + 92, 90, 20, Soft);
-            s.Wrap(L("MRO HiRISE terrain model, 2 m grid · walls and base drawn by us", "MRO HiRISE の地形モデル(2 m 格子)· 側壁と台はこちらで描画"), X + 330, 54, 400, 24, 17, Gray);
-            s.Button(Ja ? "English" : "日本語", s.w - X - 124, 30, 124, 56, ToggleLanguage, px: 22, key: "Language");
+            s.Text("N", X + 92, 54, Size.Label, Soft, true); s.Text(ScaleText, X + 120, 58, Size.Heading, Ink, true);
+            s.Text(tableEx > 1 ? L("height ×2", "高さ ×2") : L("height as measured", "高さ 実寸"), X + 92, 90, Size.Note, Soft);
+            s.Wrap(L("MRO HiRISE terrain model, 2 m grid · walls and base drawn by us", "MRO HiRISE の地形モデル(2 m 格子)· 側壁と台はこちらで描画"), X + 330, 50, 420, 27, Size.Note, Gray);
+            s.Button(Ja ? "English" : "日本語", s.w - X - 124, 30, 124, 56, ToggleLanguage, key: "Language");
 
             // left: what is done to the map. right: what is done to the room.
             float y0 = 142, x1 = X + col + 28;
-            s.Text(L("THE MAP", "地図"), X, y0, 18, Dim, true); s.Text(L("THE ROOM", "部屋と配置"), x1, y0, 18, Dim, true);
+            s.Text(L("THE MAP", "地図"), X, y0, Size.Note, Gray, true); s.Text(L("THE ROOM", "部屋と配置"), x1, y0, Size.Note, Gray, true);
             float y = y0 + 14;
-            s.Button(L("Slope", "傾斜"), X, y, bw, bh, () => SetLayer("slope"), layer == "slope", px: px, key: "Slope");
-            s.Button(L("Spectral", "分光"), X + bw + 12, y, bw, bh, () => SetLayer("crism"), layer == "crism", px: px, key: "Spectral");
-            s.Button(layout == "desk" ? L("Layout: desk", "配置: 机") : L("Layout: wall", "配置: 壁"), x1, y, bw, bh, ToggleLayout, px: px, key: "Layout");
-            s.Button(tools ? L("Timer: on", "タイマー: 入") : L("Timer: off", "タイマー: 切"), x1 + bw + 12, y, bw, bh, ToggleTools, tools, px: px, key: "Timer"); y += bh + 12;
-            s.Button(L("Height ×2", "高さ ×2"), X, y, bw, bh, ToggleHeight, tableEx > 1, px: px, key: "Height ×2");
-            s.Button(L("Whole route", "ルート全体"), X + bw + 12, y, bw, bh, WholeRoute, px: px, key: "Whole route");
+            s.Button(L("Slope", "傾斜"), X, y, bw, bh, () => SetLayer("slope"), layer == "slope", key: "Slope");
+            s.Button(L("Spectral", "分光"), X + bw + 12, y, bw, bh, () => SetLayer("crism"), layer == "crism", key: "Spectral");
+            s.Button(layout == "desk" ? L("Layout: desk", "配置: 机") : L("Layout: wall", "配置: 壁"), x1, y, bw, bh, ToggleLayout, key: "Layout");
+            s.Button(tools ? L("Timer: on", "タイマー: 入") : L("Timer: off", "タイマー: 切"), x1 + bw + 12, y, bw, bh, ToggleTools, tools, key: "Timer"); y += bh + 12;
+            s.Button(L("Height ×2", "高さ ×2"), X, y, bw, bh, ToggleHeight, tableEx > 1, key: "Height ×2");
+            s.Button(L("Whole route", "ルート全体"), X + bw + 12, y, bw, bh, WholeRoute, key: "Whole route");
             if (rig.xr)
             {
-                s.Button(studio ? L("Room: studio", "部屋: スタジオ") : L("Room: yours", "部屋: 実際"), x1, y, bw, bh, ToggleStudio, studio, px: px, key: "Room");
-                s.Button(L("Bring table here", "机をここへ"), x1 + bw + 12, y, bw, bh, PlaceTable, px: Ja ? 23 : 22, key: "Bring table here");
+                s.Button(studio ? L("Room: studio", "部屋: スタジオ") : L("Room: yours", "部屋: 実際"), x1, y, bw, bh, ToggleStudio, studio, key: "Room");
+                s.Button(L("Table here", "机をここへ"), x1 + bw + 12, y, bw, bh, PlaceTable, key: "Bring table here");
             }
             y += bh + 12;
-            s.Button(followTasks ? L("Follow tasks: on", "作業に追従: 入") : L("Follow tasks: off", "作業に追従: 切"), X, y, col, bh, ToggleFollow, followTasks, px: px, key: "Follow tasks");
+            s.Button(followTasks ? L("Follow tasks: on", "作業に追従: 入") : L("Follow tasks: off", "作業に追従: 切"), X, y, col, bh, ToggleFollow, followTasks, key: "Follow tasks");
             // beside it, how the map itself is handled (and, the first time, how the menu is taken onto the hand)
             if (rig.xr && menuIntro)
-                s.Wrap(L("Turn the back of your left hand toward you and open your thumb wide: this menu comes to your hand. Close the thumb and it folds away.", "左手の甲を自分に向けて親指を大きく開くと、このメニューが手に付きます。親指を閉じると消えます。"), x1, y + 26, col, 26, 20, Amber);
+                s.Wrap(L("Turn the back of your left hand toward you and open your thumb wide: this menu comes to your hand. Close the thumb and it folds away.", "左手の甲を自分に向けて親指を大きく開くと、このメニューが手に付きます。親指を閉じると消えます。"), x1, y + 22, col, 27, Size.Note, Amber);
             else
                 s.Wrap(rig.xr ? L("Pinch at the model and move to slide the map. Both hands: pull apart to stretch, turn to turn.", "模型のところでピンチして動かすと地図が滑ります。両手で広げると拡大、回すと回転。")
-                              : L("Drag the model to slide it, wheel to zoom, Q / E to turn. M hides this menu.", "模型をドラッグで移動、ホイールで拡大縮小、Q / E で回転。M でこのメニューを隠します。"), x1, y + 26, col, 25, 19, Gray);
+                              : L("Drag the model to slide it, wheel to zoom, Q / E to turn. M hides this menu.", "模型をドラッグで移動、ホイールで拡大縮小、Q / E で回転。M でこのメニューを隠します。"), x1, y + 22, col, 27, Size.Note, Gray);
             DrawNeatline();
         }
 

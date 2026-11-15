@@ -2,6 +2,10 @@
 
 最終更新: 2026-11-15 07:50 JST(東京会場に向けた発表版を固定した: コミット 348304c、タグ tokyo-v1、ビルド表示「2026-11-15 07:41 · 348304c」。候補記録の往復、作業中心のパネル、作業に応じた地図の表示、足元に来る現地の画像。Editor と収録で確認、Quest では起動まで。まとめは `TOKYO_REPORT.md`、動画は `demo/`)
 
+> **2026-11-15 09:15 追記**: 発表版 `tokyo-v1`(348304c)のあとに、未コミットの変更がある。(1) 文字サイズを 6 段階にして文を削った UI(`UI_DECISIONS.md` 95〜104、ユーザー承認済み)。(2) 地形メッシュ step = 1(2 m 間隔。実機 1 回の実行で中央値 72 fps、GPU 時間は約 10 ms。採用の最終判断はユーザー)。(3) 東京会場向け動画の第 2 版の収録(`tools/record_tokyo_v2.sh`、成果物は `demo/MissionLens_tokyo_en_v2.mp4` と `demo/MissionLens_tokyo_v2_README.md`)。ヘッドセットには (1)(2) を入れた固定版 `unity/Builds/MissionLens_tokyo-gold_2026-11-15_0910.apk`(表示「2026-11-15 09:10 · 9b7f712+」)が入っている。tokyo-v1 に戻す APK は `unity/Builds/MissionLens_tokyo-v1_348304c.apk`。
+> **2026-11-15 18:30 追記**: 承認待ちの案が 1 つ(机の脇の火星の球: `GLOBE_PROPOSAL.md`、コード未変更)。提出後の作業として受け取った依頼が 1 つ(UI の作り直し: `UI_REDESIGN_BRIEF.md`、未着手)。東京会場向け動画には日本語字幕の版 `demo/MissionLens_tokyo_en_v2_jasub.mp4` もある。固定した版の APK は読み取り専用。本家フォーム(23:59)の文章は `SUBMISSION.md` の 3〜5 が未記入。
+> **2026-11-15 20:30 追記(観測計画の版)**: 主目的を「古い水環境の記録と、年代を制約しうる手掛かりを結び付けるために、2 つの露頭(B・C)で何を観測するか」の 1 つにした(企画側と合意済みの方針。計画の変更は成功条件にしない)。観測計画・仮想カメラ・保存を実装し、Editor で確認した(`tools/unity_check.sh` 77 項目、エラー 0。20:55 に、PLAN の情報量のレビューとの照合で戻り方と選び方を直した: `WORKLOG.md` の 20:55)。30 秒の動画、英語の README、保存の実例、APK を作った。**Quest では未確認。人による確認(保存した計画を本人以外が読めるか)も未実施。コミット・公開・提出はユーザーの判断待ち。** 詳細は `HANDOFF.md` の同じ時刻の追記、`WORKLOG.md` の 20:30、`UI_DECISIONS.md` の 115〜129。UI の作り直し(110〜114、別のセッション、未実装)は、この新しい画面にもあとで掛かる。
+
 ## コンセプト
 
 **MISSION LENS — From Science Objectives to Marswalk Execution**

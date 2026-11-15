@@ -23,6 +23,7 @@ namespace MissionLens
             Make("toggle", .16f, t => Sin(Mathf.Lerp(620, 930, t / .16f), t) * Env(t, .003f, .13f) * .5f);
             Make("deny", .22f, t => Sin(196, t) * (Env(t, .004f, .08f) + Env(t - .11f, .004f, .08f)) * .55f);
             Make("mark", .7f, t => (Sin(1318.5f, t) + .45f * Sin(1975.5f, t) + .2f * Sin(2637, t)) * Env(t, .002f, .6f) * .42f);
+            Make("shutter", .2f, t => (Sin(2900, t) + .6f * Sin(1700, t)) * (Env(t, .001f, .02f) + .8f * Env(t - .085f, .001f, .035f)) * .42f);   // two short clicks: a view was taken
             Make("undo", .25f, t => Sin(Mathf.Lerp(880, 520, t / .25f), t) * Env(t, .004f, .2f) * .4f);
             Make("done", .9f, t => (Bell(1046.5f, t) + Bell(1318.5f, t - .11f) + Bell(1568, t - .22f)) * .34f);
             Make("ready", 1.3f, t => (Bell(523.25f, t) + Bell(784, t - .12f) + Bell(1046.5f, t - .26f)) * .32f);

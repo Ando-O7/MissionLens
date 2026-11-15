@@ -132,6 +132,31 @@ namespace MissionLens
             var m = new Mesh { name = "Ball" }; m.SetVertices(v); m.SetNormals(n); m.SetTriangles(t, 0); m.RecalculateBounds(); return m;
         }
 
+        /// <summary>
+        /// A planet seen from outside, for an image of the whole planet laid out by longitude and latitude (u: -180° to
+        /// 180° east, v: south to north). North is +y; longitude 0 faces -z and east is to the right of it.
+        /// </summary>
+        public static Mesh Globe(float radius)
+        {
+            const int na = 64, ne = 32; var v = new Vector3[(na + 1) * (ne + 1)]; var n = new Vector3[v.Length]; var uv = new Vector2[v.Length]; var t = new int[na * ne * 6];
+            for (int j = 0, k = 0; j <= ne; j++) for (int i = 0; i <= na; i++, k++)
+            {
+                n[k] = GlobePoint(i / (float)na * 360 - 180, 90 - j / (float)ne * 180); v[k] = n[k] * radius; uv[k] = new Vector2(i / (float)na, 1 - j / (float)ne);
+            }
+            for (int j = 0, k = 0; j < ne; j++) for (int i = 0; i < na; i++)
+            {
+                int a = j * (na + 1) + i, b = a + 1, c = a + na + 1, d = c + 1;
+                t[k++] = a; t[k++] = b; t[k++] = c; t[k++] = b; t[k++] = d; t[k++] = c;
+            }
+            var m = new Mesh { name = "Globe" }; m.SetVertices(v); m.SetNormals(n); m.SetUVs(0, uv); m.SetTriangles(t, 0); m.RecalculateBounds(); return m;
+        }
+        /// <summary>The direction of a place on the globe above, from its centre.</summary>
+        public static Vector3 GlobePoint(float lonEastDeg, float latDeg)
+        {
+            float lon = lonEastDeg * Mathf.Deg2Rad, lat = latDeg * Mathf.Deg2Rad;
+            return new Vector3(Mathf.Cos(lat) * Mathf.Sin(lon), Mathf.Sin(lat), -Mathf.Cos(lat) * Mathf.Cos(lon));
+        }
+
         /// <summary>An eight-sided dot.</summary>
         public static Mesh Octa()
         {

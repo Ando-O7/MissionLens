@@ -1,0 +1,87 @@
+{
+  "url": "https://planetarymaps.usgs.gov/mosaic/mars2020_trn/HiRISE/JEZ_hirise_soc_006_DTM_MOLAtopography_DeltaGeoid_1m_Eqc_latTs0_lon0_blend40.tif",
+  "source_shape": [
+    21488,
+    21400
+  ],
+  "source_transform": [
+    1.0,
+    0.0,
+    4577366.0,
+    0.0,
+    -1.0,
+    1106618.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "source_crs": "ESRI:103885",
+  "window": [
+    10021,
+    12110,
+    1363,
+    1185
+  ],
+  "window_transform": [
+    1.0,
+    0.0,
+    4587387.0,
+    0.0,
+    -1.0,
+    1094508.0,
+    0.0,
+    0.0,
+    1.0
+  ],
+  "nodata": -3.4028226550889045e+38,
+  "cache_shape": [
+    1185,
+    1363
+  ],
+  "source_equals_cache": true,
+  "max_abs_cache_difference_m": 0.0,
+  "true_geotransform_los": [
+    {
+      "target": "B",
+      "eye_m": 2,
+      "target_height_m": 1,
+      "min_clearance_m": -1.1345379862614209,
+      "obstruction_distance_m": 38.239661854483764,
+      "occluded_tolerance_0_3m": true,
+      "A_ground_elev_m": -2534.836181640625,
+      "target_ground_elev_m": -2520.90869140625
+    },
+    {
+      "target": "C",
+      "eye_m": 2,
+      "target_height_m": 1,
+      "min_clearance_m": -0.9457537719363245,
+      "obstruction_distance_m": 37.9605144593338,
+      "occluded_tolerance_0_3m": true,
+      "A_ground_elev_m": -2534.836181640625,
+      "target_ground_elev_m": -2523.175537109375
+    }
+  ],
+  "app_grid_georeferencing_offsets": [
+    {
+      "station": "BASE",
+      "app_sample_minus_station_east_m": -0.7941393785011926,
+      "app_sample_minus_station_north_m": 1.080483806785196
+    },
+    {
+      "station": "A",
+      "app_sample_minus_station_east_m": -0.6696391694340106,
+      "app_sample_minus_station_north_m": 0.7698110290803015
+    },
+    {
+      "station": "B",
+      "app_sample_minus_station_east_m": -0.6703978185981073,
+      "app_sample_minus_station_north_m": 0.6623268041294068
+    },
+    {
+      "station": "C",
+      "app_sample_minus_station_east_m": -0.6493882881001629,
+      "app_sample_minus_station_north_m": 0.6833476058673114
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+    "schemaVersion": 1,
+    "note": "Simulated example. A rehearsal plan made in the Mission Lens prototype during a hypothetical Earth-based briefing, from historical NASA data. Every planned observation is not yet collected; rehearsal captures are views of past Mastcam-Z panoramas framed by the user, not new observations. Purposes and next observations are the user's button choices; nothing was identified or measured from the images.",
+    "sessionId": "plan_20261115_112405_894e",
+    "createdUtc": "2026-11-15T11:24:05Z",
+    "savedUtc": "2026-11-15T11:24:32Z",
+    "buildId": "Unity Editor, working tree (not a device build)",
+    "runtime": "OSXEditor · Unity 6000.3.6f1 · scripted head and hands (recording)",
+    "inputHash": "md5:b34138f145367d6bf8a6c83465b0c28e",
+    "goalId": "water_history_and_timing",
+    "scenarioId": "eva01_hawksbill_gap_earth_briefing",
+    "initialPlanItemIds": [],
+    "savedPlanItemIds": [
+        "wider_context_image_from_capture_01",
+        "close_up_with_scale_from_capture_02",
+        "relationship_B_C"
+    ],
+    "stationRoles": [
+        {
+            "stationId": "B",
+            "roleId": "timing_context"
+        },
+        {
+            "stationId": "C",
+            "roleId": "environmental_record"
+        }
+    ],
+    "planItems": [
+        {
+            "id": "wider_context_image_from_capture_01",
+            "stationId": "B",
+            "roleId": "timing_context",
+            "observationType": "wider_context_image",
+            "purposeId": "document_outcrop_context",
+            "status": "planned",
+            "originCaptureId": "capture_01",
+            "createdUtc": "2026-11-15T11:24:21Z",
+            "sourceIds": [
+                "bosak2024_B",
+                "m20_sample_record_B",
+                "mcz_panorama_B"
+            ],
+            "unresolvedIds": [
+                "position_relative_to_surrounding_layers"
+            ]
+        },
+        {
+            "id": "close_up_with_scale_from_capture_02",
+            "stationId": "C",
+            "roleId": "environmental_record",
+            "observationType": "close_up_with_scale",
+            "purposeId": "inspect_grain_texture",
+            "status": "planned",
+            "originCaptureId": "capture_02",
+            "createdUtc": "2026-11-15T11:24:27Z",
+            "sourceIds": [
+                "bosak2024_C",
+                "m20_sample_record_C",
+                "mcz_panorama_C"
+            ],
+            "unresolvedIds": [
+                "detail_and_size_at_closeup_scale"
+            ]
+        }
+    ],
+    "relationshipPlan": {
+        "stationIds": [
+            "B",
+            "C"
+        ],
+        "purposeId": "document_geological_relationship",
+        "status": "planned",
+        "sourceIds": [
+            "bosak2024_B",
+            "bosak2024_C",
+            "mcz_panorama_B",
+            "mcz_panorama_C"
+        ],
+        "unresolvedIds": [
+            "geological_relationship_on_site",
+            "laboratory_analysis_for_timing"
+        ]
+    },
+    "viewedEvidenceIds": [
+        "bosak2024_B",
+        "bosak2024_C",
+        "m20_sample_record_B",
+        "m20_sample_record_C",
+        "mcz_panorama_B",
+        "mcz_panorama_C"
+    ],
+    "visitedStationIds": [
+        "B",
+        "C"
+    ],
+    "losAssumptions": {
+        "eyeHeightM": 2.0,
+        "targetHeightM": 1.0,
+        "toleranceM": 0.30000001192092898,
+        "gridDescription": "HiRISE-derived terrain model, approximately 2 m grid; a point target at each station, not the whole outcrop"
+    },
+    "photoObservations": [],
+    "captures": [
+        {
+            "id": "capture_01",
+            "stationId": "B",
+            "panoramaSourceId": "mcz_skinner_ridge",
+            "sourceSolRange": "sols 484–492",
+            "azDeg": 355.1700439453125,
+            "elDeg": 4.855043411254883,
+            "horizontalFovDeg": 50.0,
+            "verticalFovDeg": 34.53799057006836,
+            "projection": "rectilinear, from the panorama's centre",
+            "imageRelativePath": "capture_01.jpg",
+            "purposeId": "document_outcrop_context",
+            "purposeSource": "inherited_from_selected_task",
+            "sourceTaskId": "task_05_B_contextual_survey",
+            "planItemId": "wider_context_image_from_capture_01",
+            "createdUtc": "2026-11-15T11:24:20Z",
+            "kind": "rehearsal_capture",
+            "needsReview": false
+        },
+        {
+            "id": "capture_02",
+            "stationId": "C",
+            "panoramaSourceId": "mcz_wildcat_ridge",
+            "sourceSolRange": "sols 518–534",
+            "azDeg": 337.79547119140627,
+            "elDeg": 0.9801744222640991,
+            "horizontalFovDeg": 50.0,
+            "verticalFovDeg": 34.53799057006836,
+            "projection": "rectilinear, from the panorama's centre",
+            "imageRelativePath": "capture_02.jpg",
+            "purposeId": "inspect_grain_texture",
+            "purposeSource": "chosen_by_user",
+            "sourceTaskId": "",
+            "planItemId": "close_up_with_scale_from_capture_02",
+            "createdUtc": "2026-11-15T11:24:26Z",
+            "kind": "rehearsal_capture",
+            "needsReview": false
+        }
+    ]
+}

@@ -29,7 +29,7 @@ namespace MissionLens
             // On the table itself, along the model's near edge: north, a scale bar, the scale and the source (a map's neatline).
             neat = new MLPanel("Neatline", 1720, 84, FootHx * 2, tableFrame); neat.go.transform.localPosition = new Vector3(0, .016f, -FootHz - .042f); neat.go.transform.localRotation = Quaternion.Euler(52, 0, 0);
             // What the terrain model says at the point being pointed at.
-            probe = new MLPanel("Probe", 520, 112, .2f, null, true);
+            probe = new MLPanel("Probe", 520, 146, .2f, null, true);
             menu = new MLPanel("Menu", 960, 520, MenuW, rig.xr ? null : rig.Head); menuIntro = rig.xr; menu.Order(20);
             // FIELD: a wrist panel for details, raised on demand, and a head-up strip that stays out of the scenery.
             wrist = new MLPanel("Wrist", 600, 860, rig.xr ? .26f : .215f, rig.xr ? null : rig.Head);
@@ -76,6 +76,7 @@ namespace MissionLens
                 Put(board, .46f, new Vector3(-.68f, .22f, -.4f), new Vector3(40, -48, 0)); Put(boardR, .46f, new Vector3(.68f, .22f, -.4f), new Vector3(40, 48, 0));
                 Put(strip, .7f, new Vector3(-.1f, .035f, -.545f), new Vector3(60, 0, 0));
             }
+            PlaceGlobe();
         }
         public void ToggleLayout()
         {
@@ -89,11 +90,16 @@ namespace MissionLens
             if (stage == Stage.Title) { yield return title; yield break; }
             if (stage == Stage.Table) { yield return board; yield return boardR; yield return strip; yield return menu; if (tools) { yield return dial; if (lensEnabled) yield return lensTag; } }
             else { yield return wrist; yield return hud; }
+            // the observation plan's surfaces (MLAppPlan.cs): the photo card and the viewfinder's purposes in FIELD, the saved plan at the table
+            if (refCard.Show) yield return refCard;
+            if (shot.Show) yield return shot;
+            if (card.Show) yield return card;
+            if (finder.Show && camOn) yield return finder;
             if (banner.Show && bannerHasButton) yield return banner;
             foreach (var p in pins) yield return p.label;
-            if (stage == Stage.Table) foreach (var m in marks) yield return m.label;
+            if (stage == Stage.Table) { foreach (var m in marks) yield return m.label; foreach (var c in caps) yield return c.tag; }
         }
-        bool IsLabel(MLPanel s) => s == banner || pins.Any(p => p.label == s) || marks.Any(m => m.label == s);
+        bool IsLabel(MLPanel s) => s == banner || s == finder || pins.Any(p => p.label == s) || marks.Any(m => m.label == s) || caps.Any(c => c.tag == s);
 
         MLPanel MakeMarkLabel(int n) { var p = new MLPanel("Mark " + n, 96, 160, .05f, null, true); p.Order(5); return p; }   // over the station labels, which they often stand close to
         // A numbered tag on a short stem; the foot of the stem (bottom centre) is the marked point. The same number is
@@ -103,7 +109,7 @@ namespace MissionLens
             var p = m.label; p.Clear(); bool on = m.n == selMark; int n = m.n;
             p.Stroke(48, 84, 48, 146, 5, Amber); p.Box(39, 138, 18, 18, 9, Amber);
             p.Box(14, 14, 68, 68, 12, on ? Amber : new Color(8 / 255f, 10 / 255f, 14 / 255f, .88f), Amber);
-            p.Text(n.ToString("00"), 48, 60, 34, on ? new Color(.1f, .06f, 0, 1) : Amber, true, 0);
+            p.Text(n.ToString("00"), 48, 60, Size.Heading, on ? new Color(.1f, .06f, 0, 1) : Amber, true, 0);
             p.Hit("mark:" + n, 0, 0, 96, 104, () => SelectMark(n), 12);
         }
 
@@ -113,6 +119,8 @@ namespace MissionLens
             var head = rig.Head.position; bool table = stage == Stage.Table; var yaw = Quaternion.Euler(0, rig.HeadYaw, 0);
             title.Show = stage == Stage.Title && !busy;
             board.Show = boardR.Show = strip.Show = neat.Show = table && introDone && roomO > .6f;
+            if (card.Show) board.Show = boardR.Show = strip.Show = false;   // the saved plan comes up in front of the person and is read by itself; closing it brings the panels back
+            globeTag.Show = board.Show; globeR.enabled = globeTag.alpha > .01f; globeMat.SetFloat("_Alpha", globeTag.alpha);   // the globe comes and goes with the briefing panels
             UpdateMenu(dt);
             hud.Show = !OnTable;
             if (banner.Show && bannerUntil > 0 && Time.time > bannerUntil) banner.Show = false;
@@ -219,11 +227,11 @@ namespace MissionLens
             bool table = OnTable; int selLeg = M.tasks[selTask].leg; string target = Target;
             foreach (var p in pins)
             {
-                var s = p.st; bool isNext = s.id == target; int mk = marks.Count(m => m.station == s.id);
+                var s = p.st; bool isNext = s.id == target; int mk = marks.Count(m => m.station == s.id), ph = caps.Count(c => c.station == s.id);
                 string sub = "";
-                if (table) sub = string.Join(" · ", new[] { s.id == here ? (taskIndex == 0 ? L("start", "出発点") : Finished ? L("finish", "帰着点") : L("the Marswalk is here", "Marswalk はここ")) : "", mk > 0 ? L(mk + " marked", "印 " + mk) : "" }.Where(x => x.Length > 0));
+                if (table) sub = string.Join(" · ", new[] { s.id == here ? (taskIndex == 0 ? L("start", "出発点") : Finished ? L("finish", "帰着点") : L("the Marswalk is here", "Marswalk はここ")) : "", ph > 0 ? L(ph + (ph == 1 ? " photo" : " photos"), "写真 " + ph) : "", mk > 0 ? L(mk + " marked", "印 " + mk) : "" }.Where(x => x.Length > 0));
                 else if (travelling != null) sub = "";   // on the way: the distance left is on the head-up strip
-                else if (s.id != At) sub = $"{BearingFromHere(s.id).d:0} m" + (stage == Stage.Field && St(At).hidden.Contains(s.id) ? L(" · behind terrain", " · 地形の陰") : "");
+                else if (s.id != At) sub = $"{BearingFromHere(s.id).d:0} m" + (stage == Stage.Field && St(At).hidden.Contains(s.id) ? L(" · target behind terrain (model)", " · 目標は地形の陰(モデル)") : "");
                 bool full = table ? s.id == sel : isNext || preview != null || (Finished && s.id != here);
                 var col = table && s.id == sel ? Cyan : isNext && !table ? Amber : Color.white;
                 p.k = table && !full ? .72f : 1; p.text = full ? s.id + " " + s.name : s.id; p.sub = full ? sub : sub.Split(new[] { " · " }, System.StringSplitOptions.None)[0]; p.col = col;
@@ -249,7 +257,7 @@ namespace MissionLens
         public void SetLanguage(string lang)
         {
             MLText.lang = lang == "ja" ? "ja" : "en"; PlayerPrefs.SetString("ml.lang", MLText.lang); Log("language " + MLText.lang);
-            HideBanner(); DrawTitle(); Refresh(); DrawMenu(); dialBuiltFor = -1; dialTask = -1; lensShown = -999;
+            HideBanner(); DrawTitle(); Refresh(); DrawMenu(); DrawGlobeTag(); RedrawPlan(); dialBuiltFor = -1; dialTask = -1; lensShown = -999;
             if (OnTable && stage != Stage.Title) { DrawBoard(); DrawStrip(); }
         }
         public void ToggleLanguage() { sfx.Play("toggle", .7f); SetLanguage(Ja ? "en" : "ja"); }
@@ -260,15 +268,15 @@ namespace MissionLens
             var l = p.label; l.Clear(); string text = p.text, sub = p.sub; var col = p.col; bool left = p.side < 0;
             // On the table the selected station's label also carries the way to stand there: what is done to a place is offered at the place.
             bool stand = stage == Stage.Table && introDone && p.st.id == sel; float extra = stand ? 152 : 0;
-            float w = Mathf.Min(640, Mathf.Max(l.Measure(text, 38, true), sub.Length > 0 ? l.Measure(sub, 27) : 0) + 104 + extra), x0 = left ? 640 - w : 0; p.boxW = w;
+            float w = Mathf.Min(640, Mathf.Max(l.Measure(text, Size.Heading, true), sub.Length > 0 ? l.Measure(sub, Size.Label) : 0) + 104 + extra), x0 = left ? 640 - w : 0; p.boxW = w;
             l.Box(x0, 14, w, 100, 20, new Color(8 / 255f, 10 / 255f, 14 / 255f, .86f), new Color(col.r, col.g, col.b, .35f));
             float ix = left ? 594 : 46; l.Box(ix - 20, 44, 40, 40, 20, new Color(0, 0, 0, 0), col); l.Box(ix - 8, 56, 16, 16, 8, col);
             float tx = left ? 560 : 80; int al = left ? 1 : -1;
-            l.Text(text, tx, sub.Length > 0 ? 58 : 77, 38, col, true, al);
-            if (sub.Length > 0) l.Text(sub, tx, 97, 27, Soft, false, al);
+            l.Text(text, tx, sub.Length > 0 ? 58 : 76, Size.Heading, col, true, al);
+            if (sub.Length > 0) l.Text(sub, tx, 96, Size.Label, Soft, false, al);
             string id = p.st.id;
             l.Hit("pin:" + id, x0, 14, w, 100, () => PressPin(id), 20);
-            if (stand) l.Button(L("Stand ›", "立つ ›"), left ? x0 + 12 : x0 + w - 150, 31, 138, 66, () => ToField(id), primary: true, px: 27, key: "Stand:" + id);
+            if (stand) l.Button(L("Stand ›", "立つ ›"), left ? x0 + 12 : x0 + w - 150, 31, 138, 66, () => ToField(id), primary: true, key: "Stand:" + id);
         }
 
         // On the table a label selects its station. Inside the terrain it takes you to the surface image there.
@@ -292,27 +300,25 @@ namespace MissionLens
         {
             var s = title; s.Clear(); const float X = 90; float W = s.w - 2 * X;
             s.Frame(Back, Cyan);
-            s.Text("MISSION LENS", X, 156, 108, Ink, true);
-            s.Text(L("From science objectives to Marswalk execution", "科学目標から、火星を歩く 1 回の活動へ"), X, 222, 42, Cyan, true);
-            float y = s.Wrap(L("One hypothetical crewed Marswalk at the front of Jezero Crater's fan. Plan it on a tabletop terrain model, then stand at each station inside the panorama Perseverance took there.",
-                "ジェゼロ・クレーターの扇状地前縁を歩く、仮想の有人 Marswalk を 1 回分。机上の地形模型で計画を確かめ、各地点では Perseverance がその場所で撮影したパノラマの中に立ちます。"), X, 306, W, 50, Ja ? 34 : 37, Ink);
-            y += 30;
+            s.Text("MISSION LENS", X, 156, 108, Ink, true);   // the name, once: the one size outside the scale
+            s.Text(L("From science objectives to Marswalk execution", "科学目標から、火星を歩く 1 回の活動へ"), X, 222, Size.Title, Cyan, true);
+            float y = s.Wrap(L("One hypothetical crewed Marswalk at the front of Jezero Crater's fan.", "ジェゼロ・クレーターの扇状地前縁を歩く、仮想の有人 Marswalk 1 回分。"), X, 300, W, 36, Size.Body, Ink);
+            y += 58;
             foreach (var (tag, col, text) in new[] {
-                (L("NASA OBSERVATION", "NASA の観測"), Ink, L("HiRISE image and terrain model · Mastcam-Z panoramas · CRISM spectral product · MEDA weather · Mars 2020 sampling record", "HiRISE の画像と地形モデル · Mastcam-Z のパノラマ · CRISM の分光データ · MEDA の気象 · Mars 2020 の試料採取記録")),
-                (L("OUR CALCULATION", "こちらの計算"), Cyan, L("Route, slopes, lines of sight, walking times, dataset alignment", "ルート、傾斜、見通し、歩行時間、データ同士の位置合わせ")),
-                (L("SIMULATED", "模擬"), Amber, L("The Marswalk itself, its tasks and timeline, and whatever you mark", "Marswalk そのもの、作業と時間割、あなたが付ける印")) })
+                (L("NASA OBSERVATION", "NASA の観測"), Ink, L("HiRISE image and terrain model · Mastcam-Z · CRISM · MEDA · sampling record","HiRISE(画像・地形モデル)· Mastcam-Z · CRISM · MEDA · 試料採取記録")),
+                (L("OUR CALCULATION", "こちらの計算"), Cyan, L("Route · slopes · predicted occlusion of station targets · walking times · dataset alignment", "ルート · 傾斜 · 地点の目標が地形に隠れるかの予測 · 歩行時間 · データの位置合わせ")),
+                (L("SIMULATED", "模擬"), Amber, L("The Marswalk · its tasks and timeline · your photos, records and observation plan", "Marswalk · 作業と時間割 · あなたの撮影・記録・観測計画")) })
             {
-                s.Box(X, y - 30, 280, 44, 22, new Color(1, 1, 1, .07f), new Color(col.r, col.g, col.b, .7f)); s.Text(tag, X + 140, y, 22, col, true, 0);
-                y = s.Wrap(text, X + 312, y, W - 312, 38, Ja ? 26 : 28, Soft) + 22;
+                s.Box(X, y - 31, 300, 46, 23, new Color(1, 1, 1, .07f), new Color(col.r, col.g, col.b, .7f)); s.Text(tag, X + 150, y, Size.Label, col, true, 0);
+                y = s.Wrap(text, X + 332, y, W - 332, 31, Size.Label, Soft) + 43;
             }
-            s.Button(L("Begin briefing", "ブリーフィングを始める"), X, 724, 440, 92, Begin, primary: true, px: Ja ? 32 : 38, key: "Begin briefing");
-            s.Text(rig.xr ? L("Point with a hand and pinch, or pull a controller trigger", "手で指してピンチ、またはコントローラーのトリガー") : L("Click, or press Enter · drag to look around", "クリックまたは Enter · ドラッグで見回す"), X + 476, rig.xr ? 764 : 782, 26, Gray);
-            if (rig.xr) s.Text(L("No hand or controller in view? Look at a button and hold still.", "手もコントローラーも映らないときは、ボタンを見つめたまま待つ"), X + 476, 800, 22, Dim);
-            s.Text("Data: NASA/JPL-Caltech/UArizona (HiRISE) · NASA/JPL-Caltech/ASU/MSSS (Mastcam-Z) · NASA/JPL-Caltech/JHUAPL (CRISM) · NASA/JPL-Caltech/CAB (MEDA)", X, 850, 19, Dim);
+            s.Button(L("Begin briefing", "ブリーフィングを始める"), X, 676, 440, 92, Begin, primary: true, px: Size.Heading, key: "Begin briefing");   // the one thing to do here: a step larger than other main buttons
+            s.Text(rig.xr ? L("Point with a hand and pinch · no hand in view? Look at a button and hold still", "手で指してピンチ · 手が映らないときはボタンを見つめる") : L("Click, or press Enter · drag to look around", "クリックまたは Enter · ドラッグで見回す"), X + 476, 729, Size.Note, Gray);
+            s.Wrap("Data: NASA/JPL-Caltech/UArizona (HiRISE) · NASA/JPL-Caltech/ASU/MSSS (Mastcam-Z) · NASA/JPL-Caltech/JHUAPL (CRISM) · NASA/JPL-Caltech/CAB (MEDA) · NASA/JPL/USGS (Viking globe)", X, 830, W, 25, Size.Note, Dim);
             // the other language, and which build this is (so that it can be told apart from the one before it)
-            s.Button(Ja ? "English" : "日本語", X + W - 170, 34, 170, 56, ToggleLanguage, px: 26, key: "Language");
+            s.Button(Ja ? "English" : "日本語", X + W - 170, 34, 170, 56, ToggleLanguage, key: "Language");
             var stamp = Resources.Load<TextAsset>("ML/build");
-            if (stamp != null) s.Text("Build " + stamp.text.Trim(), X + W - 190, 72, 20, Dim, false, 1);
+            if (stamp != null) s.Text("Build " + stamp.text.Trim(), X + W - 190, 72, Size.Note, Dim, false, 1);
         }
 
         // PLAN: left, what the Marswalk is for and why the selected station serves it; right, the NASA evidence.
@@ -321,116 +327,148 @@ namespace MissionLens
         {
             var b = board; b.Clear(); var st = St(sel); const float X1 = 48, W1 = 990, X2 = 30, W2 = 1040; float y;
             b.Frame(Back, Finished ? Amber : Cyan);
-            b.Text("MISSION LENS", X1, 62, 24, Gray, true); b.Text(Finished ? L("PLAN · REVIEW", "PLAN · 振り返り") : "PLAN", X1 + 196, 62, 24, Cyan, true);
-            b.Text(Finished ? L("SIMULATED RUN", "模擬の実行") : L("HYPOTHETICAL MARSWALK", "仮想の Marswalk"), X1 + W1, 62, 24, Amber, true, 1);
-            int mk = marks.Count(m => m.station == st.id); float big = Ja ? 30 : 32, small = Ja ? 23 : 25;
-            if (!Finished)
+            string plan = Finished ? L("PLAN · REVIEW", "PLAN · 振り返り") : "PLAN";
+            b.Text(plan, X1, 62, Size.Label, Cyan, true);
+            // the board has two faces: the task that is looked at, and the observation plan the briefing is for (MLAppPlan.cs)
+            if (Finished) b.Text(M.title, X1 + b.Measure(plan, Size.Label, true) + 18, 62, Size.Label, Gray, true); else DrawPlanTabs(b, X1 + b.Measure(plan, Size.Label, true) + 18);
+            b.Text(Finished ? L("SIMULATED RUN", "模擬の実行") : planTab ? L("EARTH-BASED BRIEFING", "地球での事前ブリーフィング") : L("HYPOTHETICAL MARSWALK", "仮想の Marswalk"), X1 + W1, 62, Size.Label, Amber, true, 1);
+            int mk = marks.Count(m => m.station == st.id);
+            if (!Finished && planTab) DrawPlanBoard(b);
+            else if (!Finished)
             {
-                var Ts = M.tasks[selTask]; var leg = Ts.leg >= 0 ? M.legs[Ts.leg] : null; var Tk = Task; bool current = selTask == taskIndex; int body = Ja ? 27 : 28;
-                // the Marswalk in one line, and what it is for
-                b.Text(L($"{M.title} · {M.routeTotalM:0} m on foot · {MLData.Hm(M.plannedTotalMin)} planned", $"{M.title} · 徒歩 {M.routeTotalM:0} m · 計画 {MLData.Hm(M.plannedTotalMin)}"), X1, 108, 28, Ink, true);
-                y = b.Wrap(L("Objective: ", "目標: ") + T(M.objective) + L(" (basis: NASA's Mars 2020 sampling record)", "(根拠: NASA の Mars 2020 試料採取記録)"), X1, 144, W1, 28, 21, Gray);
+                var Ts = M.tasks[selTask]; var leg = Ts.leg >= 0 ? M.legs[Ts.leg] : null; bool current = selTask == taskIndex;
+                // what the briefing is for, in one line: the one goal, and the question it asks of the two outcrops
+                y = b.Wrap(GoalLine, X1, 100, W1, 27, Size.Note, Gray);
                 // 1. the task that is looked at, and whether it is only looked at or is where the Marswalk is
-                y += 18;
+                y += 22;
                 b.Tag(current ? (taskIndex == 0 ? L("FIRST TASK OF THE MARSWALK", "Marswalk の最初の作業") : L("THE MARSWALK IS AT THIS TASK", "Marswalk はこの作業"))
-                    : selTask < taskIndex ? L("LOOKING AT THE PLAN · A TASK ALREADY DONE", "計画を確認中 · 実施済みの作業") : L("LOOKING AT THE PLAN · THE MARSWALK IS NOT HERE YET", "計画を確認中 · Marswalk はまだここではありません"), X1, y - 21, current ? Amber : Cyan);
-                b.Text(L($"task {selTask + 1} of {M.tasks.Length} · {Ts.plannedMin} min · T+ {MLData.Hm(Ts.startMin)}–{MLData.Hm(Ts.endMin)} on the plan", $"作業 {selTask + 1} / {M.tasks.Length} · {Ts.plannedMin} 分 · 計画上の T+ {MLData.Hm(Ts.startMin)}–{MLData.Hm(Ts.endMin)}"), X1 + W1, y, 22, Gray, false, 1);
-                y += 50; b.Text($"{Ts.station} {St(Ts.station).name} · {T(Ts.phase)}", X1, y, Ja ? 40 : 42, Ink, true);
+                    : selTask < taskIndex ? L("LOOKING AT THE PLAN · A TASK ALREADY DONE", "計画を確認中 · 実施済みの作業") : L("LOOKING AT THE PLAN · THE MARSWALK IS NOT HERE YET", "計画を確認中 · Marswalk はまだここではありません"), X1, y - 23, current ? Amber : Cyan);
+                b.Text(L($"task {selTask + 1} of {M.tasks.Length}", $"作業 {selTask + 1} / {M.tasks.Length}"), X1 + W1, y, Size.Note, Gray, false, 1);
+                y += 62; string subject = $"{Ts.station} {St(Ts.station).name} · {T(Ts.phase)}";
+                b.Text(subject, X1, y, b.Measure(subject, Size.Title, true) > W1 ? Size.Heading : Size.Title, Ink, true);
                 // 2. what to do
-                y += 44; b.Text(L("WHAT TO DO", "すること"), X1, y, 21, Gray, true); y += 35;
-                foreach (var c in Ts.checks) y = b.Wrap("· " + T(c), X1, y, W1, 34, body, Ink);
-                // 3. why, and what to look at
-                y += 10; b.Text(leg != null ? L("WHAT TO CHECK ON THE WAY", "確かめること") : L($"WHY STATION {st.id}", $"地点 {st.id} に行く理由"), X1, y, 21, Cyan, true); y += 35;
+                y += 50; b.Text(L("WHAT TO DO", "すること"), X1, y, Size.Label, Gray, true); y += 40;
+                foreach (var c in Ts.checks) y = b.Wrap("· " + T(c), X1, y, W1, 36, Size.Body, Ink);
+                // 3. a leg: its numbers side by side, to be read at a glance. A station: why it is on the route.
+                y += 14;
                 if (leg != null)
                 {
-                    bool seen = St(leg.from).sees.Contains(leg.to);
-                    y = b.Wrap(L($"{leg.distM:0} m from {leg.from} · climb {leg.ascentM:0} m · steepest {leg.slopeMaxDeg:0}° · about {Mathf.RoundToInt(leg.estWalkMin)} min at {M.walkSpeed} m/s (our assumption)",
-                                 $"{leg.from} から {leg.distM:0} m · 登り {leg.ascentM:0} m · 最大傾斜 {leg.slopeMaxDeg:0}° · 約 {Mathf.RoundToInt(leg.estWalkMin)} 分({M.walkSpeed} m/s、こちらの仮定)"), X1, y, W1, 34, body, Ink);
-                    y = b.Wrap(L($"{leg.to} is {(seen ? "in view" : "hidden behind terrain")} from {leg.from} · {Mathf.RoundToInt(leg.pctOnTrack * 100)}% of the route follows Perseverance's track · route, slope and sight lines are our calculation from the HiRISE terrain model",
-                                 $"{leg.to} は {leg.from} から{(seen ? "見えます" : "見えません(地形の陰)")} · ルートの {Mathf.RoundToInt(leg.pctOnTrack * 100)}% は Perseverance の走行跡 · ルート・傾斜・見通しは HiRISE 地形モデルからこちらで計算"), X1, y, W1, 29, 21, Gray);
+                    string head = L("WHAT TO CHECK ON THE WAY", "確かめること");
+                    b.Text(head, X1, y, Size.Label, Gray, true); b.Text(L("· OUR CALCULATION", "· こちらの計算"), X1 + b.Measure(head, Size.Label, true) + 12, y, Size.Label, Cyan, true);
+                    float cx = X1;
+                    foreach (var (value, what) in new[] {
+                        ($"{leg.distM:0} m", L($"from {leg.from}", $"{leg.from} からの距離")), ($"{leg.ascentM:0} m", L("climb", "登り")), ($"{leg.slopeMaxDeg:0}°", L("steepest slope", "最大傾斜")),
+                        (L($"{Mathf.RoundToInt(leg.estWalkMin)} min", $"約 {Mathf.RoundToInt(leg.estWalkMin)} 分"), L($"on foot at {M.walkSpeed} m/s", $"歩行({M.walkSpeed} m/s)")) })
+                    { b.Text(value, cx, y + 52, Size.Heading, Ink, true); b.Text(what, cx, y + 80, Size.Note, Gray); cx += W1 / 4; }
+                    y += 116; bool seen = St(leg.from).sees.Contains(leg.to);
+                    y = b.Wrap(L($"From {leg.from}, the station target at {leg.to} is predicted {(seen ? "clear of terrain" : "behind terrain")} (model: eye 2 m, target 1 m above ground, about 2 m terrain grid) · {Mathf.RoundToInt(leg.pctOnTrack * 100)}% of the route follows Perseverance's track · {M.walkSpeed} m/s is our assumption",
+                                 $"{leg.from} から、{leg.to} の目標点は{(seen ? "地形に隠れない" : "地形の陰になる")}と予測(モデル: 目の高さ 2 m、目標は地面から 1 m、地形は約 2 m 格子)· ルートの {Mathf.RoundToInt(leg.pctOnTrack * 100)}% は Perseverance の走行跡 · {M.walkSpeed} m/s は仮定"), X1, y, W1, 27, Size.Note, Gray);
                 }
                 else
                 {
-                    y = b.Wrap(T(st.why), X1, y, W1, 34, body, Ink);
-                    string sees = st.sees.Length > 0 ? string.Join(", ", st.sees) : L("none", "なし");
-                    y = b.Wrap(L($"Elevation {st.elev:0.0} m (MOLA datum) · ground slope {st.slopeDeg}° · in view from here: {sees}{(st.hidden.Length > 0 ? " · hidden: " + string.Join(", ", st.hidden) : "")} (our calculation from the terrain model)",
-                                 $"標高 {st.elev:0.0} m(MOLA 基準)· 地面の傾斜 {st.slopeDeg}° · ここから見える地点: {sees}{(st.hidden.Length > 0 ? " · 見えない地点: " + string.Join(", ", st.hidden) : "")}(地形モデルからこちらで計算)"), X1, y, W1, 29, 21, Gray);
-                    if (st.id == M.medaStation) { b.Text(L("NASA observation · MEDA, a past measurement · ", "NASA の観測 · MEDA(過去の実測)· ") + MedaLine, X1, y, 21, Soft); y += 29; }
+                    b.Text(L($"WHY STATION {st.id}", $"地点 {st.id} に行く理由"), X1, y, Size.Label, Gray, true); y += 40;
+                    y = b.Wrap(T(st.why), X1, y, W1, 36, Size.Body, Ink);
+                    // A prediction about one point per station, with its conditions; it says nothing of a whole outcrop.
+                    string sees = st.sees.Length > 0 ? string.Join(", ", st.sees) : L("none", "なし"), hid = string.Join("/", st.hidden);
+                    y = b.Sourced(L("OUR CALCULATION", "こちらの計算"), Cyan, L($"Predicted occlusion of station targets. Eye: 2 m; targets: 1 m above ground; approximately 2 m terrain grid (0.3 m tolerance). Clear from here: {sees}.{(st.hidden.Length > 0 ? $" {hid} station target{(st.hidden.Length > 1 ? "s" : "")}: predicted behind terrain. Inspect the outcrops locally." : "")}",
+                        $"地点の目標点が地形に隠れるかの予測。目の高さ 2 m、目標は地面から 1 m、地形は約 2 m 格子(許容 0.3 m)。ここから隠れない目標: {sees}。{(st.hidden.Length > 0 ? $"{hid} の目標点は地形の陰と予測。露頭は現地で確かめる。" : "")}"), X1, y, W1);
+                    if (st.id == M.medaStation) y = b.Sourced(L("NASA OBSERVATION", "NASA の観測"), Ink, L("MEDA, a past measurement · ", "MEDA(過去の実測)· ") + MedaLine, X1, y, W1);
                 }
-                // what the map shows for this task, and why (or that it was changed by hand)
+                // what the map shows for this task (or that it was changed by hand)
                 bool own = layer == LayerFor(Ts);
-                y = b.Wrap((own ? L("On the map for this task: ", "この作業での地図の表示: ") : L("On the map now, changed by hand: ", "いまの地図の表示(手動で変更): ")) + LayerNote(layer), X1, y + 6, W1, 29, 21, own ? Cyan : Amber);
+                y = b.Sourced(own ? L("MAP", "地図") : L("MAP · CHANGED BY HAND", "地図 · 手動で変更"), own ? Cyan : Amber, LayerNote(layer), X1, y, W1);
                 if (mk > 0)
-                {   // what was recorded here in FIELD; the one picked on the map is spelt out
+                {   // what was recorded here in FIELD; the one picked on the map is spelt out (its task is the one shown above)
                     var picked = marks.Find(m => m.n == selMark && m.station == st.id);
-                    b.Text(picked != null ? L($"Candidate {picked.n:00} · simulated record · recorded during \"{M.tasks[picked.ti].phase}\" · {picked.d:0} m from {picked.station}, bearing {MLData.Deg3(picked.az)}° · approximate position",
-                                              $"候補 {picked.n:00} · 模擬の記録 · 「{T(M.tasks[picked.ti].phase)}」で記録 · {picked.station} から {picked.d:0} m、方位 {MLData.Deg3(picked.az)}° · 概略位置")
-                                          : L($"Recorded here in FIELD (simulated, approximate): {string.Join(", ", marks.Where(m => m.station == st.id).Select(m => "#" + m.n.ToString("00")))} · pick a mark on the map", $"FIELD での記録(模擬・概略位置): {string.Join("、", marks.Where(m => m.station == st.id).Select(m => "#" + m.n.ToString("00")))} · 地図の印を選ぶと詳細"), X1, y + 4, 21, Amber, true);
+                    string list = string.Join(", ", marks.Where(m => m.station == st.id).Select(m => "#" + m.n.ToString("00")));
+                    b.Sourced(L("SIMULATED RECORD", "模擬の記録"), Amber, picked != null
+                        ? L($"observation region {picked.n:00} — needs local verification · {picked.station} panorama, image direction {MLData.Deg3(picked.az)}° / {picked.el:+0;-0;0}° · map mark: approximate terrain intersection, not a surveyed sample site",
+                            $"観測領域 {picked.n:00} — 現地での確認が必要 · {picked.station} のパノラマ、画像の方向 {MLData.Deg3(picked.az)}° / {picked.el:+0;-0;0}° · 地図の印は地形モデルとのおおよその交点で、測量した採取位置ではない")
+                        : L($"observation regions {list} pointed at in FIELD — need local verification · pick a mark on the map", $"観測領域 {list} を FIELD で指定 — 現地での確認が必要 · 地図の印を選ぶと詳細"), X1, y, W1);
                 }
                 // 4. what can be done next. The way into FIELD is at the station the Marswalk has reached, with the task that is due there.
-                const float ny = 744;
-                b.Button(taskIndex == 0 ? L("Begin Marswalk", "Marswalk を始める") : L("Resume Marswalk", "Marswalk を再開"), X1, ny, 320, 66, () => ToField(here), primary: true, px: Ja ? 26 : 29, key: "Marswalk");
-                string where = L($"at {here} {St(here).name} · task {taskIndex + 1} of {M.tasks.Length}: {Tk.phase}{(Tk.station != here ? " " + Tk.station : "")}", $"{here} {St(here).name} から · 作業 {taskIndex + 1} / {M.tasks.Length}: {T(Tk.phase)}{(Tk.station != here ? " " + Tk.station : "")}");
-                if (current)
-                {
-                    b.Text(where, X1 + 344, ny + 28, 24, Soft);
-                    b.Text(L("FIELD · the real surface image at that station", "FIELD · その地点の実際の地表画像の中に立ちます"), X1 + 344, ny + 58, 20, Dim);
-                }
+                const float ny = 726;
+                b.Button(taskIndex == 0 ? L("Begin Marswalk", "Marswalk を始める") : L("Resume Marswalk", "Marswalk を再開"), X1, ny, 320, 66, () => ToField(here), primary: true, px: Size.Body, key: "Marswalk");
+                string where = L($"The Marswalk is at {here} {St(here).name} (task {taskIndex + 1} of {M.tasks.Length})", $"Marswalk はいま {here} {St(here).name}(作業 {taskIndex + 1} / {M.tasks.Length})");
+                if (current) b.Text(where + L(" · FIELD: the real surface image there", " · FIELD: その地点の実際の地表画像の中へ"), X1, ny + 98, Size.Note, Gray);
                 else
                 {
-                    b.Button(L("Start from this task", "この作業から始める"), X1 + 336, ny, 300, 66, StartFromSelected, px: Ja ? 24 : 25, key: "Start here");
-                    b.Wrap(L("The Marswalk is ", "Marswalk は ") + where + L(". \"Start from this task\" moves the simulated Marswalk here; records are kept.", "。「この作業から始める」は、模擬の Marswalk をここへ移します(記録は残ります)。"), X1 + 656, ny + 18, W1 - 656, 22, 18, Soft);
+                    b.Button(L("Start from this task", "この作業から始める"), X1 + 336, ny, 300, 66, StartFromSelected, key: "Start here");
+                    b.Text(where + L(" · starting from here keeps the records", " · ここから始めても記録は残る"), X1, ny + 98, Size.Note, Gray);
                 }
-                b.Wrap(T(M.scenarioNote), X1, 858, W1, 22, 18, Dim);
+                b.Text(L("Hypothetical plan. Stations, routes and timings: ours. Places, images, measurements: NASA data.", "仮想の計画: 地点・ルート・時間割はこちらで設定。場所・画像・計測値は NASA のデータ"), X1, 858, Size.Note, Dim);
             }
             else
             {
-                b.Text(L("Marswalk complete", "Marswalk 完了"), X1, 120, 46, Ink, true);
-                b.Text(L($"{M.title} · {M.tasks.Length} tasks stepped through · {M.routeTotalM:0} m on foot · {MLData.Hm(M.plannedTotalMin)} planned", $"{M.title} · {M.tasks.Length} 作業を実施 · 徒歩 {M.routeTotalM:0} m · 計画 {MLData.Hm(M.plannedTotalMin)}"), X1, 160, 27, Gray);
-                b.Text(L("WHAT WAS RECORDED · SIMULATED", "記録したもの(模擬)"), X1, 216, 24, Amber, true); y = 262;
-                if (marks.Count == 0) y = b.Wrap(L("No candidates were marked on this run.", "今回の実行では候補の印はありません。"), X1, y, W1, 41, big, Ink);
+                b.Text(L("Marswalk complete", "Marswalk 完了"), X1, 126, Size.Title, Ink, true);
+                b.Text(L($"{M.title} · {M.tasks.Length} tasks stepped through · {M.routeTotalM:0} m on foot · {MLData.Hm(M.plannedTotalMin)} planned", $"{M.title} · {M.tasks.Length} 作業を実施 · 徒歩 {M.routeTotalM:0} m · 計画 {MLData.Hm(M.plannedTotalMin)}"), X1, 166, Size.Label, Soft);
+                b.Text(L("WHAT WAS RECORDED · SIMULATED", "記録したもの(模擬)"), X1, 222, Size.Label, Amber, true); y = 266;
+                if (marks.Count == 0) y = b.Wrap(L("No observation regions were marked on this run.", "今回の実行では観測領域の印はありません。"), X1, y, W1, 36, Size.Body, Ink);
                 foreach (var g in marks.GroupBy(m => m.station))
                 {
-                    b.Text(L($"{g.Key} {St(g.Key).name} · {g.Count()} candidate{(g.Count() > 1 ? "s" : "")}", $"{g.Key} {St(g.Key).name} · 候補 {g.Count()} 件"), X1, y, big, Ink, true); y += 38;
-                    string line = string.Join("   ", g.Take(6).Select(m => L($"#{m.n}  {m.d:0} m at {MLData.Deg3(m.az)}°", $"#{m.n}  {m.d:0} m · 方位 {MLData.Deg3(m.az)}°"))) + (g.Count() > 6 ? "   …" : "");
-                    y = b.Wrap(line, X1, y, W1, 34, 26, Soft) + 10;
+                    b.Text(L($"{g.Key} {St(g.Key).name} · {g.Count()} observation region{(g.Count() > 1 ? "s" : "")} · need local verification", $"{g.Key} {St(g.Key).name} · 観測領域 {g.Count()} 件 · 現地での確認が必要"), X1, y, Size.Body, Ink, true); y += 36;
+                    string line = string.Join("   ", g.Take(6).Select(m => L($"#{m.n}  image direction {MLData.Deg3(m.az)}°", $"#{m.n}  画像の方向 {MLData.Deg3(m.az)}°"))) + (g.Count() > 6 ? "   …" : "");
+                    y = b.Wrap(line, X1, y, W1, 31, Size.Label, Soft) + 12;
                 }
-                y = b.Wrap(T(M.recordNote), X1, y + 4, W1, 31, 23, Gray);
-                b.Text(L("WHAT THIS RUN DID NOT MEASURE", "この実行で測っていないもの"), X1, y + 30, 24, Gray, true);
+                y = b.Wrap(T(M.recordNote), X1, y + 4, W1, 27, Size.Note, Gray);
+                b.Text(L("WHAT THIS RUN DID NOT MEASURE", "この実行で測っていないもの"), X1, y + 30, Size.Label, Gray, true);
                 b.Wrap(L("No time was measured: T+ follows the planned timeline, which keeps the task structure and durations of the BASALT-2 planned EVA. Nothing here was checked against a real crew, suit or surface operation.",
-                         "時間は計測していません。T+ は計画上の時間割に沿った値で、作業の構成と所要時間は BASALT-2 の計画 EVA に基づきます。実際の乗員・宇宙服・地表での運用と照らした確認は行っていません。"), X1, y + 70, W1, 34, 26, Soft);
-                b.Button(L("Start over", "最初からやり直す"), X1, 800, Ja ? 300 : 240, 64, Restart, px: 26, key: "Start over");
-                b.Text(L("Clears the run and returns to the title", "記録を消してタイトルに戻ります"), X1 + (Ja ? 322 : 262), 841, 22, Dim);
+                         "時間は計測していません。T+ は計画上の時間割に沿った値で、作業の構成と所要時間は BASALT-2 の計画 EVA に基づきます。実際の乗員・宇宙服・地表での運用と照らした確認は行っていません。"), X1, y + 72, W1, 36, Size.Body, Ink);
+                b.Button(L("Start over", "最初からやり直す"), X1, 800, Ja ? 300 : 240, 64, Restart, key: "Start over");
+                b.Text(L("Clears the run and returns to the title", "記録を消してタイトルに戻ります"), X1 + (Ja ? 322 : 262), 840, Size.Note, Gray);
             }
 
             // right panel: the NASA evidence for the selected station, and what can be done with it
             b = boardR; b.Clear(); b.Frame(Back, Cyan);
-            const float ih = 300; b.Box(X2, 48, W2, ih, 16, new Color(.1f, .12f, .14f, 1));
-            if (viewTex.TryGetValue(sel, out var tex) && tex != null) { float vh = (tex.width * ih / W2) / tex.height; b.Picture(tex, X2, 48, W2, ih, new Rect(0, (1 - vh) / 2, 1, vh)); }
-            b.Tag(L("NASA OBSERVATION", "NASA の観測"), X2 + 14, 60, Ink);
-            b.Text(L($"Mastcam-Z panorama, {st.panoSols}, looking {MLData.Deg3(st.viewAz)}° · {st.panoCredit}", $"Mastcam-Z パノラマ、{st.panoSols}、方位 {MLData.Deg3(st.viewAz)}° の向き · {st.panoCredit}"), X2, 48 + ih + 30, 23, Gray);
-            y = 48 + ih + 78; b.Text(st.hasSample ? L("NASA SAMPLING RECORD", "NASA の試料採取記録") : L("NASA ROVER RECORD", "NASA のローバー記録"), X2, y, 24, Gray, true);
-            y = b.Wrap(st.hasSample ? L($"Rock cores {st.sampleName}: {st.sampleRock.ToLower()}, {st.sampleLocation.ToLower()}. Taken {st.sampleDate} (sols {st.sampleSol}).", $"岩石コア {st.sampleName}: 堆積岩、扇状地前縁。採取 {st.sampleDate}(sol {st.sampleSol})。") : T(st.note), X2, y + 38, W2, 37, Ja ? 27 : 29, Ink);
-            int p = st.crismRank; b.Text(L($"SPECTRAL CONTEXT · MRO CRISM · {M.crismMPerPx:0} M PER PIXEL", $"分光データ · MRO CRISM · 1 画素 {M.crismMPerPx:0} m"), X2, y + 24, 24, Gray, true);
-            b.Wrap(L($"{M.crismBands[0]} band here: {(p >= 50 ? $"stronger than in {p}%" : $"weaker than in {100 - p}%")} of this area (our reading). NASA label: Mg/Fe-OH bearing minerals may appear red; spectra are needed for positive identification.",
-                     $"この地点の {M.crismBands[0]} バンド: この範囲の {(p >= 50 ? $"{p}% より強い" : $"{100 - p}% より弱い")}(こちらの読み取り)。NASA の説明: Mg/Fe-OH を含む鉱物は赤く見えることがある。鉱物の特定にはスペクトルの確認が必要。"), X2, y + 60, W2, 35, Ja ? 25 : 27, Ink);
-            float x = X2; const float by = 762; string s = sel; int bp = Ja ? 26 : 28;
-            b.Text(L("LOOK AHEAD AT " + s, s + " を先に見る"), x, by - 14, 19, Dim, true);
-            b.Button(L("Stand at " + s, s + " に立つ"), x, by, 300, 68, () => ToField(s), px: bp, key: "Stand at " + s); x += 316;
-            b.Button(L("Preview 1 : 25", "下見 1 : 25"), x, by, 300, 68, () => EnterTerrain(s, SGiant), px: bp, key: "Preview 1 : 25"); x += 324;
-            b.Wrap(rig.xr ? L("Slope, spectral and height are on the menu on your left hand.", "傾斜・分光・高さの切り替えは、左手のメニューにあります。")
-                          : L("Slope, spectral and height are on the menu (M).", "傾斜・分光・高さの切り替えは、メニュー(M)にあります。"), x, by + 28, W2 - (x - X2), 26, 21, Dim);
+            // A rehearsal capture picked on the plan or on the map takes the picture's place (MLAppPlan.cs); the pair's row puts both outcrops' photos there.
+            bool pairOn = pairView && stage == Stage.Table; var shown = pairOn ? null : SelectedCapture(sel); float ih = pairOn || st.hasSample ? 250 : 300; b.Box(X2, 48, W2, ih, 16, new Color(.1f, .12f, .14f, 1));
+            if (pairOn)
+            {
+                DrawPairView(b, X2, 48, W2, ih);
+                b.Text(L("Rehearsal captures of both outcrops, side by side · compared as photographs", "両方の露頭の模擬の撮影を並べたもの · 写真として見比べる"), X2, 48 + ih + 28, Size.Note, Amber);
+                DrawPairNotes(b, X2, 48 + ih + 62, W2);
+            }
+            else
+            {
+                if (shown != null) DrawCaptureReview(b, shown, X2, 48, W2, ih);
+                else
+                {
+                    if (viewTex.TryGetValue(sel, out var tex) && tex != null) { float vh = (tex.width * ih / W2) / tex.height; b.Picture(tex, X2, 48, W2, ih, new Rect(0, (1 - vh) / 2, 1, vh)); }
+                    b.Tag(L("NASA OBSERVATION", "NASA の観測"), X2 + 14, 60, Ink);
+                }
+                b.Text(shown != null ? L("Rehearsal capture · a view framed in the Mastcam-Z panorama, by direction and field of view", "模擬の撮影 · Mastcam-Z パノラマの中で、方向と画角で決めた構図") : $"Mastcam-Z · {st.panoSols} · {st.panoCredit}", X2, 48 + ih + 28, Size.Note, shown != null ? Amber : Gray);
+                y = 48 + ih + (st.hasSample ? 62 : 84); b.Text(st.hasSample ? L("NASA SAMPLING RECORD", "NASA の試料採取記録") : L("NASA ROVER RECORD", "NASA のローバー記録"), X2, y, Size.Label, Ink, true); y += st.hasSample ? 34 : 42;
+                if (st.hasSample)
+                {   // the cores first; what they are and when they were taken under them. Then the outcrop's science card and the way to add it to the plan.
+                    b.Text(L($"Rock cores {st.sampleName}", $"岩石コア {st.sampleName}"), X2, y, Size.Body, Ink); y += 30;
+                    y = b.Wrap(L($"{st.sampleRock}, {st.sampleLocation.ToLower()} · taken {st.sampleDate} (sols {st.sampleSol})", $"堆積岩、扇状地前縁 · 採取 {st.sampleDate}(sol {st.sampleSol})"), X2, y, W2, 27, Size.Note, Gray);
+                    DrawScience(b, st, X2, y + 24, W2);
+                }
+                else
+                {   // The spectral layer is regional context at 18 m per pixel. No reading is given for a single station: neighbouring stations share most of their pixels.
+                    y = b.Wrap(T(st.note), X2, y, W2, 36, Size.Body, Ink);
+                    y += 28; b.Text(L("REGIONAL SPECTRAL CONTEXT · MRO CRISM", "周辺の分光データ · MRO CRISM"), X2, y, Size.Label, Ink, true); y += 40;
+                    b.Wrap(L($"{M.crismMPerPx:0} m/pixel. Not a ranking of individual outcrops. NASA label: Mg/Fe-OH bearing minerals may appear red; spectra are needed for positive identification.",
+                             $"1 画素 {M.crismMPerPx:0} m。個々の露頭の順位ではありません。NASA の説明: Mg/Fe-OH を含む鉱物は赤く見えることがある。鉱物の特定にはスペクトルの確認が必要。"), X2, y, W2, 27, Size.Note, Gray);
+                }
+            }
+            float x = X2; const float by = 762; string s = sel;
+            if (shown != null) { int cn = shown.n; b.Button(L("Reframe at " + s, s + " で同じ構図へ"), x, by, 300, 68, () => ReviewInField(cn), primary: true, px: Size.Body, key: "Stand at " + s); }
+            else b.Button(L("Stand at " + s, s + " に立つ"), x, by, 300, 68, () => ToField(s), primary: true, px: Size.Body, key: "Stand at " + s);
+            x += 316;
+            b.Button(L("Overlook", "地形を見渡す"), x, by, 300, 68, () => EnterTerrain(s, SGiant), key: "Preview 1 : 25"); x += 324;
+            b.Text(L("terrain model · 1 : 25", "地形モデル · 1 : 25"), x, by + 42, Size.Note, Gray);
             const float ly = 866;
             if (layer == "slope")
             {
                 float lx = X2;
                 foreach (var (c, t) in new[] { (Slope10, "10–15°"), (Slope15, "15–20°"), (Slope20, L("over 20°", "20° 超")) })
-                { b.Box(lx, ly - 19, 22, 22, 4, c); b.Text(t, lx + 30, ly, 23, Ink); lx += 46 + b.Measure(t, 23); }
-                b.Text(L("· slope and contours: HiRISE terrain model; classes ours", "· 傾斜と等高線: HiRISE 地形モデルから。区分はこちらで設定"), lx, ly, Ja ? 21 : 23, Gray);
+                { b.Box(lx, ly - 17, 20, 20, 4, c); b.Text(t, lx + 28, ly, Size.Note, Gray); lx += 44 + b.Measure(t, Size.Note); }
+                b.Text(L("· slope and contours: HiRISE terrain model; classes ours", "· 傾斜と等高線: HiRISE 地形モデルから。区分はこちらで設定"), lx, ly, Size.Note, Gray);
             }
-            else if (layer == "crism") b.Text(L($"{M.crismObservation} PHY: R {M.crismBands[0]}, G {M.crismBands[1]}, B {M.crismBands[2]} · moved {M.crismShiftM:0} m by us to fit HiRISE · brightness ×{M.crismGain}",
-                                                $"{M.crismObservation} PHY: R {M.crismBands[0]}, G {M.crismBands[1]}, B {M.crismBands[2]} · HiRISE に合わせてこちらで {M.crismShiftM:0} m 移動 · 明るさ ×{M.crismGain}"), X2, ly, 21, Gray);
-            else b.Text(L("On the table: MRO HiRISE image draped over the HiRISE terrain model", "机上: MRO HiRISE の画像を HiRISE の地形モデルに重ねたもの"), X2, ly, 23, Gray);
+            else if (layer == "crism") b.Text(L($"{M.crismObservation} PHY browse: R {M.crismBands[0]}, G {M.crismBands[1]}, B {M.crismBands[2]} · moved about {M.crismShiftM:0} m by us; residual not assessed · ×{M.crismGain}",
+                                                $"{M.crismObservation} PHY ブラウズ: R {M.crismBands[0]}, G {M.crismBands[1]}, B {M.crismBands[2]} · こちらで約 {M.crismShiftM:0} m 移動(残差は未評価)· ×{M.crismGain}"), X2, ly, Size.Note * .9f, Gray);
+            else b.Text(L("On the table: MRO HiRISE image draped over the HiRISE terrain model", "机上: MRO HiRISE の画像を HiRISE の地形モデルに重ねたもの"), X2, ly, Size.Note, Gray);
         }
 
         // PLAN: the task timeline. Each segment selects its task, station and leg.
@@ -438,41 +476,39 @@ namespace MissionLens
         {
             var s = strip; s.Clear(); var Ts = M.tasks[selTask]; const float X0 = 30; float W = s.w - 60, k = W / M.plannedTotalMin; var leg = Ts.leg >= 0 ? M.legs[Ts.leg] : null;
             s.Frame(Back, Cyan);
-            s.Text($"{Ts.station} {St(Ts.station).name} · {T(Ts.phase)}", X0, 52, 30, Ink, true);
+            s.Text($"{Ts.station} {St(Ts.station).name} · {T(Ts.phase)}", X0, 58, Size.Heading, Ink, true);
             string state = Ts.index == taskIndex ? L(" · current task", " · 現在の作業") : Ts.index < taskIndex ? L(" · done", " · 完了") : "";
-            s.Text(L($"{Ts.plannedMin} min", $"{Ts.plannedMin} 分") + $" · {MLData.Hm(Ts.startMin)}–{MLData.Hm(Ts.endMin)}{state}", X0 + W - 150, 52, 25, Ts.index == taskIndex ? Amber : Gray, false, 1);
+            s.Text(L($"{Ts.plannedMin} min", $"{Ts.plannedMin} 分") + $" · {MLData.Hm(Ts.startMin)}–{MLData.Hm(Ts.endMin)}{state}", X0 + W - 150, 56, Size.Label, Ts.index == taskIndex ? Amber : Gray, false, 1);
             // step through the tasks in order, for hands that find the short segments hard to hit
             int ti = selTask;
-            s.Button("‹", X0 + W - 128, 18, 58, 48, () => SelectTask(ti - 1), dim: ti == 0, px: 30, key: "PrevTask");
-            s.Button("›", X0 + W - 58, 18, 58, 48, () => SelectTask(ti + 1), dim: ti == M.tasks.Length - 1, px: 30, key: "NextTask");
-            string line = leg != null ? L($"Walk {leg.distM:0} m from {leg.from} · climb {leg.ascentM:0} m · steepest {leg.slopeMaxDeg:0}° · {Mathf.RoundToInt(leg.pctOnTrack * 100)}% on Perseverance's track · about {Mathf.RoundToInt(leg.estWalkMin)} min at {M.walkSpeed} m/s",
-                                              $"{leg.from} から徒歩 {leg.distM:0} m · 登り {leg.ascentM:0} m · 最大傾斜 {leg.slopeMaxDeg:0}° · {Mathf.RoundToInt(leg.pctOnTrack * 100)}% は Perseverance の走行跡 · 約 {Mathf.RoundToInt(leg.estWalkMin)} 分({M.walkSpeed} m/s)")
-                                     : string.Join("  ·  ", Ts.checks.Select(T));
-            s.Text(line, X0, 90, Ja ? 21 : 23, Gray);
+            s.Button("‹", X0 + W - 128, 20, 58, 50, () => SelectTask(ti - 1), dim: ti == 0, px: Size.Body, key: "PrevTask");
+            s.Button("›", X0 + W - 58, 20, 58, 50, () => SelectTask(ti + 1), dim: ti == M.tasks.Length - 1, px: Size.Body, key: "NextTask");
             if (leg != null)
-            {   // what the colours on the selected leg mean (the slope layer's classes)
-                float lx = X0 + W, textEnd = X0 + s.Measure(line, Ja ? 21 : 23); string cap = L("slope on the route", "ルート上の傾斜");
+            {   // what the colours on the selected leg mean (the slope layer's classes). The leg's numbers are on the left panel.
+                float lx = X0 + W;
                 foreach (var (c, t) in new[] { (Slope20, L("over 20°", "20° 超")), (Slope15, "15–20°"), (Slope10, "10–15°") })
-                { lx -= s.Measure(t, 20); s.Text(t, lx, 90, 20, Soft); lx -= 26; s.Box(lx, 74, 18, 18, 4, c); lx -= 16; }
-                if (lx - s.Measure(cap, 20) > textEnd + 24) s.Text(cap, lx, 90, 20, Dim, false, 1);
+                { lx -= s.Measure(t, Size.Note); s.Text(t, lx, 96, Size.Note, Gray); lx -= 26; s.Box(lx, 80, 18, 18, 4, c); lx -= 16; }
+                s.Text(L("slope on the route · classes ours", "ルート上の傾斜 · 区分はこちらで設定"), lx, 96, Size.Note, Gray, false, 1);
             }
             foreach (var t in M.tasks)
             {
                 float x = X0 + t.startMin * k, w = t.plannedMin * k - 4; bool on = t.index == selTask; int i = t.index;
-                s.Box(x, 114, w, 62, 8, on ? Cyan : t.station == sel ? new Color(95 / 255f, 212 / 255f, 1, .32f) : new Color(1, 1, 1, t.index < taskIndex ? .27f : .12f), t.index == taskIndex && !Finished ? Amber : (Color?)null);
+                s.Box(x, 110, w, 70, 8, on ? Cyan : t.station == sel ? new Color(95 / 255f, 212 / 255f, 1, .32f) : new Color(1, 1, 1, t.index < taskIndex ? .27f : .12f), t.index == taskIndex && !Finished ? Amber : (Color?)null);
                 // station, and under it what kind of task, where the segment is wide enough to hold the word
-                bool two = w >= 74;
-                if (w > 44) s.Text((t.leg >= 0 ? "→ " : "") + t.station, x + w / 2, two ? 143 : 154, 24, on ? OnCyan : Ink, true, 0);
-                if (two) s.Text(ShortPhase(t), x + w / 2, 165, 16, on ? OnCyan : Soft, false, 0);
-                s.Hit("task:" + i, x, 106, w + 4, 78, () => SelectTask(i), 10);
+                // (its last word alone, "search" for "candidate search", where the whole would not fit)
+                string kind = ShortPhase(t); if (s.Measure(kind, Size.Note) > w - 8 && kind.Contains(" ")) kind = kind.Substring(kind.LastIndexOf(' ') + 1);
+                bool two = w >= 74 && s.Measure(kind, Size.Note) <= w - 8;
+                if (w > 44) s.Text((t.leg >= 0 ? "→ " : "") + t.station, x + w / 2, two ? 141 : 154, Size.Label, on ? OnCyan : Ink, true, 0);
+                if (two) s.Text(kind, x + w / 2, 168, Size.Note, on ? OnCyan : Soft, false, 0);
+                s.Hit("task:" + i, x, 104, w + 4, 82, () => SelectTask(i), 10);
             }
-            for (int m = 0; m < M.plannedTotalMin; m += 60) s.Text(MLData.Hm(m), X0 + m * k, 212, 20, Gray);
-            s.Text(MLData.Hm(M.plannedTotalMin), X0 + W, 212, 20, Gray, false, 1);
-            s.Text(L("Timeline: BASALT-2 planned EVA (Beaton et al. 2019, Table 2) · walking times and slope classes are ours · amber: current task",
-                     "時間割は BASALT-2 の計画 EVA(Beaton ほか 2019、表 2)に基づく · 歩行時間と傾斜の区分はこちらで設定 · 橙の枠: 現在の作業"), X0, 248, 19, Dim);
-            bool armed = Time.time < restartArmedUntil; float rw = armed ? 270 : 130;
-            if (rig.xr) s.Button(L("Menu", "メニュー"), s.w - 30 - rw - 12 - 130, 222, 130, 40, ToggleMenuPin, menuPinned || menuIntro, px: 19, key: "Menu");
-            s.Button(armed ? L("Press again to restart", "もう一度押すと最初から") : L("Restart", "やり直す"), s.w - 30 - rw, 222, rw, 40, () => { if (Time.time < restartArmedUntil) Restart(); else { restartArmedUntil = Time.time + 3; Refresh(); } }, armed, px: 19, key: "Restart");
+            for (int m = 0; m < M.plannedTotalMin; m += 60) s.Text(MLData.Hm(m), X0 + m * k, 212, Size.Note, Gray);
+            s.Text(MLData.Hm(M.plannedTotalMin), X0 + W, 212, Size.Note, Gray, false, 1);
+            s.Text(L("Timeline: BASALT-2 planned EVA (Beaton et al. 2019, Table 2) · walking times are ours · amber frame: current task",
+                     "時間割: BASALT-2 の計画 EVA に基づく(Beaton ほか 2019、表 2)· 歩行時間はこちらの仮定 · 橙の枠 = 現在の作業"), X0, 250, Size.Note, Gray);
+            bool armed = Time.time < restartArmedUntil; float rw = armed ? 290 : 130;
+            if (rig.xr) s.Button(L("Menu", "メニュー"), s.w - 30 - rw - 12 - 130, 222, 130, 40, ToggleMenuPin, menuPinned || menuIntro, px: Size.Note, key: "Menu");
+            s.Button(armed ? L("Press again to restart", "もう一度押すと最初から") : L("Restart", "やり直す"), s.w - 30 - rw, 222, rw, 40, () => { if (Time.time < restartArmedUntil) Restart(); else { restartArmedUntil = Time.time + 3; Refresh(); } }, armed, px: Size.Note, key: "Restart");
         }
 
         static string ShortPhase(MTask t) => t.leg >= 0 ? (t.phase == "Return" ? L("return", "帰還") : L("walk", "移動")) : t.phase.StartsWith("Contextual") ? L("survey", "状況調査") : t.phase.StartsWith("Candidate") ? L("candidate search", "候補探索")
@@ -480,80 +516,93 @@ namespace MissionLens
 
         void DrawWrist()
         {
-            var s = wrist; s.Clear(); const float PW = 600, PH = 860; var Tk = Task; float y = 54, yb = PH - 196;
+            var s = wrist; s.Clear(); const float PW = 600, PH = 860, IW = PW - 68; var Tk = Task; float y = 56, yb = PH - 196;
             s.Frame(new Color(12 / 255f, 15 / 255f, 20 / 255f, .95f), preview != null || stage != Stage.Field ? Cyan : Amber);
-            s.Text("MISSION LENS", 34, y, 20, Gray, true);
-            s.Text(stage == Stage.Giant ? L("PLAN · ROUTE PREVIEW", "PLAN · ルートの下見") : stage == Stage.Walk ? L("TERRAIN MODEL", "地形モデル") : preview != null ? L("PLAN · LOOKING AHEAD", "PLAN · 下見") : "FIELD", PW - 34, y, 20, Cyan, true, 1); y += 44;
-            s.Text(M.title, 34, y, 34, Ink, true); y += 36;
-            s.Text(L($"T+ {MLData.Hm(Pet)} of {MLData.Hm(M.plannedTotalMin)} planned · task {Mathf.Min(taskIndex + 1, M.tasks.Length)}/{M.tasks.Length}", $"T+ {MLData.Hm(Pet)} / 計画 {MLData.Hm(M.plannedTotalMin)} · 作業 {Mathf.Min(taskIndex + 1, M.tasks.Length)}/{M.tasks.Length}"), 34, y, 22, Soft); y += 18;
-            s.Box(34, y, PW - 68, 6, 3, new Color(1, 1, 1, .12f)); if (Pet > 0) s.Box(34, y, (PW - 68) * Pet / M.plannedTotalMin, 6, 3, Cyan); y += 44;
             if (stage == Stage.Giant || stage == Stage.Walk)
             {
                 var n = Nearest(); string nid = n.id;
-                s.Text(stage == Stage.Giant ? L("Inside the terrain model, 1 : 25", "地形モデルの中 · 1 : 25") : L("Inside the terrain model, true scale", "地形モデルの中 · 実寸"), 34, y, 26, Ink, true); y += 40;
-                y = s.Wrap(L("Orbital data only: shape from the HiRISE terrain model, colour from the HiRISE image. No rover imagery here. Sky and haze are drawn by us.",
-                             "軌道からのデータだけで作った表示です。形は HiRISE の地形モデル、色は HiRISE の画像。ローバーの画像はここにはありません。空と霞はこちらで描いたものです。"), 34, y, PW - 68, 28, 21, Soft) + 8;
-                s.Wrap(L($"Planned route is the blue path. Nearest station: {n.id} {St(n.id).name}, {n.d:0} m.", $"青い線が計画したルート。最も近い地点: {n.id} {St(n.id).name}、{n.d:0} m。"), 34, y, PW - 68, 28, 21, Ink);
-                s.Button("1 : 25", 34, yb, 258, 62, () => Rescale(SGiant), stage == Stage.Giant); s.Button(L("True scale", "実寸"), 308, yb, 258, 62, () => Rescale(1), stage == Stage.Walk, key: "True scale");
+                s.Text(L("TERRAIN MODEL", "地形モデル"), 34, y, Size.Label, Ink, true); s.Text(stage == Stage.Giant ? L("PLAN · OVERLOOK", "PLAN · 見渡す") : L("TRUE SCALE", "実寸"), PW - 34, y, Size.Note, Cyan, true, 1);
+                y += 62; s.Text(stage == Stage.Giant ? L("Overlook · 1 : 25", "地形を見渡す · 1 : 25") : L("Terrain model · true scale", "地形モデル · 実寸"), 34, y, Size.Heading, Ink, true); y += 46;
+                // orbital data only; what of the picture is ours
+                y = s.Sourced(L("NASA OBSERVATION", "NASA の観測"), Ink, L("HiRISE terrain model and image, from orbit", "HiRISE の地形モデルと画像(軌道から)"), 34, y, IW);
+                s.Sourced(L("DRAWN BY US", "こちらで描いたもの"), Cyan, L("sky and haze", "空と霞"), 34, y, IW);
+                s.Button(L("Overlook 1 : 25", "見渡す 1 : 25"), 34, yb, 258, 62, () => Rescale(SGiant), stage == Stage.Giant, key: "1 : 25"); s.Button(L("True scale 1 : 1", "実寸 1 : 1"), 308, yb, 258, 62, () => Rescale(1), stage == Stage.Walk, key: "True scale");
                 s.Button(L("Surface image at " + nid, nid + " の実画像へ"), 34, yb + 76, 340, 62, () => ToField(nid), key: "Surface image at " + nid); s.Button(L("Table", "机へ"), 390, yb + 76, 176, 62, ToTable, key: "Table");
             }
             else
             {
                 var st = St(At); int mine = marks.Count(m => m.station == At); bool rec = CanMark;
-                s.Text($"{st.id}  {st.name}", 34, y, 30, Ink, true); y += 32;
-                s.Text($"Mastcam-Z, {st.panoSols} · {st.panoCredit}", 34, y, 19, Soft); y += 25;
-                y = s.Wrap(L("Ours: its direction, the sky above it, and the plain colour with a metre grid where it has no pixels.", "こちらで加えたもの: 画像の向き、画像より上の空、画素の無い部分の単色と 1 m 格子。"), 34, y, PW - 68, 24, 19, Gray) + 3;
-                if (st.hasSample) y = s.Wrap(L($"NASA record: rock cores {st.sampleName} were taken within about {Mathf.CeilToInt(st.sampleDistM)} m of this stop.", $"NASA の記録: 岩石コア {st.sampleName} は、この停止点から約 {Mathf.CeilToInt(st.sampleDistM)} m 以内で採取された。"), 34, y, PW - 68, 26, 20, Soft);
-                if (st.id == M.medaStation) { s.Text(MedaLine, 34, y, 20, Soft); y += 26; }
-                y += 20;
+                s.Text($"{st.id} {st.name}", 34, y, Size.Label, Ink, true);
+                s.Text(preview != null ? L("PLAN · LOOKING AHEAD", "PLAN · 下見") : L($"FIELD · TASK {Mathf.Min(taskIndex + 1, M.tasks.Length)}/{M.tasks.Length}", $"FIELD · 作業 {Mathf.Min(taskIndex + 1, M.tasks.Length)}/{M.tasks.Length}"), PW - 34, y, Size.Note, Cyan, true, 1);
+                y += 58;
                 if (preview != null)
                 {   // looking ahead from the briefing: what is planned here, and nothing to do yet
-                    s.Text(L("PLANNED HERE", "ここでの予定"), 34, y, 21, Gray, true); y += 34;
+                    s.Text(L("PLANNED HERE", "ここでの予定"), 34, y, Size.Label, Gray, true); y += 40;
                     foreach (var t in M.tasks.Where(t => t.station == st.id).Take(5))
                     {
-                        s.Text(MLData.Hm(t.startMin), 34, y, 22, t.index < taskIndex ? Dim : Soft); s.Text(T(t.phase), 104, y, 22, t.index < taskIndex ? Dim : Ink, t.index == taskIndex);
-                        s.Text(L(t.plannedMin + " min", t.plannedMin + " 分"), PW - 34, y, 22, Soft, false, 1); y += 30;
+                        s.Text(MLData.Hm(t.startMin), 34, y, Size.Note, t.index < taskIndex ? Dim : Gray); s.Text(T(t.phase), 100, y, Size.Label, t.index < taskIndex ? Dim : Ink, t.index == taskIndex);
+                        s.Text(L(t.plannedMin + " min", t.plannedMin + " 分"), PW - 34, y, Size.Note, Gray, false, 1); y += 34;
                     }
-                    s.Wrap(L($"Looking ahead from the briefing. The Marswalk is at {here} {St(here).name}; nothing is recorded here yet.", $"ブリーフィングからの下見です。Marswalk は {here} {St(here).name} にいます。ここではまだ何も記録されません。"), 34, y + 24, PW - 68, 26, 20, Amber);
-                    s.Button(L("Back to the table", "机へ戻る"), 34, yb, PW - 68, 62, ToTable, primary: true, key: "Back to the table");
-                    string ph = st.id; s.Button(L("Step out to terrain", "地形モデルへ出る"), 34, yb + 76, PW - 68, 62, () => EnterTerrain(ph, 1), key: "Step out to terrain");
+                    y = s.Wrap(st.hasSample ? L($"Looking ahead from the briefing. The Marswalk is at {here} {St(here).name}. Views framed here with the camera go to the observation plan.", $"ブリーフィングからの下見です。Marswalk は {here} {St(here).name} にいます。ここでカメラで決めた構図は、観測計画に入ります。")
+                                            : L($"Looking ahead from the briefing. The Marswalk is at {here} {St(here).name}; nothing is recorded here yet.", $"ブリーフィングからの下見です。Marswalk は {here} {St(here).name} にいます。ここではまだ何も記録されません。"), 34, y + 20, IW, 27, Size.Note, Amber);
+                }
+                else if (Finished)
+                {
+                    s.Text(L("All tasks complete", "全作業が完了"), 34, y, Size.Heading, Cyan, true);
+                    y = s.Wrap(L("Go back to the table to review what was recorded.", "机へ戻って、記録を振り返れます。"), 34, y + 42, IW, 31, Size.Label, Soft);
+                }
+                else if (Tk.station == here && Tk.leg < 0)
+                {   // the task that is due here: its checks are what this panel is for
+                    s.Text(L($"TASK · {Tk.plannedMin} MIN", $"作業 · {Tk.plannedMin} 分"), 34, y, Size.Label, Gray, true); y += 46;
+                    y = s.Wrap(T(Tk.phase), 34, y, IW, 40, Size.Heading, Ink, true) - 14;
+                    for (int i = 0; i < Tk.checks.Length; i++)
+                    {
+                        bool on = done.Contains(i); float y0 = y; int ci = i;
+                        s.Box(36, y + 6, 34, 34, 8, on ? Cyan : new Color(0, 0, 0, 0), on ? Cyan : Hex("8b9097")); if (on) s.Check(36, y + 6, 34, OnCyan);
+                        y = s.Wrap(T(Tk.checks[i]), 88, y + 33, PW - 126, 36, Size.Body, on ? Hex("8b9097") : Ink) - 2;
+                        s.Hit("check:" + i, 28, y0 - 2, PW - 56, y - y0, () => ToggleCheck(ci), 10);
+                    }
+                    y += 26;
+                    if (rec) y = s.Sourced(L("SIMULATED RECORD", "模擬の記録"), Amber, mine > 0 ? L($"{mine} observation region{(mine > 1 ? "s" : "")} · need local verification", $"観測領域 {mine} 件 · 現地での確認が必要")
+                        : rig.xr ? L("point and pinch at a region to investigate · needs local verification", "調べたい領域を指してピンチ · 現地での確認が必要") : L("point and click at a region to investigate · needs local verification", "調べたい領域を指してクリック · 現地での確認が必要"), 34, y, IW);
                 }
                 else
                 {
-                    if (Finished) { s.Text(L("All tasks complete", "全作業が完了"), 34, y, 26, Cyan, true); s.Wrap(L("Go back to the table to review what was recorded.", "机へ戻って、記録を振り返れます。"), 34, y + 36, PW - 68, 28, 21, Soft); }
-                    else if (Tk.station == here && Tk.leg < 0)
-                    {
-                        s.Text(L($"TASK · {Tk.plannedMin} MIN", $"作業 · {Tk.plannedMin} 分"), 34, y, 21, Gray, true);
-                        if (rec) s.Text(mine > 0 ? L($"{mine} marked · simulated record", $"印 {mine} 件 · 模擬の記録") : rig.xr ? L("point and pinch to mark", "指してピンチで印") : L("point and click to mark", "指してクリックで印"), PW - 34, y, 20, Amber, mine > 0, 1);
-                        y += 36; s.Text(T(Tk.phase), 34, y, 28, Ink, true); y += 22;
-                        for (int i = 0; i < Tk.checks.Length; i++)
-                        {
-                            bool on = done.Contains(i); float y0 = y; int ci = i;
-                            s.Box(36, y + 6, 30, 30, 7, on ? Cyan : new Color(0, 0, 0, 0), on ? Cyan : Hex("8b9097")); if (on) s.Check(36, y + 6, 30, OnCyan);
-                            y = s.Wrap(T(Tk.checks[i]), 84, y + 30, PW - 124, 28, 22, on ? Hex("8b9097") : Ink) + 6;
-                            s.Hit("check:" + i, 28, y0 - 2, PW - 56, y - y0, () => ToggleCheck(ci), 10);
-                        }
-                        if (rec) s.Wrap(L("A mark's position comes from the terrain model and is approximate.", "印の位置は地形モデルから求めたおおよその位置です。"), 34, y + 22, PW - 68, 24, 19, Gray);
-                    }
-                    else
-                    {
-                        var b = BearingFromHere(Tk.station); bool seen = st.sees.Contains(Tk.station);
-                        s.Text(L("NEXT", "次"), 34, y, 21, Gray, true); y += 36; s.Text($"{T(Tk.phase)} · {St(Tk.station).name}", 34, y, 28, Ink, true); y += 36;
-                        s.Text(L($"{b.d:0} m straight · bearing {MLData.Deg3(b.az)}° · {(seen ? "in view" : "behind terrain")}", $"直線 {b.d:0} m · 方位 {MLData.Deg3(b.az)}° · {(seen ? "見える" : "地形の陰")}"), 34, y, 23, seen ? Ink : Amber); y += 40;
-                        var leg = M.legs.FirstOrDefault(l => (l.from == here && l.to == Tk.station) || (l.to == here && l.from == Tk.station));
-                        if (leg != null) s.Wrap(L($"Planned route {leg.distM:0} m, steepest {leg.slopeMaxDeg:0}°, about {Mathf.RoundToInt(leg.estWalkMin)} min at {M.walkSpeed} m/s (our assumption).",
-                                                  $"計画ルート {leg.distM:0} m、最大傾斜 {leg.slopeMaxDeg:0}°、約 {Mathf.RoundToInt(leg.estWalkMin)} 分({M.walkSpeed} m/s、こちらの仮定)。"), 34, y, PW - 68, 26, 20, Soft);
-                    }
-                    bool go = !Finished && Tk.station != here; float cw = rec && mine > 0 ? 350 : PW - 68; string to = Tk.station;
-                    if (Finished) s.Button(L("Review at the table", "机で振り返る"), 34, yb, PW - 68, 62, ToTable, primary: true, key: "Review at the table");
-                    else if (go) s.Button(L($"Walk to {to} {St(to).name}", $"{to} {St(to).name} へ歩く"), 34, yb, PW - 68, 62, () => Travel(to), primary: true, key: "Walk to " + to);
-                    else s.Button(L("Complete task", "作業を完了"), 34, yb, cw, 62, CompleteTask, done.Count == Tk.checks.Length, key: "Complete task");
-                    if (!Finished && !go && rec && mine > 0) s.Button(L("Undo mark", "印を取り消す"), 34 + cw + 14, yb, PW - 68 - cw - 14, 62, UndoMark, key: "Undo mark");
+                    var b = BearingFromHere(Tk.station); bool seen = st.sees.Contains(Tk.station);
+                    s.Text(L("NEXT", "次"), 34, y, Size.Label, Gray, true); y += 46;
+                    y = s.Wrap($"{T(Tk.phase)} · {St(Tk.station).name}", 34, y, IW, 40, Size.Heading, Ink, true);
+                    y = s.Wrap(L($"{b.d:0} m straight · bearing {MLData.Deg3(b.az)}° · station target predicted {(seen ? "clear of terrain" : "behind terrain")} (model)", $"直線 {b.d:0} m · 方位 {MLData.Deg3(b.az)}° · 目標点は{(seen ? "地形に隠れない" : "地形の陰")}と予測(モデル)"), 34, y, IW, 36, Size.Body, seen ? Ink : Amber);
+                    var leg = M.legs.FirstOrDefault(l => (l.from == here && l.to == Tk.station) || (l.to == here && l.from == Tk.station));
+                    if (leg != null) y = s.Sourced(L("OUR CALCULATION", "こちらの計算"), Cyan, L($"planned route {leg.distM:0} m, steepest {leg.slopeMaxDeg:0}°, about {Mathf.RoundToInt(leg.estWalkMin)} min at {M.walkSpeed} m/s (assumed)",
+                                                                                                $"計画ルート {leg.distM:0} m、最大傾斜 {leg.slopeMaxDeg:0}°、約 {Mathf.RoundToInt(leg.estWalkMin)} 分({M.walkSpeed} m/s は仮定)"), 34, y + 2, IW);
+                }
+                // where the picture comes from and what of it is ours; what NASA recorded at this stop
+                y += 10;
+                y = s.Sourced(L("NASA OBSERVATION", "NASA の観測"), Ink, $"Mastcam-Z, {st.panoSols} · {st.panoCredit}", 34, y, IW);
+                y = s.Sourced(L("ADDED BY US", "こちらで追加"), Cyan, L("its direction, the sky above it, the fill colour and metre grid where it has no pixels", "画像の向き、画像より上の空、画素の無い部分の色と 1 m 格子"), 34, y, IW);
+                if (st.hasSample) y = s.Sourced(L("NASA RECORD", "NASA の記録"), Ink, L($"rock cores {st.sampleName} were taken within about {Mathf.CeilToInt(st.sampleDistM)} m of this stop", $"岩石コア {st.sampleName} を、この停止点から約 {Mathf.CeilToInt(st.sampleDistM)} m 以内で採取"), 34, y, IW);
+                if (st.id == M.medaStation) s.Sourced(L("NASA OBSERVATION", "NASA の観測"), Ink, MedaLine, 34, y, IW);
+
+                if (preview != null)
+                {
+                    s.Button(L("Back to the table", "机へ戻る"), 34, yb, IW, 62, ToTable, primary: true, px: Size.Body, key: "Back to the table");
+                    string ph = st.id; s.Button(L("Step out to terrain", "地形モデルへ出る"), 34, yb + 76, IW, 62, () => EnterTerrain(ph, 1), key: "Step out to terrain");
+                }
+                else
+                {
+                    bool go = !Finished && Tk.station != here; float cw = rec && mine > 0 ? 350 : IW; string to = Tk.station;
+                    if (Finished) s.Button(L("Review at the table", "机で振り返る"), 34, yb, IW, 62, ToTable, primary: true, px: Size.Body, key: "Review at the table");
+                    else if (go) s.Button(L($"Walk to {to} {St(to).name}", $"{to} {St(to).name} へ歩く"), 34, yb, IW, 62, () => Travel(to), primary: true, px: Size.Body, key: "Walk to " + to);
+                    else s.Button(L("Complete task", "作業を完了"), 34, yb, cw, 62, CompleteTask, done.Count == Tk.checks.Length, px: Size.Body, key: "Complete task");
+                    if (!Finished && !go && rec && mine > 0) s.Button(L("Undo mark", "印を取り消す"), 34 + cw + 14, yb, IW - cw - 14, 62, UndoMark, key: "Undo mark");
                     string h = here; s.Button(L("Table", "机へ"), 34, yb + 76, 170, 62, ToTable, key: "Table"); s.Button(L("Step out to terrain", "地形モデルへ出る"), 220, yb + 76, 346, 62, () => EnterTerrain(h, 1), key: "Step out to terrain");
                 }
             }
-            s.Text(L("Hypothetical Marswalk · data: NASA", "仮想の Marswalk · データ: NASA"), 34, PH - 22, 18, Dim);
+            s.Text(L("Hypothetical Marswalk · data: NASA", "仮想の Marswalk · データ: NASA"), 34, PH - 22, Size.Note, Dim);
         }
+
+        // The clock on the head-up strip. It says "plan": it is where the timeline stands, not time that has passed.
+        static string HudClock(float min) => L("PLAN T+ ", "計画 T+ ") + MLData.Hm(min);
 
         void DrawHud()
         {
@@ -562,33 +611,40 @@ namespace MissionLens
             if (stage == Stage.Field && preview != null)
             {
                 var st = St(preview); var here2 = M.tasks.Where(t => t.station == st.id && t.leg < 0).ToArray();
-                top = L($"LOOKING AHEAD · {st.id} · {st.name.ToUpper()}", $"下見 · {st.id} · {st.name.ToUpper()}"); col = Ink; main = L("What you will see on arrival", "到着時に見える景色");
-                sub = L($"{here2.Length} task{(here2.Length == 1 ? "" : "s")} planned here, {here2.Sum(t => t.plannedMin)} min in all · the Marswalk is at {here} {St(here).name}",
+                top = L($"LOOKING AHEAD · {st.id} {st.name}", $"下見 · {st.id} {st.name}"); main = L("What you will see on arrival", "到着時に見える景色");
+                sub = L($"{here2.Length} task{(here2.Length == 1 ? "" : "s")} planned here, {here2.Sum(t => t.plannedMin)} min · the Marswalk is at {here} {St(here).name}",
                         $"ここでの予定は {here2.Length} 作業、合計 {here2.Sum(t => t.plannedMin)} 分 · Marswalk は {here} {St(here).name}");
+                if (CanCamera) sub = L("Open the camera to frame a view for the observation plan", "カメラを開いて、観測計画のための構図を決められます");
             }
             else if (stage == Stage.Field)
             {
-                var st = St(here); top = $"{st.id} · {st.name.ToUpper()}";
+                var st = St(here); top = $"{st.id} {st.name}";
                 if (fin) { main = L("All tasks complete", "全作業が完了"); sub = L("Go back to the table to review the Marswalk", "机へ戻って Marswalk を振り返れます"); }
                 else if (Tk.station == here && Tk.leg < 0)
-                {
-                    main = T(Tk.phase); int got = marks.Count(m => m.station == here);
+                {   // what the hands do in this task is the headline; the task's name goes above it and the bookkeeping under it
+                    top += " · " + ShortPhase(Tk); int got = marks.Count(m => m.station == here);
                     string progress = L($"{done.Count}/{Tk.checks.Length} checks", $"確認 {done.Count}/{Tk.checks.Length}");
-                    // what the hands do in this task comes first; the bookkeeping after it
-                    sub = Tk.recordCheck >= 0
-                        ? (rig.xr ? L("Point at a candidate and pinch to record it", "候補を指して、ピンチで記録") : L("Point at a candidate and click to record it", "候補を指して、クリックで記録")) + L($" (simulated, approximate) · {got} recorded · ", $"(模擬・概略位置)· 記録 {got} 件 · ") + progress
-                        : (rig.xr ? L("Check the items on the panel (open your left thumb), then complete the task · ", "パネルの確認項目を確かめて(左手の親指を開く)、作業を完了 · ") : L("Check the items on the panel, then complete the task · ", "パネルの確認項目を確かめて、作業を完了 · ")) + progress;
+                    if (Tk.recordCheck >= 0)
+                    {
+                        main = rig.xr ? L("Point at a region to investigate and pinch", "調べたい領域を指して、ピンチ") : L("Point at a region to investigate and click", "調べたい領域を指して、クリック");
+                        sub = L($"{got} recorded · {progress} · simulated, needs local verification", $"記録 {got} 件 · {progress} · 模擬・現地での確認が必要");
+                    }
+                    else
+                    {
+                        main = L("Check the items, then complete the task", "確認項目を確かめて、作業を完了");
+                        sub = (rig.xr ? L("open your left thumb for the panel · ", "左手の親指を開くとパネル · ") : L("the items are on the panel · ", "確認項目はパネルに · ")) + progress;
+                    }
                 }
                 else
                 {
                     var b = BearingFromHere(Tk.station); bool seen = st.sees.Contains(Tk.station); main = L("Next: ", "次: ") + $"{Tk.station} {St(Tk.station).name}"; col = Amber;
-                    sub = L($"{Tk.phase} · {b.d:0} m · bearing {MLData.Deg3(b.az)}° · {(seen ? "in view" : "behind terrain")}", $"{T(Tk.phase)} · {b.d:0} m · 方位 {MLData.Deg3(b.az)}° · {(seen ? "見える" : "地形の陰")}");
+                    sub = L($"{Tk.phase} · {b.d:0} m · bearing {MLData.Deg3(b.az)}° · target {(seen ? "clear" : "behind terrain")} (model)", $"{T(Tk.phase)} · {b.d:0} m · 方位 {MLData.Deg3(b.az)}° · 目標は{(seen ? "隠れない" : "地形の陰")}(モデル)");
                 }
             }
             else
             {
-                var n = Nearest(); top = stage == Stage.Giant ? L("ROUTE PREVIEW · 1 : 25", "ルートの下見 · 1 : 25") : L("TERRAIN MODEL · TRUE SCALE", "地形モデル · 実寸");
-                if (checkpoint != null) top = L("ROUTE CHECK · TERRAIN MODEL, TRUE SCALE", "ルートの確認 · 地形モデル(実寸)");
+                var n = Nearest(); top = stage == Stage.Giant ? L("OVERLOOK · TERRAIN MODEL 1 : 25", "地形を見渡す · 地形モデル 1 : 25") : L("TERRAIN MODEL · TRUE SCALE", "地形モデル · 実寸");
+                if (checkpoint != null) top = L("ROUTE CHECK · TERRAIN MODEL 1 : 1", "ルートの確認 · 地形モデル(実寸)");
                 main = travelling != null ? L($"Walking to {travelling} {St(travelling).name}", $"{travelling} {St(travelling).name} へ移動中") : L("Orbital data only", "軌道からのデータのみ");
                 sub = L($"Nearest station: {n.id} {St(n.id).name}, {n.d:0} m", $"最も近い地点: {n.id} {St(n.id).name}、{n.d:0} m");
             }
@@ -597,20 +653,30 @@ namespace MissionLens
                 var cp = checkpoint; col = SlopeClass(cp.slope); if (col.a == 0) col = Ink;
                 main = L($"Steepest ground on this leg: {cp.slope:0}°", $"この区間でいちばん急な所: {cp.slope:0}°");
                 sub = (cp.ahead >= 2 ? L($"{cp.ahead:0} m ahead", $"{cp.ahead:0} m 先") : L("around here", "このあたり"))
-                    + L($" · {cp.toGo:0} m to go · colours: slope classes, ours, from the HiRISE terrain model", $" · 残り {cp.toGo:0} m · 色は傾斜の区分(HiRISE 地形モデルからこちらで計算)");
+                    + L($" · {cp.toGo:0} m to go · colours = slope classes (our calculation)", $" · 残り {cp.toGo:0} m · 色 = 傾斜の区分(こちらの計算)");
+            }
+            bool cam = CanCamera;
+            if (cam && camOn)
+            {   // the camera is up: what the frame is, and what the next photo will be for
+                string purpose = CamPurpose(out var fromTask); col = Ink;
+                main = purpose.Length == 0 ? L("Choose what this view is for", "この構図の目的を選ぶ") : L("Frame what you need to document", "記録が必要なものを構図に収める");
+                sub = purpose.Length == 0 ? L("the purposes are under the frame · past panorama, not a new observation", "目的は枠の下 · 過去のパノラマで、新しい観測ではありません")
+                    : L("Purpose: ", "目的: ") + Word(purpose) + (fromTask != null ? L(" · from the task", " · タスクから") : L(" · chosen here", " · ここで選択")) + (rig.xr ? L(" · pinch to capture", " · ピンチで撮影") : L(" · click to capture", " · クリックで撮影"));
             }
             if (flashMsg.Length > 0) sub = flashMsg;
-            // Left: where you are and what is due. Right: the step that is due as one button, then the panel and the table.
-            float R = W - 304, bx = W - 280;
+            // Left: where you are, then what to do now, large. Right: the step that is due as one button, then the panel and the table;
+            // at an outcrop of the observation plan, the camera beside them.
+            float R = W - (cam ? 440 : 304), bx = W - (cam ? 416 : 280);
             s.Box(0, 0, W, s.h, 26, new Color(10 / 255f, 12 / 255f, 16 / 255f, .88f));
             if (!rig.xr) s.Hit("hud", 0, 0, W, s.h, ToggleWrist, 26, true);
-            s.Text(top, 40, 48, 23, stage == Stage.Field && preview != null ? Cyan : Gray, true);
-            hudClock = s.Text($"T+ {MLData.Hm(Pet)} / {MLData.Hm(M.plannedTotalMin)}", R - 132, 48, 23, Gray, true, 1);
-            hudHeading = s.Text($"HDG {MLData.Deg3(HeadingNow)}°", R, 48, 23, Gray, true, 1);
-            s.Text(main, 40, 104, Ja ? 34 : 38, col, true); hudSub = s.Text(sub, 40, 146, Ja ? 22 : 24, flashMsg.Length > 0 ? Amber : Soft);
+            s.Text(top, 40, 48, Size.Label, stage == Stage.Field && preview != null ? Cyan : Gray, true);
+            hudClock = s.Text(HudClock(Pet), R - 124, 48, Size.Note, Gray, false, 1);
+            hudHeading = s.Text($"HDG {MLData.Deg3(HeadingNow)}°", R, 48, Size.Note, Gray, false, 1);
+            s.Text(main, 40, 104, Size.Heading, col, true); hudSub = s.Text(sub, 40, 146, Size.Label, flashMsg.Length > 0 ? Amber : Soft);
             hudSide = TurnSide();   // which way to turn when the next station is outside the view
-            if (hudSide != 0) s.Text(hudSide < 0 ? $"« {target}" : $"{target} »", R, 104, 34, Amber, true, 1);
-            s.Box(W - 292, 18, 1.5f, s.h - 36, 1, new Color(1, 1, 1, .14f));
+            if (hudSide != 0) s.Text(hudSide < 0 ? $"« {target}" : $"{target} »", R, 104, Size.Heading, Amber, true, 1);
+            s.Box(bx - 12, 18, 1.5f, s.h - 36, 1, new Color(1, 1, 1, .14f));
+            if (cam) s.Button(camOn ? L("Camera on", "カメラ中") : L("Camera", "カメラ"), bx + 264, 20, 124, 128, ToggleCamera, camOn, px: Size.Note, key: "Camera");
             string act = null; System.Action fn = null; bool on = false;
             if (stage == Stage.Field && preview != null) { act = L("Back to the table", "机へ戻る"); fn = ToTable; }
             else if (stage == Stage.Field && fin) { act = L("Review at the table", "机で振り返る"); fn = ToTable; }
@@ -618,10 +684,11 @@ namespace MissionLens
             else if (stage == Stage.Field) { act = L("Complete task", "作業を完了"); fn = CompleteTask; on = done.Count == Tk.checks.Length; }
             else if (checkpoint != null) { act = L("Confirmed · go on", "確認して進む"); fn = ConfirmCheckpoint; on = true; }
             else if (travelling == null) { string nid = Nearest().id; act = L("Surface image at " + nid, nid + " の実画像へ"); fn = () => ToField(nid); }
-            if (act != null) s.Button(act, bx, 20, 252, 60, fn, on, primary: true, px: Ja ? 21 : 23, key: "HudAction");
-            else s.Button(L("Walking…", "移動中…"), bx, 20, 252, 60, () => { }, dim: true, px: 23);
-            s.Button(wristUp ? L("Close", "閉じる") : L("Panel", "パネル"), bx, 92, 120, 56, ToggleWrist, wristUp, px: Ja ? 20 : 22, key: "Panel");
-            s.Button(L("Table", "机へ"), bx + 132, 92, 120, 56, ToTable, px: Ja ? 20 : 22, key: "HudTable");
+            // a long label is written one step smaller rather than run out of its button
+            if (act != null) s.Button(act, bx, 20, 252, 60, fn, on, primary: true, px: s.Measure(act, Size.Label, true) <= 232 ? Size.Label : Size.Note, key: "HudAction");
+            else s.Button(L("Walking…", "移動中…"), bx, 20, 252, 60, () => { }, dim: true);
+            s.Button(wristUp ? L("Close", "閉じる") : L("Panel", "パネル"), bx, 92, 120, 56, ToggleWrist, wristUp, key: "Panel");
+            s.Button(L("Table", "机へ"), bx + 132, 92, 120, 56, ToTable, key: "HudTable");
         }
     }
 }

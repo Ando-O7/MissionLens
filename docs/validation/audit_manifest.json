@@ -1,0 +1,80 @@
+{
+  "audit_date_utc": "2026-11-15",
+  "ai_assistance": "Codex: audit scripts, research synthesis, explanatory text and computed figures; no human-study data generated",
+  "sources": [
+    {
+      "kind": "challenge",
+      "url": "https://www.spaceappschallenge.org/2026/challenges/interplanetary-survival-guide-martian-map/",
+      "retrieval": "Official HTML fetched directly; embedded challenge body parsed where needed"
+    },
+    {
+      "kind": "submission",
+      "url": "https://www.spaceappschallenge.org/resources/project-submission-guide/",
+      "retrieval": "Official HTML fetched directly; embedded challenge body parsed where needed"
+    },
+    {
+      "kind": "judging",
+      "url": "https://www.spaceappschallenge.org/resources/judging-awards-guide/",
+      "retrieval": "Official HTML fetched directly; embedded challenge body parsed where needed"
+    }
+  ],
+  "files": [
+    {
+      "file": "README.md",
+      "sha256": "d1b1f38ffa6bc10fbf7b77b11fd83c5504d1233388d69cf3c74097f8951fc83f"
+    },
+    {
+      "file": "check_geometry.py",
+      "sha256": "8680a6fdd59cda70921fd96ac6e643ae8b35790c64e1e8f8617bdd6bd7efd537"
+    },
+    {
+      "file": "check_panorama.py",
+      "sha256": "0318a35251d05accaba4ed7aa074faf4c6ca8d94a198ac0aa55f07bf0086e946"
+    },
+    {
+      "file": "check_sample_records.py",
+      "sha256": "5136925b3bb7180ed3e072bd3dd75b41127e0df8671ae68140ef4fdb8269b819"
+    },
+    {
+      "file": "check_source_grid.py",
+      "sha256": "707c0872f6bf0cdc8f88ed7c514fa7272773dff7b2d04dc0c276610e82a23fe4"
+    },
+    {
+      "file": "geometry_results.json",
+      "sha256": "00703f10b75cae6fa4d8043045efed3d45779e2f97f8ea71e2a63aaed97c5701"
+    },
+    {
+      "file": "los_profiles.json",
+      "sha256": "b11ccb82f264edd2f0dc255eefd5a62d848c065aba315c1c9c2be7a98a51150d"
+    },
+    {
+      "file": "los_profiles.png",
+      "sha256": "cdc4340874b884395523411f661e1ebd5d9d3e339e1e50c31f72d9cf9833acd0"
+    },
+    {
+      "file": "los_profiles.svg",
+      "sha256": "503d61ecd54b51e33d783673017e44ff2b3dbac082c3d4495331750f8758d933"
+    },
+    {
+      "file": "panorama_direction_check.png",
+      "sha256": "13a2ac88a3ed4086096fe4bcfc31c7eca9a26cfb17e371a5b55ea5a151677cdb"
+    },
+    {
+      "file": "panorama_results.json",
+      "sha256": "3a059961c823ffe0ef21bff40cfdda10b7426eeaf693fa7c06b1ee1532d17b3a"
+    },
+    {
+      "file": "plot_checks.py",
+      "sha256": "f40f66b1895b3b0b30cc52be51c6bf31442e313a5c3b11f43908c517bfb5d4cc"
+    },
+    {
+      "file": "sample_records_results.json",
+      "sha256": "45f0c7b731aafbbd664632a600bfd9e7e936f12d539d3882e136127bd394040c"
+    },
+    {
+      "file": "source_grid_results.json",
+      "sha256": "777b47e16a9a163ef365566084df3371bd5e5ef642f982576397a01cd1e7dd3b"
+    }
+  ],
+  "documentation_revision": "User selected paired-outcrop observation planning; added panorama-camera rehearsal and planned close-ups. Numerical results unchanged. Human evaluation not conducted."
+}

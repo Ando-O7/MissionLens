@@ -83,8 +83,8 @@ namespace MissionLens
             var back = new Color(8 / 255f, 10 / 255f, 14 / 255f, .93f);   // nearly solid: it is held up against the room or the model
             // the selected task, written over the dial so that it travels with it (the fingers hold the dial from below)
             s.Frame(back, Cyan, 6, 6, 588, 268);
-            cardName = s.Text("", 32, 56, 32, Ink, true); cardPhase = s.Text("", 32, 98, 27, Cyan, true); cardWhen = s.Text("", 32, 136, 23, Gray);
-            cardA = s.Text("", 32, 194, 23, Soft); cardB = s.Text("", 32, 232, 23, Soft);
+            cardName = s.Text("", 32, 58, Size.Heading, Ink, true); cardPhase = s.Text("", 32, 100, Size.Body, Cyan, true); cardWhen = s.Text("", 32, 138, Size.Label, Gray);
+            cardA = s.Text("", 32, 196, Size.Label, Soft); cardB = s.Text("", 32, 232, Size.Label, Soft);
             s.Box(6, CY - 294, 588, 588, 294, back); s.Circle(C, CY, 292, 3, Line);
             foreach (var t in M.tasks)
             {   // each task is an arc of short strokes, as long as its planned time
@@ -99,12 +99,12 @@ namespace MissionLens
                 if (t.plannedMin >= 15)
                 {
                     float m = (TimeToDeg(t.startMin) + TimeToDeg(t.endMin)) / 2 * Mathf.Deg2Rad;
-                    dialLetters[t.index] = s.Text((t.leg >= 0 ? "→" : "") + t.station, C + Mathf.Sin(m) * 198, CY - Mathf.Cos(m) * 198 + 9, 24, Soft, true, 0);
+                    dialLetters[t.index] = s.Text((t.leg >= 0 ? "→" : "") + t.station, C + Mathf.Sin(m) * 198, CY - Mathf.Cos(m) * 198 + 9, Size.Label, Soft, true, 0);
                 }
             }
-            s.Text(L("MISSION TIMER · PLANNED", "ミッションタイマー · 計画"), C, CY - 78, 17, Gray, true, 0);
-            dialTime = s.Text("", C, CY, 66, Ink, true, 0); dialWhat = s.Text("", C, CY + 46, 26, Cyan, true, 0);
-            s.Text(rig.xr ? L("pinch here · turn your hand", "ここをつまんで · 手を回す") : L("rim: turn · middle: carry", "縁: 回す · 中央: 持ち運ぶ"), C, CY + 236, 19, Dim, false, 0);
+            s.Text(L("MISSION TIMER · PLANNED", "ミッションタイマー · 計画"), C, CY - 78, Size.Note, Gray, true, 0);
+            dialTime = s.Text("", C, CY, Size.Display, Ink, true, 0); dialWhat = s.Text("", C, CY + 46, Size.Body, Cyan, true, 0);
+            s.Text(rig.xr ? L("pinch here · turn your hand", "ここをつまんで · 手を回す") : L("rim: turn · middle: carry", "縁: 回す · 中央: 持ち運ぶ"), C, CY + 236, Size.Note, Gray, false, 0);
             s.Hit("timer", 0, 0, 600, 880, () => { }, 40, true);   // so the pointer rests on it instead of taking hold of the map behind
             dialBuiltFor = Finished ? -2 : taskIndex;
         }
@@ -119,22 +119,24 @@ namespace MissionLens
                 if (dialLetters[t.index] != null) dialLetters[t.index].color = on ? Cyan : Soft;
             }
             dialTime.text = "T+ " + MLData.Hm(Tk.startMin); dialWhat.text = $"{Tk.station} · {ShortPhase(Tk)}";
-            Fit(cardName, $"{Tk.station} · {St(Tk.station).name}", 32); Fit(cardPhase, T(Tk.phase), 27);
+            Fit(cardName, $"{Tk.station} · {St(Tk.station).name}", Size.Heading); Fit(cardPhase, T(Tk.phase), Size.Body);
             Fit(cardWhen, L($"{Tk.plannedMin} min", $"{Tk.plannedMin} 分") + $" · T+ {MLData.Hm(Tk.startMin)} – {MLData.Hm(Tk.endMin)}"
-                + (Finished || Tk.index < taskIndex ? L(" · done", " · 完了") : Tk.index == taskIndex ? L(" · current task", " · 現在の作業") : ""), 23);
+                + (Finished || Tk.index < taskIndex ? L(" · done", " · 完了") : Tk.index == taskIndex ? L(" · current task", " · 現在の作業") : ""), Size.Label);
             if (Tk.leg >= 0)
             {
                 var leg = M.legs[Tk.leg];
-                Fit(cardA, L($"Walk {leg.distM:0} m from {leg.from} · climb {leg.ascentM:0} m · steepest {leg.slopeMaxDeg:0}°", $"{leg.from} から徒歩 {leg.distM:0} m · 登り {leg.ascentM:0} m · 最大傾斜 {leg.slopeMaxDeg:0}°"), 23);
-                Fit(cardB, L($"about {Mathf.RoundToInt(leg.estWalkMin)} min at {M.walkSpeed} m/s (our assumption)", $"約 {Mathf.RoundToInt(leg.estWalkMin)} 分({M.walkSpeed} m/s、こちらの仮定)"), 23);
+                Fit(cardA, L($"Walk {leg.distM:0} m from {leg.from} · climb {leg.ascentM:0} m · steepest {leg.slopeMaxDeg:0}°", $"{leg.from} から徒歩 {leg.distM:0} m · 登り {leg.ascentM:0} m · 最大傾斜 {leg.slopeMaxDeg:0}°"), Size.Label);
+                Fit(cardB, L($"about {Mathf.RoundToInt(leg.estWalkMin)} min at {M.walkSpeed} m/s (our assumption)", $"約 {Mathf.RoundToInt(leg.estWalkMin)} 分({M.walkSpeed} m/s、こちらの仮定)"), Size.Label);
             }
-            else { Fit(cardA, Tk.checks.Length > 0 ? "· " + T(Tk.checks[0]) : "", 23); Fit(cardB, Tk.checks.Length > 1 ? "· " + T(Tk.checks[1]) : "", 23); }
+            else { Fit(cardA, Tk.checks.Length > 0 ? "· " + T(Tk.checks[0]) : "", Size.Label); Fit(cardB, Tk.checks.Length > 1 ? "· " + T(Tk.checks[1]) : "", Size.Label); }
         }
-        // One line on the card: written smaller if it would not fit.
+        // One line on the card: one step down the scale if it would not fit, and cut short if it still does not.
         void Fit(TextMeshProUGUI t, string s, float px)
         {
-            float w = s.Length > 0 ? dial.Measure(s, px, (t.fontStyle & FontStyles.Bold) != 0) : 0;
-            t.fontSize = w > 536 ? Mathf.Max(15, px * 536 / w) : px; t.text = s;
+            bool bold = (t.fontStyle & FontStyles.Bold) != 0;
+            if (s.Length > 0 && dial.Measure(s, px, bold) > 536) px = px > Size.Body ? Size.Body : px > Size.Label ? Size.Label : Size.Note;
+            while (s.Length > 4 && dial.Measure(s, px, bold) > 536) s = s.Substring(0, s.Length - 2).TrimEnd() + "…";
+            t.fontSize = px; t.text = s;
         }
 
         // Where a pointer is on the timer. byHand: the hand itself is at it. Otherwise where its ray meets the panel:
@@ -232,11 +234,11 @@ namespace MissionLens
                 {
                     lensShown = shown; var s = lensTag; s.Clear();
                     s.Box(1, 1, 478, 118, 22, new Color(8 / 255f, 10 / 255f, 14 / 255f, .86f), new Color(lc.r, lc.g, lc.b, .5f));
-                    s.Text(lensLayer == "slope" ? L("LENS · SLOPE", "レンズ · 傾斜") : L("LENS · SPECTRAL", "レンズ · 分光"), 24, 48, 30, lc, true);
-                    s.Text("⇄", 456, 48, 30, lc, true, 1);
+                    s.Text(lensLayer == "slope" ? L("LENS · SLOPE", "レンズ · 傾斜") : L("LENS · SPECTRAL", "レンズ · 分光"), 24, 48, Size.Body, lc, true);
+                    s.Text("⇄", 456, 48, Size.Body, lc, true, 1);
                     string how = rig.xr ? L("twist or press to change", "ひねる / 押すで切替") : L("wheel or click to change", "ホイール / クリックで切替");
                     s.Text(!LensOverModel ? (rig.xr ? L("pinch and carry over the model", "ピンチして模型の上へ運ぶ") : L("drag over the model", "ドラッグして模型の上へ"))
-                         : lensLayer == "slope" ? L($"{slope}° here · ", $"ここは {slope}° · ") + how : "CRISM PHY · " + how, 24, 92, 23, Soft);
+                         : lensLayer == "slope" ? L($"{slope}° here · ", $"ここは {slope}° · ") + how : "CRISM PHY · " + how, 24, 92, Size.Label, Soft);
                     s.Hit("lens:layer", 0, 0, 480, 120, LensNextLayer, 22);
                 }
                 var at = orbT.position + Vector3.up * (OrbR + .045f); float d = Mathf.Max(.2f, Vector3.Distance(at, head));

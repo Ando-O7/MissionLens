@@ -1,0 +1,1286 @@
+{
+  "input_hashes": [
+    {
+      "file": "MissionLens/assets/data/jezero_delta_front/dtm_2m_f32.bin",
+      "sha256": "e1e7e7e330f2cebb74cbd3eb72f7f50db78cf21555879a75e9fc687d6a6c85b6"
+    },
+    {
+      "file": "MissionLens/tools/build_mission.py",
+      "sha256": "ffe73cdc8d3c7a52ccb0fe879d3d5109baa6c8e6f5f7930c72fae7ce440cbf1d"
+    },
+    {
+      "file": "MissionLens/tools/build_official_pano.py",
+      "sha256": "eabc273c81bbf35ac959deaa7932e548ca5d4c695a92df0102d107ac289970eb"
+    },
+    {
+      "file": "MissionLens/assets/data/missions/eva01_hawksbill_gap.json",
+      "sha256": "da2618ffa132dccec48e2fb386b5446c3e587b293939ccdb5ff364eebbb9c211"
+    },
+    {
+      "file": "MissionLens/unity/Assets/MissionLens/Resources/ML/mission.json",
+      "sha256": "08d358fa684775145927dfd24259a88aeb4447ab279443cecf4bfad497c41ed4"
+    }
+  ],
+  "scope": "Model consistency and sensitivity, not ground truth or human performance validation",
+  "grid_spacing_m": [
+    1.8989810633730837,
+    2.0025235649765185
+  ],
+  "grid_shape": [
+    593,
+    682
+  ],
+  "cached_source_shape": [
+    1185,
+    1363
+  ],
+  "dtm_equals_cached_decimation": true,
+  "station_coordinates": [
+    {
+      "id": "BASE",
+      "name": "Three Forks",
+      "waypoint": "32_1184",
+      "lon": 77.40844668,
+      "lat": 18.45337179,
+      "x": 278.13,
+      "y": 96.51,
+      "elev": -2545.18
+    },
+    {
+      "id": "A",
+      "name": "Rose River Falls",
+      "waypoint": "26_0",
+      "lon": 77.40630146,
+      "lat": 18.45750967,
+      "x": 157.52,
+      "y": -148.76,
+      "elev": -2534.68
+    },
+    {
+      "id": "B",
+      "name": "Skinner Ridge",
+      "waypoint": "26_1004",
+      "lon": 77.40616768,
+      "lat": 18.45889532,
+      "x": 149.99,
+      "y": -230.89,
+      "elev": -2520.59
+    },
+    {
+      "id": "C",
+      "name": "Wildcat Ridge",
+      "waypoint": "26_1222",
+      "lon": 77.40592495,
+      "lat": 18.45864728,
+      "x": 136.35,
+      "y": -216.19,
+      "elev": -2523.05
+    }
+  ],
+  "reproduced_los": {
+    "BASE_A": {
+      "from": "BASE",
+      "to": "A",
+      "distance_m": 273.32059015010196,
+      "azimuth_deg": 333.81463385983756,
+      "eye_m": 2.0,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 1.99066916404803,
+      "min_clearance_m": 1.3995475886435997,
+      "obstruction_distance_m": 270.31706718141953,
+      "terrain_exceeds_line_by_over_0_3m": false,
+      "matches_stored_sees": true
+    },
+    "BASE_B": {
+      "from": "BASE",
+      "to": "B",
+      "distance_m": 351.5830194989513,
+      "azimuth_deg": 338.6252868056986,
+      "eye_m": 2.0,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 3.8385944087268364,
+      "min_clearance_m": 1.9668020859257922,
+      "obstruction_distance_m": 348.5780364263107,
+      "terrain_exceeds_line_by_over_0_3m": false,
+      "matches_stored_sees": true
+    },
+    "BASE_C": {
+      "from": "BASE",
+      "to": "C",
+      "distance_m": 343.3407322180111,
+      "azimuth_deg": 335.6101838178692,
+      "eye_m": 2.0,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 3.521676074992684,
+      "min_clearance_m": 1.1982821177739424,
+      "obstruction_distance_m": 340.3289714090812,
+      "terrain_exceeds_line_by_over_0_3m": false,
+      "matches_stored_sees": true
+    },
+    "A_BASE": {
+      "from": "A",
+      "to": "BASE",
+      "distance_m": 273.32059015010196,
+      "azimuth_deg": 153.81463385983753,
+      "eye_m": 2.0,
+      "target_height_m": 1.0,
+      "target_elevation_deg": -2.409306430533252,
+      "min_clearance_m": 1.025680574990929,
+      "obstruction_distance_m": 270.31706718141953,
+      "terrain_exceeds_line_by_over_0_3m": false,
+      "matches_stored_sees": true
+    },
+    "A_B": {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 2.0,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 9.018519208811258,
+      "min_clearance_m": -0.9897009057049218,
+      "obstruction_distance_m": 36.65531891742686,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "matches_stored_sees": true
+    },
+    "A_C": {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 2.0,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 8.553543484010632,
+      "min_clearance_m": -0.8768489454832888,
+      "obstruction_distance_m": 37.59315350075438,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "matches_stored_sees": true
+    },
+    "B_BASE": {
+      "from": "B",
+      "to": "BASE",
+      "distance_m": 351.5830194989513,
+      "azimuth_deg": 158.62528680569858,
+      "eye_m": 2.0,
+      "target_height_m": 1.0,
+      "target_elevation_deg": -4.1629372578929065,
+      "min_clearance_m": 1.1197152514841946,
+      "obstruction_distance_m": 348.5780364263107,
+      "terrain_exceeds_line_by_over_0_3m": false,
+      "matches_stored_sees": true
+    },
+    "B_A": {
+      "from": "B",
+      "to": "A",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 174.76154387069107,
+      "eye_m": 2.0,
+      "target_height_m": 1.0,
+      "target_elevation_deg": -10.368478486406811,
+      "min_clearance_m": -1.100812016816235,
+      "obstruction_distance_m": 45.81914864678358,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "matches_stored_sees": true
+    },
+    "B_C": {
+      "from": "B",
+      "to": "C",
+      "distance_m": 20.053418661165985,
+      "azimuth_deg": 222.85796653721104,
+      "eye_m": 2.0,
+      "target_height_m": 1.0,
+      "target_elevation_deg": -9.789382487838552,
+      "min_clearance_m": 1.2980043288807792,
+      "obstruction_distance_m": 16.96827732867891,
+      "terrain_exceeds_line_by_over_0_3m": false,
+      "matches_stored_sees": true
+    },
+    "C_BASE": {
+      "from": "C",
+      "to": "BASE",
+      "distance_m": 343.3407322180111,
+      "azimuth_deg": 155.6101838178692,
+      "eye_m": 2.0,
+      "target_height_m": 1.0,
+      "target_elevation_deg": -3.854048958472049,
+      "min_clearance_m": 1.1025012331415383,
+      "obstruction_distance_m": 340.3289714090812,
+      "terrain_exceeds_line_by_over_0_3m": false,
+      "matches_stored_sees": true
+    },
+    "C_A": {
+      "from": "C",
+      "to": "A",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 162.57004724410135,
+      "eye_m": 2.0,
+      "target_height_m": 1.0,
+      "target_elevation_deg": -10.132088965903662,
+      "min_clearance_m": -0.8294574776923582,
+      "obstruction_distance_m": 34.58570122069403,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "matches_stored_sees": true
+    },
+    "C_B": {
+      "from": "C",
+      "to": "B",
+      "distance_m": 20.053418661165985,
+      "azimuth_deg": 42.85796653721104,
+      "eye_m": 2.0,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 4.164103131137481,
+      "min_clearance_m": 1.2565151566095665,
+      "obstruction_distance_m": 16.96827732867891,
+      "terrain_exceeds_line_by_over_0_3m": false,
+      "matches_stored_sees": true
+    }
+  },
+  "sensitivity": [
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 1.5,
+      "target_height_m": 0.0,
+      "target_elevation_deg": 8.681205602580086,
+      "min_clearance_m": -1.7415539456292208,
+      "obstruction_distance_m": 37.488394347368384,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 1.5,
+      "target_height_m": 0.0,
+      "target_elevation_deg": 8.697339978705742,
+      "min_clearance_m": -1.7384902524113386,
+      "obstruction_distance_m": 37.488394347368384,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 1.5,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 9.358830574048628,
+      "min_clearance_m": -1.287008491083725,
+      "obstruction_distance_m": 37.488394347368384,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 1.5,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 9.374904429126671,
+      "min_clearance_m": -1.2839447978658427,
+      "obstruction_distance_m": 37.488394347368384,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 1.5,
+      "target_height_m": 2.0,
+      "target_elevation_deg": 10.033824296552657,
+      "min_clearance_m": -0.8324630365382291,
+      "obstruction_distance_m": 37.488394347368384,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 1.5,
+      "target_height_m": 2.0,
+      "target_elevation_deg": 10.04983351755424,
+      "min_clearance_m": -0.8366775984914057,
+      "obstruction_distance_m": 36.73862646042102,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 1.7,
+      "target_height_m": 0.0,
+      "target_elevation_deg": 8.545380203968506,
+      "min_clearance_m": -1.632463036538411,
+      "obstruction_distance_m": 37.488394347368384,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 1.7,
+      "target_height_m": 0.0,
+      "target_elevation_deg": 8.561526181930063,
+      "min_clearance_m": -1.6293993433205287,
+      "obstruction_distance_m": 37.488394347368384,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 1.7,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 9.223510533186902,
+      "min_clearance_m": -1.177917581992915,
+      "obstruction_distance_m": 37.488394347368384,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 1.7,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 9.239596824765183,
+      "min_clearance_m": -1.1748538887750328,
+      "obstruction_distance_m": 37.488394347368384,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 1.7,
+      "target_height_m": 2.0,
+      "target_elevation_deg": 9.899044320005464,
+      "min_clearance_m": -0.7233721274474192,
+      "obstruction_distance_m": 37.488394347368384,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 1.7,
+      "target_height_m": 2.0,
+      "target_elevation_deg": 9.915066791926872,
+      "min_clearance_m": -0.7257685075824156,
+      "obstruction_distance_m": 36.73862646042102,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 2.0,
+      "target_height_m": 0.0,
+      "target_elevation_deg": 8.341460989979419,
+      "min_clearance_m": -1.46904909880368,
+      "obstruction_distance_m": 37.73831697635084,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 2.0,
+      "target_height_m": 0.0,
+      "target_elevation_deg": 8.357624053090353,
+      "min_clearance_m": -1.4657629796838592,
+      "obstruction_distance_m": 37.488394347368384,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 2.0,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 9.020336141544606,
+      "min_clearance_m": -1.0142812183567003,
+      "obstruction_distance_m": 37.488394347368384,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 2.0,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 9.036440777593665,
+      "min_clearance_m": -1.0112175251383633,
+      "obstruction_distance_m": 37.488394347368384,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 2.0,
+      "target_height_m": 2.0,
+      "target_elevation_deg": 9.696667127434928,
+      "min_clearance_m": -0.5597357638112044,
+      "obstruction_distance_m": 37.488394347368384,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 2.0,
+      "target_height_m": 2.0,
+      "target_elevation_deg": 9.712709173199144,
+      "min_clearance_m": -0.5594048712187032,
+      "obstruction_distance_m": 36.73862646042102,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 2.2,
+      "target_height_m": 0.0,
+      "target_elevation_deg": 8.205396187941167,
+      "min_clearance_m": -1.3605642503189301,
+      "obstruction_distance_m": 37.73831697635084,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 2.2,
+      "target_height_m": 0.0,
+      "target_elevation_deg": 8.221570428318108,
+      "min_clearance_m": -1.3566720705930493,
+      "obstruction_distance_m": 37.488394347368384,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 2.2,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 8.884759030643275,
+      "min_clearance_m": -0.9051903092658904,
+      "obstruction_distance_m": 37.488394347368384,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 2.2,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 8.900875688321406,
+      "min_clearance_m": -0.9021266160475534,
+      "obstruction_distance_m": 37.488394347368384,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 2.2,
+      "target_height_m": 2.0,
+      "target_elevation_deg": 9.561612833980124,
+      "min_clearance_m": -0.4506448547203945,
+      "obstruction_distance_m": 37.488394347368384,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "distance_m": 82.47446756421044,
+      "azimuth_deg": 354.76154387069107,
+      "eye_m": 2.2,
+      "target_height_m": 2.0,
+      "target_elevation_deg": 9.577667726053319,
+      "min_clearance_m": -0.44849578030971315,
+      "obstruction_distance_m": 36.73862646042102,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 1.5,
+      "target_height_m": 0.0,
+      "target_elevation_deg": 8.159860294034882,
+      "min_clearance_m": -1.6588076530620128,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 1.5,
+      "target_height_m": 0.0,
+      "target_elevation_deg": 8.155418408983072,
+      "min_clearance_m": -1.6629103482177925,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 1.5,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 8.952593998841605,
+      "min_clearance_m": -1.1323058862776634,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 1.5,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 8.948170564001568,
+      "min_clearance_m": -1.136408581433443,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 1.5,
+      "target_height_m": 2.0,
+      "target_elevation_deg": 9.74188716557851,
+      "min_clearance_m": -0.6058041194933139,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 1.5,
+      "target_height_m": 2.0,
+      "target_elevation_deg": 9.737483741659997,
+      "min_clearance_m": -0.6175070610925104,
+      "obstruction_distance_m": 36.21163831910121,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 1.7,
+      "target_height_m": 0.0,
+      "target_elevation_deg": 8.000925449191213,
+      "min_clearance_m": -1.5641080064192465,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 1.7,
+      "target_height_m": 0.0,
+      "target_elevation_deg": 7.996480065079399,
+      "min_clearance_m": -1.5682107015745714,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 1.7,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 8.794313557253744,
+      "min_clearance_m": -1.0376062396344423,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 1.7,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 8.789886306146334,
+      "min_clearance_m": -1.041708934790222,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 1.7,
+      "target_height_m": 2.0,
+      "target_elevation_deg": 9.584317097945831,
+      "min_clearance_m": -0.5111044728500929,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 1.7,
+      "target_height_m": 2.0,
+      "target_elevation_deg": 9.579909549073207,
+      "min_clearance_m": -0.5199805593260862,
+      "obstruction_distance_m": 36.21163831910121,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 2.0,
+      "target_height_m": 0.0,
+      "target_elevation_deg": 7.762291341541213,
+      "min_clearance_m": -1.4220585364541876,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 2.0,
+      "target_height_m": 0.0,
+      "target_elevation_deg": 7.757840829707725,
+      "min_clearance_m": -1.4261612316099672,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 2.0,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 8.55663970995551,
+      "min_clearance_m": -0.8955567696698381,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 2.0,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 8.552206852262328,
+      "min_clearance_m": -0.8996594648256178,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 2.0,
+      "target_height_m": 2.0,
+      "target_elevation_deg": 9.347688033296132,
+      "min_clearance_m": -0.36905500288548865,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 2.0,
+      "target_height_m": 2.0,
+      "target_elevation_deg": 9.343274411532184,
+      "min_clearance_m": -0.37463503832213974,
+      "obstruction_distance_m": 36.96084462915158,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 2.2,
+      "target_height_m": 0.0,
+      "target_elevation_deg": 7.603050747859181,
+      "min_clearance_m": -1.3273588898114212,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 2.2,
+      "target_height_m": 0.0,
+      "target_elevation_deg": 7.598596898575855,
+      "min_clearance_m": -1.3314615849667462,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 2.2,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 8.398024975956078,
+      "min_clearance_m": -0.800857123026617,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 2.2,
+      "target_height_m": 1.0,
+      "target_elevation_deg": 8.393588459571175,
+      "min_clearance_m": -0.8049598181823967,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": true,
+      "grid": "1m_cache_same_extent"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 2.2,
+      "target_height_m": 2.0,
+      "target_elevation_deg": 9.189755878434745,
+      "min_clearance_m": -0.2743553562422676,
+      "obstruction_distance_m": 37.21058006583504,
+      "terrain_exceeds_line_by_over_0_3m": false,
+      "grid": "2m"
+    },
+    {
+      "from": "A",
+      "to": "C",
+      "distance_m": 70.67512858141824,
+      "azimuth_deg": 342.5700472441013,
+      "eye_m": 2.2,
+      "target_height_m": 2.0,
+      "target_elevation_deg": 9.185338284958647,
+      "min_clearance_m": -0.2792286778981179,
+      "obstruction_distance_m": 36.96084462915158,
+      "terrain_exceeds_line_by_over_0_3m": false,
+      "grid": "1m_cache_same_extent"
+    }
+  ],
+  "hypothetical_xy_perturbation": [
+    {
+      "target": "B",
+      "n": 81,
+      "occluded": 81,
+      "min_clearance_range_m": [
+        -1.3551507568222405,
+        -0.7256635024223215
+      ]
+    },
+    {
+      "target": "C",
+      "n": 81,
+      "occluded": 81,
+      "min_clearance_range_m": [
+        -1.071411184648241,
+        -0.6565724523024983
+      ]
+    }
+  ],
+  "crism_station_cells": {
+    "BASE": {
+      "col": 51,
+      "row": 38,
+      "window": [
+        [
+          37,
+          50
+        ],
+        [
+          37,
+          51
+        ],
+        [
+          37,
+          52
+        ],
+        [
+          38,
+          50
+        ],
+        [
+          38,
+          51
+        ],
+        [
+          38,
+          52
+        ],
+        [
+          39,
+          50
+        ],
+        [
+          39,
+          51
+        ],
+        [
+          39,
+          52
+        ]
+      ]
+    },
+    "A": {
+      "col": 44,
+      "row": 24,
+      "window": [
+        [
+          23,
+          43
+        ],
+        [
+          23,
+          44
+        ],
+        [
+          23,
+          45
+        ],
+        [
+          24,
+          43
+        ],
+        [
+          24,
+          44
+        ],
+        [
+          24,
+          45
+        ],
+        [
+          25,
+          43
+        ],
+        [
+          25,
+          44
+        ],
+        [
+          25,
+          45
+        ]
+      ]
+    },
+    "B": {
+      "col": 44,
+      "row": 20,
+      "window": [
+        [
+          19,
+          43
+        ],
+        [
+          19,
+          44
+        ],
+        [
+          19,
+          45
+        ],
+        [
+          20,
+          43
+        ],
+        [
+          20,
+          44
+        ],
+        [
+          20,
+          45
+        ],
+        [
+          21,
+          43
+        ],
+        [
+          21,
+          44
+        ],
+        [
+          21,
+          45
+        ]
+      ]
+    },
+    "C": {
+      "col": 43,
+      "row": 20,
+      "window": [
+        [
+          19,
+          42
+        ],
+        [
+          19,
+          43
+        ],
+        [
+          19,
+          44
+        ],
+        [
+          20,
+          42
+        ],
+        [
+          20,
+          43
+        ],
+        [
+          20,
+          44
+        ],
+        [
+          21,
+          42
+        ],
+        [
+          21,
+          43
+        ],
+        [
+          21,
+          44
+        ]
+      ]
+    }
+  },
+  "BC_shared_pixels_in_3x3": 6,
+  "BC_distance_m": 20.053418661165985,
+  "panorama_metadata": {
+    "BASE": {
+      "name": "mcz_three_forks",
+      "kind": "official_mastcamz",
+      "camera": "Mastcam-Z left eye, natural colour",
+      "sols": [
+        690,
+        692
+      ],
+      "site": 32,
+      "drive": 1184,
+      "projection": "equirectangular, x = azimuth clockwise from north (0..360), y = elevation",
+      "size": [
+        8192,
+        2207
+      ],
+      "el_max": 13.109,
+      "el_min": -83.886,
+      "source_url": "https://mcz-images.sese.asu.edu/Mastcam-Z_360_Three_Forks_Depot_2_Sols690-692_L0_natural.jpg",
+      "source_size": [
+        29800,
+        8029
+      ],
+      "source_px_per_deg": 82.78,
+      "credit": "NASA/JPL-Caltech/ASU/MSSS",
+      "registration": {
+        "method": "SIFT matches voting for one shift against the Navcam reconstruction",
+        "matches": 532,
+        "inliers": 21,
+        "inliers_per_45deg_sector": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          2,
+          14,
+          5
+        ],
+        "h_drift_pct": -0.3083327185599232,
+        "v_drift_pct": -3.933446040369585,
+        "residual_rms_deg": [
+          0.1815235138661123,
+          0.10114638845852203
+        ],
+        "bridge": "three_forks_sol686",
+        "skyline_fit": {
+          "used": true,
+          "skyline_columns_deg": 206.5,
+          "residual_mad_deg": 0.169,
+          "d_az_deg": 0.0,
+          "d_el_deg": -0.0
+        },
+        "az_of_source_column0_deg": 65.862,
+        "passed": true
+      },
+      "provenance": "NASA observation (official Mastcam-Z mosaic). Azimuth and elevation were assigned by us: first by matching it to our Navcam reconstruction from the same rover stop, then by fitting its skyline to the one predicted from the HiRISE DTM. The image itself is unaltered apart from resizing and a horizontal roll."
+    },
+    "A": {
+      "name": "mcz_rose_river_falls",
+      "kind": "official_mastcamz",
+      "camera": "Mastcam-Z left eye, natural colour",
+      "sols": [
+        454,
+        454
+      ],
+      "site": 26,
+      "drive": 0,
+      "projection": "equirectangular, x = azimuth clockwise from north (0..360), y = elevation",
+      "size": [
+        8192,
+        2209
+      ],
+      "el_max": 18.862,
+      "el_min": -78.23,
+      "source_url": "https://mcz-images.sese.asu.edu/Mastcam-Z_360_Rose_River_Falls_Sol454_L0_natural.jpg",
+      "source_size": [
+        30000,
+        8091
+      ],
+      "source_px_per_deg": 83.33,
+      "credit": "NASA/JPL-Caltech/ASU/MSSS",
+      "registration": {
+        "method": "SIFT matches voting for one shift against the Navcam reconstruction",
+        "matches": 356,
+        "inliers": 39,
+        "inliers_per_45deg_sector": [
+          0,
+          4,
+          1,
+          0,
+          0,
+          17,
+          17,
+          0
+        ],
+        "h_drift_pct": 0.2812423691399402,
+        "v_drift_pct": 8.421591683176114,
+        "residual_rms_deg": [
+          0.3549779983641694,
+          0.2764133190468745
+        ],
+        "bridge": "rose_river_falls_sol449",
+        "skyline_fit": {
+          "used": true,
+          "skyline_columns_deg": 253.7,
+          "residual_mad_deg": 0.186,
+          "d_az_deg": 0.0,
+          "d_el_deg": 0.0
+        },
+        "az_of_source_column0_deg": 40.051,
+        "passed": true
+      },
+      "provenance": "NASA observation (official Mastcam-Z mosaic). Azimuth and elevation were assigned by us: first by matching it to our Navcam reconstruction from the same rover stop, then by fitting its skyline to the one predicted from the HiRISE DTM. The image itself is unaltered apart from resizing and a horizontal roll."
+    },
+    "B": {
+      "name": "mcz_skinner_ridge",
+      "kind": "official_mastcamz",
+      "camera": "Mastcam-Z left eye, natural colour",
+      "sols": [
+        484,
+        492
+      ],
+      "site": 26,
+      "drive": 1004,
+      "projection": "equirectangular, x = azimuth clockwise from north (0..360), y = elevation",
+      "size": [
+        8192,
+        2435
+      ],
+      "el_max": 24.859,
+      "el_min": -82.145,
+      "source_url": "https://mcz-images.sese.asu.edu/Mastcam-Z_360_Skinner_Ridge_Sols484-492_L0_natural.jpg",
+      "source_size": [
+        30000,
+        8917
+      ],
+      "source_px_per_deg": 83.33,
+      "credit": "NASA/JPL-Caltech/ASU/MSSS",
+      "registration": {
+        "method": "SIFT matches voting for one shift against the Navcam reconstruction",
+        "matches": 510,
+        "inliers": 55,
+        "inliers_per_45deg_sector": [
+          0,
+          5,
+          0,
+          6,
+          0,
+          17,
+          25,
+          2
+        ],
+        "h_drift_pct": 0.09914804569739787,
+        "v_drift_pct": -0.9328030190302027,
+        "residual_rms_deg": [
+          0.33647025283440396,
+          0.21709762265160018
+        ],
+        "bridge": "skinner_ridge_sol477",
+        "skyline_fit": {
+          "used": true,
+          "skyline_columns_deg": 220.3,
+          "residual_mad_deg": 0.339,
+          "d_az_deg": 0.0,
+          "d_el_deg": -0.005
+        },
+        "az_of_source_column0_deg": 203.085,
+        "passed": true
+      },
+      "provenance": "NASA observation (official Mastcam-Z mosaic). Azimuth and elevation were assigned by us: first by matching it to our Navcam reconstruction from the same rover stop, then by fitting its skyline to the one predicted from the HiRISE DTM. The image itself is unaltered apart from resizing and a horizontal roll."
+    },
+    "C": {
+      "name": "mcz_wildcat_ridge",
+      "kind": "official_mastcamz",
+      "camera": "Mastcam-Z left eye, natural colour",
+      "sols": [
+        518,
+        534
+      ],
+      "site": 26,
+      "drive": 1222,
+      "projection": "equirectangular, x = azimuth clockwise from north (0..360), y = elevation",
+      "size": [
+        8192,
+        2617
+      ],
+      "el_max": 24.939,
+      "el_min": -90.056,
+      "source_url": "https://mcz-images.sese.asu.edu/Mastcam-Z_360_Wildcat_Ridge_Sols518-534_L0_natural.jpg",
+      "source_size": [
+        29897,
+        9550
+      ],
+      "source_px_per_deg": 83.05,
+      "credit": "NASA/JPL-Caltech/ASU/MSSS",
+      "registration": {
+        "method": "SIFT matches voting for one shift against the Navcam reconstruction",
+        "matches": 1399,
+        "inliers": 141,
+        "inliers_per_45deg_sector": [
+          7,
+          9,
+          0,
+          95,
+          12,
+          3,
+          0,
+          15
+        ],
+        "h_drift_pct": 0.08232948723664345,
+        "v_drift_pct": -0.4919843555593748,
+        "residual_rms_deg": [
+          0.35192651165898325,
+          0.23090633653787065
+        ],
+        "bridge": "wildcat_ridge_sol502",
+        "skyline_fit": {
+          "used": true,
+          "skyline_columns_deg": 230.2,
+          "residual_mad_deg": 0.254,
+          "d_az_deg": 0.0,
+          "d_el_deg": 0.0
+        },
+        "az_of_source_column0_deg": 180.984,
+        "passed": true
+      },
+      "provenance": "NASA observation (official Mastcam-Z mosaic). Azimuth and elevation were assigned by us: first by matching it to our Navcam reconstruction from the same rover stop, then by fitting its skyline to the one predicted from the HiRISE DTM. The image itself is unaltered apart from resizing and a horizontal roll."
+    }
+  }
+}

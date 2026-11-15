@@ -203,9 +203,9 @@ namespace MissionLens
             var s = banner; s.Clear(); float W = s.w, H = s.h; bannerHasButton = button != null;
             float bh = bannerHasButton ? H : 250, y0 = (H - bh) / 2;
             s.Box(0, y0, W, bh, 30, new Color(8 / 255f, 10 / 255f, 14 / 255f, .9f), new Color(1, 1, 1, .2f));
-            s.Text(top, W / 2, y0 + 62, 24, Cyan, true, 0); s.Text(main, W / 2, y0 + 138, 64, Ink, true, 0);
-            s.Wrap(sub, W / 2, y0 + 192, W - 120, 34, 25, Soft, false, 0);
-            if (bannerHasButton) s.Button(button, W / 2 - 210, y0 + bh - 104, 420, 72, fn, primary: true, px: 28, key: "Review at the table");
+            s.Text(top, W / 2, y0 + 62, Size.Label, Cyan, true, 0); s.Text(main, W / 2, y0 + 138, Size.Display, Ink, true, 0);
+            s.Wrap(sub, W / 2, y0 + 192, W - 120, 32, Size.Label, Soft, false, 0);
+            if (bannerHasButton) s.Button(button, W / 2 - 210, y0 + bh - 104, 420, 72, fn, primary: true, px: Size.Body, key: "Review at the table");
             if (rig.xr)
             {   // fixed in the room where the person is looking now
                 var yaw = Quaternion.Euler(0, rig.HeadYaw, 0); var at = rig.Head.position + yaw * new Vector3(0, bannerHasButton ? -.05f : .1f, 1.5f);

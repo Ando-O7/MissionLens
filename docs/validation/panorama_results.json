@@ -1,0 +1,72 @@
+{
+  "initial_feature_registration": {
+    "az0": 43.82999897003174,
+    "el_top": 18.51400136947632,
+    "stats": {
+      "method": "SIFT matches voting for one shift against the Navcam reconstruction",
+      "matches": 356,
+      "inliers": 39,
+      "inliers_per_45deg_sector": [
+        0,
+        4,
+        1,
+        0,
+        0,
+        17,
+        17,
+        0
+      ],
+      "h_drift_pct": 0.2812423691399402,
+      "v_drift_pct": 8.421591683176114,
+      "residual_rms_deg": [
+        0.3549779983641694,
+        0.2764133190468745
+      ]
+    }
+  },
+  "skyline_iterations": [
+    {
+      "used": true,
+      "skyline_columns_deg": 253.7,
+      "residual_mad_deg": 0.186,
+      "d_az_deg": 3.779,
+      "d_el_deg": -0.348
+    },
+    {
+      "used": true,
+      "skyline_columns_deg": 253.7,
+      "residual_mad_deg": 0.186,
+      "d_az_deg": 0.0,
+      "d_el_deg": 0.0
+    }
+  ],
+  "final": {
+    "az_of_source_column0_deg": 40.05070209503174,
+    "el_max": 18.86217642123296
+  },
+  "stored": {
+    "az_of_source_column0_deg": 40.051,
+    "el_max": 18.862
+  },
+  "target_skyline_checks": [
+    {
+      "target": "A_B",
+      "az_deg": 354.76154387069107,
+      "model_horizon_el_deg": 12.632230524748893,
+      "image_edge_el_deg": 12.314148437499998,
+      "target_plus_1m_el_deg": 9.018519208811258,
+      "target_below_edge_deg": 3.2956292286887408,
+      "method": "local strongest darkening edge in model-centred +/-4 degree window; requires visual QA, not an independent accuracy measurement"
+    },
+    {
+      "target": "A_C",
+      "az_deg": 342.5700472441013,
+      "model_horizon_el_deg": 10.748589845075498,
+      "image_edge_el_deg": 10.556335937499998,
+      "target_plus_1m_el_deg": 8.553543484010632,
+      "target_below_edge_deg": 2.0027924534893664,
+      "method": "local strongest darkening edge in model-centred +/-4 degree window; requires visual QA, not an independent accuracy measurement"
+    }
+  ],
+  "warning": "Skyline was fitted to the same DTM as LOS. Calibration residual is not absolute positional accuracy. No target outcrop identification is established."
+}
