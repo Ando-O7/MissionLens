@@ -68,6 +68,8 @@ Mission Lens — Plan the Science Before the Marswalk
   - 上げるファイル: `demo/MissionLens_briefing_30s_en_room.mp4`
   - 予備(ダウンロードになる。再生はできない): https://github.com/Ando-O7/MissionLens/releases/download/submission-2026-11-15/MissionLens_demo_30s.mp4
 
+- **動画の説明欄(YouTube など。22:30 追加)**: `docs/DEMO_CREDITS.txt` の文面をそのまま貼る(収録の方法、NASA 素材ごとの機関名、手モデル、書体、リポジトリへのリンク、NASA の承認ではないこと)。動画の中には長いクレジットを足さない(30 秒の制限)。
+
 ## 4. Project(必須)**[公開した: 2026-11-15 21:18]**
 
 - リポジトリの直下に英語の `README.md` を置いた(要約、流れ、保存した計画の実例、NASA データ、確認したこと、限界、実行方法、データの作り直し、動画の作り方、AI の利用)。実例は `docs/examples/observation_plan/`、検証は `docs/validation/`(企画側の監査の写し)。
@@ -138,10 +140,13 @@ The 30-second video was recorded in the Unity Editor with scripted head and hand
 | Mars Perseverance raw images: Navcam frames and camera models | https://mars.nasa.gov/mars2020/multimedia/raw-images/ | パノラマの向き合わせ(画面には出ない) |
 | Mars 2020 MEDA environmental data (PDS Atmospheres Node) | https://atmos.nmsu.edu/PDS/data/PDS4/Mars2020/mars2020_meda/ | 地点 C の過去の実測(気圧・気温) |
 | Viking Orbiter global colour mosaic of Mars, MDIM 2.1 (USGS Astrogeology, served by NASA Mars Trek) | https://astrogeology.usgs.gov/search/map/mars_viking_colorized_global_mosaic_232m | 机の脇の球(模型が火星のどこかを示すだけ) |
+| Mars Odyssey THEMIS day and night infrared mosaics (NASA Mars Trek): early browser prototypes kept in the repository only, not shown in the app | https://trek.nasa.gov/mars/ | リポジトリに残る初期のブラウザ試作と、その加工済みの画像。アプリには出ない |
 
-- **載せないもの**: Mars Odyssey THEMIS(Mars Trek)。データ加工では取得しているが、いまのアプリには出ていない。
+- **THEMIS(22:30 に表へ追加)**: いまのアプリには出ていないが、リポジトリに初期のブラウザ試作と加工済みの画像(`assets/data/jezero_delta_front/themis_*.png`)が残っているので、アプリで使うデータと区別が付く書き方で載せる。
 
 ## 8. Space Agency Partner & Other Data
+
+- **APK に入るもの**(22:30 追加): Unity と各パッケージ、XR Hands の手モデル、書体(Barlow、Noto Sans JP、Liberation Sans)、TextMesh Pro 付属の EmojiOne のサンプル。**道具として使っただけで APK に入らないもの**: NumPy、Rasterio、Pillow、OpenCV、FFmpeg、three.js。条件と未解決の 2 点(手モデルのソース配布、EmojiOne)は `THIRD_PARTY_NOTICES.md`。自作部分は MIT(`LICENSE`、Copyright (c) 2026 Ando-O7)。
 
 | Link Text | URL | 使い方 |
 |---|---|---|
@@ -152,6 +157,8 @@ The 30-second video was recorded in the Unity Editor with scripted head and hand
 | Marquez et al. 2019, BASALT Minerva planning and execution software | https://pmc.ncbi.nlm.nih.gov/articles/PMC6442304/ | 先行事例として参照 |
 | EVA Development in Exploration-Driven Human Spaceflight (NASA NTRS) | https://ntrs.nasa.gov/citations/20250006988 | 先行事例として参照 |
 | Unity 6 (6000.3.6f1): Universal Render Pipeline, OpenXR: Meta, XR Hands, XR Interaction Toolkit, Input System, TextMesh Pro | https://unity.com/ | アプリ |
+| Unity XR Hands 1.10.0, HandVisualizer sample: left and right hand models (Unity Technologies; Unity Package Distribution License) | https://docs.unity3d.com/Packages/com.unity.xr.hands@1.10/manual/index.html | アプリの手の表示(実機の手と、Editor 収録の模擬の手)。動画に映る手 |
+| EmojiOne sample sprite sheet bundled with TextMesh Pro essential resources (in the APK through TextMesh Pro default settings; not used by the app's own screens) | https://www.emojione.com/ | TextMesh Pro の既定の設定が参照していて APK に入っている。アプリ自身のコードは使っていない。条件は未確定で、提出後に外す予定 |
 | Noto Sans JP (SIL Open Font License) | https://fonts.google.com/noto/specimen/Noto+Sans+JP | アプリの日本語の文字、動画の字幕 |
 | Barlow and Barlow Semi Condensed (SIL Open Font License) | https://github.com/jpt/barlow | アプリの英数字(UI の作り直し、段階 2 から) |
 | Liberation Sans (TextMesh Pro default font, SIL Open Font License) | https://github.com/liberationfonts/liberation-fonts | 書体に無い記号の予備(段階 2 より前の版では、アプリの英語の文字) |

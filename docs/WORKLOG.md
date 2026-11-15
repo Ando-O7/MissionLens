@@ -574,3 +574,13 @@
 - **残っているもの**: もとの作業ツリーのブランチ `main`(ローカルだけ。公開していない)には、同じ 4 つのコミットがそのままある。タグ `tokyo-v1` もローカルの古い ID を指している。文書の中のコミット ID(`9b7f712`、`348304c`、ビルド表示の「9b7f712+」)は、ローカルの履歴の ID で、公開側の ID とは一致しない。置き換える前の `submission` は、ローカルのブランチ `backup-before-trailer-strip` に残してある。
 - **今後**: 公開・push の前に、`git log --format=%B | grep -ci co-authored-by` で履歴を確かめる。
 - **22:15 追記**: 公開した動画と APK を取り直して、手元のファイルと同じであることを確かめた(動画 53,161,623 バイト・SHA-256 33a12d25…、APK SHA-256 f0dd25ce…。Release の表示とも一致)。22:09 に別のセッションが両方のツリーに置いた `experiments/phase0/vendor/LICENSE.txt`(three.js の MIT ライセンス全文。同梱している r160 のもの)を、公開側にコミットした。README の Third-party resources に three.js を 1 か所足した(初期のブラウザ試作だけで、アプリでは使っていない)。Editor の保存先 `ObservationPlans/` は、確認で増えた分を消して、動画の収録で保存された計画(`plan_20261115_124938_77a8`)を最新に戻した。
+
+## 2026-11-15 22:30 JST — ライセンスの文書を公開側に入れた(Claude Code、観測計画のセッション)
+
+もとは企画側の `../reports/MissionLens_licensing_handoff_20261115.md` と草案 `../reports/mission_lens_license_draft/`。ユーザーの選択: **文書一式 + MIT(表示名 Ando-O7)**。アプリ・APK・動画・履歴には触っていない(通常の push)。
+
+- **入れたもの**: `LICENSE`(MIT、Copyright (c) 2026 Ando-O7。草案のまま)、`THIRD_PARTY_NOTICES.md`(草案を実装と照合して採用。NASA 素材ごとの機関名、Unity / Meta、手モデル、書体、three.js、道具)、`docs/DEMO_CREDITS.txt`(動画の説明欄に貼る文面。草案のまま)、README の「License」の節と NASA data の表の THEMIS の行、Third-party resources に手モデル・Liberation Sans・EmojiOne。`docs/SUBMISSION.md` は 3(説明欄の文面)、7(THEMIS の行)、8(手モデルと EmojiOne の行、APK に入るものと道具の区別)。
+- **Release**: `MissionLens_third_party_notices.zip` を添付(書体の OFL 3 つ、EmojiOne の attribution、three.js の MIT、Unity パッケージの LICENSE / Third Party Notices の控え、Android NDK r27c の NOTICE、説明の README.txt)。Unity パッケージと NDK の控えは企画側が開発環境から複写したもので、こちらでは元との照合をしていない。パッケージの控えは環境のスナップショットで、APK に入っているものの一覧ではない、と README.txt に書いた。
+- **草案から変えた点**: 冒頭を「未解決が 2 点ある」という現状の説明に。手モデルと EmojiOne は **Open** と明記(指示書への参照は、リポジトリに無い文書なので外した)。道具の一覧は、このリポジトリで使っているもの(NumPy、Rasterio、Pillow、OpenCV、Matplotlib、FFmpeg)だけにした(imageio-ffmpeg は使った記録が見つからなかった)。
+- **確かめたこと**: アプリ自身のコードは sprite を使っていない(`<sprite`、`spriteAsset` の検索で 0 件)。XR Hands の LICENSE.md の文面(Unity Package Distribution License、© 2026 Unity Technologies)。書体のライセンスのファイルがあること。notices で使ったリンク 5 つが開くこと。
+- **やっていない(指示書では P0。提出後)**: アプリ内の Credits 画面、EmojiOne のサンプルと参照の除去(再ビルドが要る)、手モデルをパッケージからローカル取得する方式とクリーン checkout の確認(履歴にも残っているので、消すなら履歴の書き換えが要る)。参加規約のページは、こちらでは読んでいない(「未指定なら Apache 2.0」は指示書の記述)。

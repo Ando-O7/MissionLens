@@ -1,0 +1,13 @@
+Mission Lens — NASA Space Apps Challenge 2026
+
+Unity Editor capture with a simulated room and input. Historical NASA observations support a hypothetical Marswalk briefing. See the project README for the recording method, timing adjustments and saved plan.
+
+Mars panoramas and WATSON imagery: NASA/JPL-Caltech/ASU/MSSS.
+Terrain and orbital imagery: NASA MRO/HiRISE/CTX, USGS and the University of Arizona. CRISM: NASA/JPL-Caltech/JHUAPL. Viking globe: NASA/JPL/USGS.
+Hand models: Unity Technologies, XR Hands HandVisualizer sample.
+Fonts: Barlow / Barlow Semi Condensed and Noto Sans JP, under the SIL Open Font License.
+
+Full data sources, processing details, third-party terms and AI assistance disclosure:
+https://github.com/Ando-O7/MissionLens
+
+Mission Lens is an independent prototype. NASA data use does not imply NASA endorsement. A framed panorama image is a rehearsal capture, not a new observation on Mars.

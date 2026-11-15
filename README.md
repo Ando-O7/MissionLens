@@ -86,6 +86,7 @@ The [example](docs/examples/observation_plan/observation_plan.json) is the plan 
 | MEDA, sol 502 | Mars 2020 MEDA (NASA/JPL-Caltech/CAB) | Pressure and air temperature at station C | — |
 | Navcam raw images | Mars 2020 Navcam | Bridging the registration of the Mastcam-Z mosaics (not displayed) | Our reconstruction |
 | Colour mosaic of the planet | Viking Orbiter (NASA/JPL/USGS) | The small globe beside the table | — |
+| Day and night infrared mosaics | Mars Odyssey THEMIS (NASA/JPL-Caltech/Arizona State University, served by NASA Mars Trek) | Not shown in the app: the early browser prototypes under `experiments/`, and `assets/data/jezero_delta_front/themis_*.png` kept from them | Mosaicking of tiles; templates in `tools/aoi/jezero_delta_front.json` |
 
 ## Other references
 
@@ -150,9 +151,17 @@ The raw inputs are not in git. Each tool downloads what it needs from the public
 
 The application code, the data tools, the scripted recording and the texts in the app and in this repository were written with AI assistants, directed and reviewed by the developer, who chose the concept, the science question, the data and what to keep: Claude Code (Anthropic) for code and documentation, ChatGPT and Codex (OpenAI) for concept planning, the evidence audit in `docs/validation/` and drafts of the submission text. No image, video or voice was made by a generative model. Every picture of Mars is NASA mission data or a geometric reprojection of it computed by our code; the interface sounds are tones synthesised by the app's own code; the hands in the film are driven by a recording script.
 
+## License
+
+The original Mission Lens source code and authored documentation are available under the [MIT License](LICENSE), copyright © 2026 Ando-O7. The original explanatory text, captions and editing of the demonstration film come under the same terms, to the extent that the developer holds rights in them.
+
+Third-party materials keep their own terms. NASA mission data and imagery, Unity and Meta components and sample assets, fonts and vendored libraries are not relicensed by Mission Lens: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the [NASA data](#nasa-data) table for sources, credits and what was done to each. A crop or a reprojection gives no exclusive claim over the underlying NASA image. The APK contains third-party runtime components and is not licensed as a whole under MIT; their licence texts and notices are attached to the release as `MissionLens_third_party_notices.zip` (the app has no credits screen yet). Two points are still open and are described in the notices: the source distribution of the Unity hand models, and the EmojiOne sample that comes with TextMesh Pro.
+
+The project was developed with AI assistance as described under [Use of AI](#use-of-ai). The licence grants only the rights the developer can grant. Submission to NASA Space Apps also carries the permissions in the [participant terms](https://www.spaceappschallenge.org/legal/). Use of NASA data does not imply NASA's endorsement of Mission Lens.
+
 ## Third-party resources
 
-Unity 6 (Universal Render Pipeline, OpenXR: Meta, XR Hands, Input System, TextMesh Pro); the fonts Barlow and Barlow Semi Condensed and Noto Sans JP (SIL Open Font License); NumPy, Rasterio, Pillow and OpenCV for the data tools; FFmpeg for the film; three.js (MIT, licence text in `experiments/phase0/vendor/LICENSE.txt`) only in the early browser prototypes kept under `experiments/`, not in the app. The full list with links is in [docs/SUBMISSION.md](docs/SUBMISSION.md), sections 7 and 8.
+Unity 6 (Universal Render Pipeline, OpenXR: Meta, XR Hands, Input System, TextMesh Pro); the hand models of the XR Hands 1.10.0 HandVisualizer sample (Unity Technologies, under Unity's package licence, not MIT); the fonts Barlow and Barlow Semi Condensed and Noto Sans JP, and TextMesh Pro's Liberation Sans (SIL Open Font License); the EmojiOne sample sprite sheet that comes with TextMesh Pro (in the project and the APK through TextMesh Pro's default settings; the app's own code does not call on it); NumPy, Rasterio, Pillow and OpenCV for the data tools; FFmpeg for the film; three.js (MIT, licence text in `experiments/phase0/vendor/LICENSE.txt`) only in the early browser prototypes kept under `experiments/`, not in the app. The full list with links is in [docs/SUBMISSION.md](docs/SUBMISSION.md), sections 7 and 8. Credits and licence terms, item by item: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## More
 
