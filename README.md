@@ -152,7 +152,7 @@ The application code, the data tools, the scripted recording and the texts in th
 
 ## Third-party resources
 
-Unity 6 (Universal Render Pipeline, OpenXR: Meta, XR Hands, Input System, TextMesh Pro); the fonts Barlow and Barlow Semi Condensed and Noto Sans JP (SIL Open Font License); NumPy, Rasterio, Pillow and OpenCV for the data tools; FFmpeg for the film. The full list with links is in [docs/SUBMISSION.md](docs/SUBMISSION.md), sections 7 and 8.
+Unity 6 (Universal Render Pipeline, OpenXR: Meta, XR Hands, Input System, TextMesh Pro); the fonts Barlow and Barlow Semi Condensed and Noto Sans JP (SIL Open Font License); NumPy, Rasterio, Pillow and OpenCV for the data tools; FFmpeg for the film; three.js (MIT, licence text in `experiments/phase0/vendor/LICENSE.txt`) only in the early browser prototypes kept under `experiments/`, not in the app. The full list with links is in [docs/SUBMISSION.md](docs/SUBMISSION.md), sections 7 and 8.
 
 ## More
 
