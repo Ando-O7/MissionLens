@@ -54,7 +54,7 @@ namespace MissionLens
             dial = new MLPanel("Timer", 600, 880, TimerW, tableFrame); dial.Snap(false); panels.Add(dial); dial.Order(10);
             dial.go.transform.localPosition = TimerHome; dial.go.transform.localRotation = Quaternion.Euler(TimerHomeEuler);
             var pivot = new GameObject("Timer needle").transform; pivot.SetParent(tableFrame, false); needleT = pivot;
-            var barR = Add("Bar", MLMesh.Quad(false), ColorMat(Amber, 3100), pivot); barR.sortingOrder = 11;   // over the dial's face, which has a draw order of its own
+            var barR = Add("Bar", MLMesh.Quad(false), ColorMat(Ink, 3100), pivot); barR.sortingOrder = 11;   // over the dial's face, which has a draw order of its own
             var bar = barR.transform; bar.localPosition = new Vector3(0, .0703f, -.0015f); bar.localScale = new Vector3(.0045f, .034f, 1);   // from outside the time in the middle to the arcs
         }
 
@@ -83,7 +83,7 @@ namespace MissionLens
             var back = new Color(8 / 255f, 10 / 255f, 14 / 255f, .93f);   // nearly solid: it is held up against the room or the model
             // the selected task, written over the dial so that it travels with it (the fingers hold the dial from below)
             s.Frame(back, Cyan, 6, 6, 588, 268);
-            cardName = s.Text("", 32, 58, Size.Heading, Ink, true); cardPhase = s.Text("", 32, 100, Size.Body, Cyan, true); cardWhen = s.Text("", 32, 138, Size.Label, Gray);
+            cardName = s.Text("", 32, 58, Size.Heading, Ink, true); cardPhase = s.Text("", 32, 100, Size.Body, Soft, true); cardWhen = s.Text("", 32, 138, Size.Label, Gray);
             cardA = s.Text("", 32, 196, Size.Label, Soft); cardB = s.Text("", 32, 232, Size.Label, Soft);
             s.Box(6, CY - 294, 588, 588, 294, back); s.Circle(C, CY, 292, 3, Line);
             foreach (var t in M.tasks)
@@ -103,7 +103,7 @@ namespace MissionLens
                 }
             }
             s.Text(L("MISSION TIMER · PLANNED", "ミッションタイマー · 計画"), C, CY - 78, Size.Note, Gray, true, 0);
-            dialTime = s.Text("", C, CY, Size.Display, Ink, true, 0); dialWhat = s.Text("", C, CY + 46, Size.Body, Cyan, true, 0);
+            dialTime = s.Text("", C, CY, Size.Display, Ink, true, 0); dialWhat = s.Text("", C, CY + 46, Size.Body, Soft, true, 0);
             s.Text(rig.xr ? L("pinch here · turn your hand", "ここをつまんで · 手を回す") : L("rim: turn · middle: carry", "縁: 回す · 中央: 持ち運ぶ"), C, CY + 236, Size.Note, Gray, false, 0);
             s.Hit("timer", 0, 0, 600, 880, () => { }, 40, true);   // so the pointer rests on it instead of taking hold of the map behind
             dialBuiltFor = Finished ? -2 : taskIndex;
@@ -114,7 +114,7 @@ namespace MissionLens
             var Tk = M.tasks[selTask];
             foreach (var t in M.tasks)
             {
-                bool on = t.index == selTask; var col = on ? Cyan : t.index == taskIndex && !Finished ? Amber : new Color(1, 1, 1, t.index < taskIndex ? .5f : .22f);
+                bool on = t.index == selTask; var col = on ? Cyan : t.index == taskIndex && !Finished ? Ink : new Color(1, 1, 1, t.index < taskIndex ? .5f : .22f);
                 foreach (var im in dialArcs[t.index]) im.color = col;
                 if (dialLetters[t.index] != null) dialLetters[t.index].color = on ? Cyan : Soft;
             }
@@ -133,7 +133,7 @@ namespace MissionLens
         // One line on the card: one step down the scale if it would not fit, and cut short if it still does not.
         void Fit(TextMeshProUGUI t, string s, float px)
         {
-            bool bold = (t.fontStyle & FontStyles.Bold) != 0;
+            bool bold = MLText.Leads(t.font);
             if (s.Length > 0 && dial.Measure(s, px, bold) > 536) px = px > Size.Body ? Size.Body : px > Size.Label ? Size.Label : Size.Note;
             while (s.Length > 4 && dial.Measure(s, px, bold) > 536) s = s.Substring(0, s.Length - 2).TrimEnd() + "…";
             t.fontSize = px; t.text = s;

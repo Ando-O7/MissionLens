@@ -2,7 +2,7 @@
 
 最終更新: 2026-11-15 20:20(観測計画の版 = A 版の英文に差し替え。カメラ・次の観測・保存を実装して Editor で確認したあとの文面。リンクの 2 欄は未定。18:40 時点の文面は末尾の「B 版」に残した)
 
-> **どちらを出すか**: A 版(下の 1〜8)は、観測計画・カメラ・保存が入ったビルド(`MissionLens_plan_*.apk`)と 29.3 秒の動画 `demo/MissionLens_briefing_30s_en.mp4` に対応する。実機(Quest)では未確認。B 版(末尾)は 18:50 時点のビルドと 50 秒の動画に対応し、デモ欄には使えない(30 秒超)。
+> **どちらを出すか**: A 版(下の 1〜8)は、観測計画・カメラ・保存が入ったビルド(`MissionLens_plan_*.apk`)と 29.3 秒の動画 `demo/MissionLens_briefing_30s_en_room.mp4`(UI の作り直しと、部屋の往復を入れた収録)に対応する。実機(Quest)では未確認。B 版(末尾)は 18:50 時点のビルドと 50 秒の動画に対応し、デモ欄には使えない(30 秒超)。
 
 本家フォームの各欄に対応する下書き置き場。開発しながら埋めていく。**[未]** は空欄、**[仮]** は下書き、**[確]** は確定。
 
@@ -57,14 +57,15 @@ Mission Lens — Plan the Science Before the Marswalk
 
 (80 語。企画側の `reports/MissionLens_submission_en_20261115.md` の A 版と同じ文。)
 
-## 3. Project Demonstration(必須)**[動画はできた。公開リンクが未定]**
+## 3. Project Demonstration(必須)**[動画はできた(部屋の往復の版、21:50)。再生できる公開リンクが未定]**
 
-- **動画**: `demo/MissionLens_briefing_30s_en.mp4`(1920×1080、30 fps、**実測 29.30 秒**、英語の字幕)。字幕なしは `_nosub.mp4`、場面ごとの静止画 6 枚、時刻と速度は `_times.txt`、この収録で保存された計画は `_plan/`。
-- **流れ**: 目的(観測計画は空)→ B・C の科学カードと役割 → B で構図を決めて撮影(目的はタスクから継承)、周囲を含む写真を予定 → C で目的を選んで撮影、接写＋スケールを予定 → 机で両地点の関係を追加して保存 → 保存した計画を 5.2 秒。
-- **収録の事実(動画の左上と README に明記)**: Unity Editor での収録。手と頭は収録用のスクリプトで、アプリのボタン・シャッター・保存を通している。机と地点の間の移動はアプリより速く進め、保存した計画より前は一定の倍率(1.43 倍。`_times.txt` に記録)で再生している。結果を手で入れてはいない。
-- **作り直し**: `FFMPEG=<ffmpeg> tools/record_briefing.sh en`(約 2 分)。
+- **動画**: `demo/MissionLens_briefing_30s_en_room.mp4`(1920×1080、30 fps、**実測 29.30 秒**、英語の字幕)。Release にも同じものがある(`MissionLens_demo_30s.mp4`)。字幕なしは `_nosub.mp4`、場面の静止画は `_view_*.png`(部屋の PLAN、FIELD、写真と次の観測、部屋に戻った PLAN、保存した計画)、時刻と速度は `_times.txt`、この収録で保存された計画は `_plan/`。
+- **流れ**: 部屋の中の模型と空の観測計画 → B・C の科学カードと役割 → 部屋が消えて B のパノラマへ。構図を決めて撮影(目的はタスクから継承)、周囲を含む写真を予定 → C で目的を選んで撮影、接写＋スケールを予定 → 同じ部屋へ戻る。撮った写真が計画の横に開いている。両地点の関係を追加して保存 → 保存した計画を 5.6 秒(全体 → 2 つの露頭の行に寄る)。
+- **収録の事実(動画の左上と README に明記)**: 表示は「Unity Editor capture · simulated room and input」。Unity Editor での収録。手と頭は収録用のスクリプトで、アプリのボタン・シャッター・保存を通している。部屋はアプリのスタジオの部屋に壁を足した、こちらで描いた部屋(Editor には透かして見る実際の部屋が無い。ヘッドセットではこの壁は作られない)。FIELD では撮影位置から動かず、向きだけ変える。部屋と地点の間の移動はアプリより速く進め、保存した計画より前は一定の倍率(1.41 倍。`_times.txt` に記録)で再生している。結果を手で入れてはいない。
+- **作り直し**: `FFMPEG=<ffmpeg> tools/record_briefing.sh en demo/MissionLens_briefing_30s_en_room.mp4`(約 2 分)。
+- **以前の版**: `demo/MissionLens_briefing_30s_en.mp4`(20:24、UI の作り直しと部屋の壁が入る前。29.30 秒)は残してある。
 - 公開リンク: **[未: ブラウザでそのまま再生できる場所(YouTube か Google Drive)に上げて、その URL を入れる]**
-  - 上げるファイル: `demo/MissionLens_briefing_30s_en.mp4`(Release にも同じものがある)
+  - 上げるファイル: `demo/MissionLens_briefing_30s_en_room.mp4`
   - 予備(ダウンロードになる。再生はできない): https://github.com/Ando-O7/MissionLens/releases/download/submission-2026-11-15/MissionLens_demo_30s.mp4
 
 ## 4. Project(必須)**[公開した: 2026-11-15 21:18]**
@@ -152,7 +153,8 @@ The 30-second video was recorded in the Unity Editor with scripted head and hand
 | EVA Development in Exploration-Driven Human Spaceflight (NASA NTRS) | https://ntrs.nasa.gov/citations/20250006988 | 先行事例として参照 |
 | Unity 6 (6000.3.6f1): Universal Render Pipeline, OpenXR: Meta, XR Hands, XR Interaction Toolkit, Input System, TextMesh Pro | https://unity.com/ | アプリ |
 | Noto Sans JP (SIL Open Font License) | https://fonts.google.com/noto/specimen/Noto+Sans+JP | アプリの日本語の文字、動画の字幕 |
-| Liberation Sans (TextMesh Pro default font, SIL Open Font License) | https://github.com/liberationfonts/liberation-fonts | アプリの英語の文字 |
+| Barlow and Barlow Semi Condensed (SIL Open Font License) | https://github.com/jpt/barlow | アプリの英数字(UI の作り直し、段階 2 から) |
+| Liberation Sans (TextMesh Pro default font, SIL Open Font License) | https://github.com/liberationfonts/liberation-fonts | 書体に無い記号の予備(段階 2 より前の版では、アプリの英語の文字) |
 | NumPy | https://numpy.org/ | データ加工 |
 | Rasterio | https://rasterio.readthedocs.io/ | データ加工 |
 | Pillow | https://python-pillow.org/ | データ加工 |

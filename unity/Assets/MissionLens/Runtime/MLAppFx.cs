@@ -34,7 +34,7 @@ namespace MissionLens
             skirtMat = new Material(Sh("MLSkirt")); skirtMesh = new Mesh { name = "Model walls" }; skirtMesh.MarkDynamic();
             skirtR = Add("Model walls", skirtMesh, skirtMat, world);
             plateT = new GameObject("Model base").transform; plateT.SetParent(tableFrame, false);
-            plateMat = ColorMat(Color.black, 2450); frameMat = ColorMat(Cyan, 2451);
+            plateMat = ColorMat(Color.black, 2450); frameMat = ColorMat(Color.white, 2451);
             Add("Plate", MLMesh.Box(new Vector3(FootHx * 2 + .03f, .004f, FootHz * 2 + .03f)), plateMat, plateT).transform.localPosition = new Vector3(0, -.002f, 0);
             Add("Plate edge", MLMesh.Frame(FootHx + .015f, FootHz + .015f, .0022f), frameMat, plateT).transform.localPosition = new Vector3(0, .0004f, 0);
 
@@ -47,9 +47,15 @@ namespace MissionLens
             // not a good backdrop (and on a desktop, where there is no real room).
             studioT = new GameObject("Studio room").transform; studioT.SetParent(tableFrame, false);
             floorMat = new Material(Sh("MLFloor")); floorMat.SetFloat("_Size", 16);
+            floorMat.SetColor("_Color", new Color(.075f, .075f, .08f)); floorMat.SetColor("_Line", new Color(.5f, .5f, .52f));   // a neutral floor with a faint grid: no cyan, which is for what can be chosen
             floorT = Add("Floor", MLMesh.Quad(true), floorMat, studioT).transform; floorT.localScale = new Vector3(16, 1, 16);
-            plinthMat = ColorMat(new Color(.055f, .062f, .074f, 1), 2399);
+            plinthMat = ColorMat(new Color(.055f, .062f, .074f, 1), 2400);   // after the room's walls (2399), which are after its floor (2398): none of them writes depth
             plinthT = Add("Plinth", MLMesh.Box(Vector3.one), plinthMat, studioT).transform;
+            // For a recording in the Editor (and on a desktop) the studio room also has walls: a plain room about five
+            // metres across, so that a film shows the model on its plinth in a room, at the size it has for the person,
+            // and shows that room give way to Mars and come back. It is a room of ours, drawn. On the headset the studio
+            // room stays a floor and a plinth, and the real room (passthrough) is untouched.
+            if (!rig.xr || rig.sim) BuildRoomWalls();
 
             skyMat = new Material(Sh("MLSky")); skyR = Add("Sky", MLMesh.PanoSphere(90, -90, 5000, 90), skyMat, null); skyT = skyR.transform;
             vigMat = new Material(Sh("MLVignette")); vigR = Add("Vignette", MLMesh.PanoSphere(90, -90, .5f, 90), vigMat, null); vigT = vigR.transform;
@@ -68,7 +74,7 @@ namespace MissionLens
                 p.leader = ColorMat(Color.white, 3990, true); p.leaderT = Add("Leader " + p.st.id, MLMesh.Quad(false), p.leader, null).transform;
             }
             beaconMat = new Material(Sh("MLBeam")); beaconR = Add("Beacon", MLMesh.Cross(), beaconMat, world); beaconR.enabled = false;
-            reticleMat = new Material(ringShader); reticleMat.SetColor("_Color", Amber); reticleMat.SetFloat("_Radius", .62f); reticleMat.SetFloat("_Width", .1f); reticleMat.SetFloat("_Fill", .35f);
+            reticleMat = new Material(ringShader); reticleMat.SetColor("_Color", Ink); reticleMat.SetFloat("_Radius", .62f); reticleMat.SetFloat("_Width", .1f); reticleMat.SetFloat("_Fill", .35f);
             reticleR = Add("Reticle", MLMesh.Quad(false), reticleMat, null); reticleR.enabled = false; reticleR.sortingOrder = MLRig.OverPanels;
             gazeMat = new Material(ringShader); gazeMat.SetFloat("_Radius", .6f); gazeMat.SetFloat("_Width", .16f); gazeMat.renderQueue = 4005;
             gazeR = Add("Gaze dot", MLMesh.Quad(false), gazeMat, null); gazeR.enabled = false; gazeR.sortingOrder = MLRig.OverPanels;
@@ -104,7 +110,7 @@ namespace MissionLens
             tableBaseO = Mathf.MoveTowards(tableBaseO, OnTable && clipG < .3f ? 1 : 0, dt * 3);   // the table's plate waits until the model is nearly down: before that it would hide it
             bool baseOn = tableBaseO > .01f && plateK > 0;
             plateT.gameObject.SetActive(baseOn); plateT.localScale = new Vector3(plateK, 1, plateK);
-            plateMat.SetColor("_Color", new Color(.035f, .04f, .048f, tableBaseO)); frameMat.SetColor("_Color", new Color(Cyan.r, Cyan.g, Cyan.b, .55f * tableBaseO));
+            plateMat.SetColor("_Color", new Color(.035f, .04f, .048f, tableBaseO)); frameMat.SetColor("_Color", new Color(1, 1, 1, .32f * tableBaseO));
             skirtO = Mathf.MoveTowards(skirtO, OnTable && clipG < .05f ? 1 : 0, dt * 4);   // the side walls come once the model has landed
             skirtR.enabled = skirtO > .01f && frontR > 0; skirtMat.SetFloat("_A", skirtO * tableBaseO);
 
@@ -115,6 +121,7 @@ namespace MissionLens
             skyMat.SetColor("_Horizon", Color.Lerp(StudioHorizon, MarsHorizon, mars)); skyMat.SetColor("_Zenith", Color.Lerp(StudioZenith, MarsZenith, mars)); skyMat.SetColor("_Below", Color.Lerp(StudioBelow, MarsBelow, mars));
             float studioA = Ease(roomO) * studioK; bool studioOn = studioA > .01f && placed;
             if (studioT.gameObject.activeSelf != studioOn) studioT.gameObject.SetActive(studioOn);
+            if (studioOn) foreach (var (wm, wc) in roomMats) wm.SetColor("_Color", new Color(wc.r, wc.g, wc.b, studioA));   // the walls go with the room, as the floor does
             if (studioOn) { floorMat.SetFloat("_A", studioA); var pc = plinthMat.GetColor("_Color"); pc.a = studioA * Mathf.Clamp01(1 - clipG * 3); plinthMat.SetColor("_Color", pc); }   // the plinth too waits for the model to come down
             vig = Mathf.MoveTowards(vig, (rig.xr && !rig.sim && moving) || debugVignette ? 1 : 0, dt * 3.5f);   // a comfort aid for the headset; not drawn in an Editor recording
             vigR.enabled = vig > .01f; vigMat.SetFloat("_Amount", vig * .94f); vigT.position = head;
@@ -136,7 +143,7 @@ namespace MissionLens
                 if (!show) continue;
                 p.ringT.localPosition = D.Local(p.st.x, p.st.z, .3f + rr * .1f); p.ringT.localScale = Vector3.one * rr * 4.76f;   // the ring sits at 0.42 of the quad's half width
                 bool key = OnTable ? p.st.id == sel : p.st.id == target;
-                var c = key ? (OnTable ? Cyan : Amber) : Color.white; c.a = key ? 1 : OnTable ? .8f : .5f;
+                var c = key && OnTable ? Cyan : Color.white; c.a = key ? 1 : OnTable ? .8f : .5f;
                 p.ring.SetColor("_Color", c); p.ring.SetFloat("_Pulse", key ? 1 : 0); p.ring.SetFloat("_OnTable", OnTable ? 1 : 0);
             }
 
@@ -150,7 +157,7 @@ namespace MissionLens
                 // It is there to be found from a distance. Coming up to it, it thins away, and is gone by the time you
                 // arrive, instead of standing in front of your face.
                 float away = Vector2.Distance(new Vector2(view.ax, view.az), new Vector2(s.x, s.z));
-                var bc = Amber; bc.a = Ease(Mathf.InverseLerp(12, 55, away)); beaconMat.SetColor("_Color", bc);
+                var bc = Ink; bc.a = Ease(Mathf.InverseLerp(12, 55, away)); beaconMat.SetColor("_Color", bc);
             }
 
             for (int i = ripples.Count - 1; i >= 0; i--)
@@ -162,11 +169,29 @@ namespace MissionLens
             if (restartArmedUntil > 0 && Time.time > restartArmedUntil) { restartArmedUntil = 0; Refresh(); }
         }
 
+        Transform wallsT; readonly List<(Material m, Color c)> roomMats = new List<(Material, Color)>();
+        void BuildRoomWalls()
+        {
+            wallsT = new GameObject("Walls").transform; wallsT.SetParent(studioT, false);
+            const float hx = 2.7f, zBack = 2.4f, zFront = -3.4f, hgt = 2.8f; float zc = (zBack + zFront) / 2, len = zBack - zFront;
+            // drawn before everything else in the room (they are the farthest things in it) and after the floor, which runs on under them
+            void Wall(string name, Vector3 size, Vector3 at, Color c) { var m = ColorMat(c, 2399); roomMats.Add((m, c)); Add(name, MLMesh.Box(size), m, wallsT).transform.localPosition = at; }
+            // each wall a little different, as plain walls are under one soft light: a room in a single flat colour would have no corners
+            Wall("Back wall", new Vector3(hx * 2, hgt, .06f), new Vector3(0, hgt / 2, zBack), new Color(.118f, .124f, .136f));
+            Wall("Left wall", new Vector3(.06f, hgt, len), new Vector3(-hx, hgt / 2, zc), new Color(.086f, .091f, .102f));
+            Wall("Right wall", new Vector3(.06f, hgt, len), new Vector3(hx, hgt / 2, zc), new Color(.098f, .103f, .114f));
+            Wall("Front wall", new Vector3(hx * 2, hgt, .06f), new Vector3(0, hgt / 2, zFront), new Color(.074f, .079f, .089f));
+            var skirting = new Color(.2f, .205f, .215f);   // where the walls meet the floor
+            Wall("Skirting back", new Vector3(hx * 2, .09f, .02f), new Vector3(0, .045f, zBack - .045f), skirting);
+            Wall("Skirting left", new Vector3(.02f, .09f, len), new Vector3(-hx + .045f, .045f, zc), skirting);
+            Wall("Skirting right", new Vector3(.02f, .09f, len), new Vector3(hx - .045f, .045f, zc), skirting);
+        }
+
         // The studio room's floor lies on the real floor (height 0) and its plinth reaches from there to the model.
         void PlaceStudio()
         {
             float h = Mathf.Max(.05f, tableFrame.position.y - .004f);
-            floorT.localPosition = new Vector3(0, -tableFrame.position.y, 0);
+            floorT.localPosition = new Vector3(0, -tableFrame.position.y, 0); if (wallsT != null) wallsT.localPosition = floorT.localPosition;
             plinthT.localScale = new Vector3(FootHx * 2 + .03f, h, FootHz * 2 + .03f); plinthT.localPosition = new Vector3(0, -.004f - h / 2, 0);
         }
         public void ToggleStudio() { studio = !studio; sfx.Play("toggle", .7f); Log("room " + (studio ? "studio" : "passthrough")); DrawMenu(); }
@@ -203,7 +228,7 @@ namespace MissionLens
             var s = banner; s.Clear(); float W = s.w, H = s.h; bannerHasButton = button != null;
             float bh = bannerHasButton ? H : 250, y0 = (H - bh) / 2;
             s.Box(0, y0, W, bh, 30, new Color(8 / 255f, 10 / 255f, 14 / 255f, .9f), new Color(1, 1, 1, .2f));
-            s.Text(top, W / 2, y0 + 62, Size.Label, Cyan, true, 0); s.Text(main, W / 2, y0 + 138, Size.Display, Ink, true, 0);
+            s.Text(top, W / 2, y0 + 62, Size.Label, Soft, true, 0); s.Text(main, W / 2, y0 + 138, Size.Display, Ink, true, 0);
             s.Wrap(sub, W / 2, y0 + 192, W - 120, 32, Size.Label, Soft, false, 0);
             if (bannerHasButton) s.Button(button, W / 2 - 210, y0 + bh - 104, 420, 72, fn, primary: true, px: Size.Body, key: "Review at the table");
             if (rig.xr)

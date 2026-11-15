@@ -214,15 +214,19 @@ namespace MissionLens
             directorStatus = "done " + recFrame + " frames";
         }
 
-        // The film for the NASA form: the briefing's observation plan from the goal to the saved plan (MLAppPlan.cs).
-        // On the table, the plan's goal; each outcrop's science card, and the role it is given. At B, the camera: the
-        // view takes its purpose from the task that is selected, and a wider context image is planned from the photo.
-        // At C the purpose is chosen on the viewfinder, and a close-up with scale is planned. Back at the table the
-        // relationship of the two is added and the plan is saved; the saved plan is held at the end.
+        // The film for the NASA form: one round trip of the briefing, from the room to Mars and back (MLAppPlan.cs).
+        // In a plain room, the model on its plinth and the observation plan, which is empty; each outcrop's science
+        // card, and the role it is given. The room gives way to the panorama taken at B: the camera, a view that takes
+        // its purpose from the task that is selected, and a wider context image planned from the photo. At C the
+        // purpose is chosen on the viewfinder and a close-up with scale is planned. Back in the same room the photo
+        // that was taken is open beside the plan; the relationship of the two outcrops is added and the plan is saved.
+        // The saved plan is held at the end, first whole, then nearer on the two outcrops' rows.
         // The title and the opening are gone through before the recording starts, and the plan is emptied: that is
         // the state the film begins from. Everything after it is done by the hands, through the app's own buttons,
-        // shutter and save. The moves between the table and the stations run faster than in the app (timeScale),
-        // which the film's notes say; tools/briefing_edit.py lays the subtitles and fits the film to thirty seconds.
+        // shutter and save. The room is the app's studio room with walls (a drawn room: MLAppFx.cs). In FIELD the
+        // person stays where the panorama was taken and only turns. The moves between the room and the stations run
+        // faster than in the app (timeScale), which the film's corner says; tools/briefing_edit.py lays the
+        // subtitles and fits the film to thirty seconds.
         IEnumerator CoBriefing(string outDir)
         {
             Vector3 T(float x, float y, float z) => tableFrame.TransformPoint(x, y, z);
@@ -233,7 +237,7 @@ namespace MissionLens
             var stand = rig.simHeadTo; yield return Pause(1.0f);
             Vector3 Toward(Vector3 at, float step) { var v = at - stand; v.y = 0; return stand + v.normalized * step; }
             void LookAz(float az, float el, float speed = 2.4f) => Head(rig.simYawTo + Mathf.DeltaAngle(rig.simYawTo, view.yaw + az), el, speed);
-            IEnumerator Arrive(Func<bool> there) { Time.timeScale = 2.6f; yield return WaitFor(there, 14); Time.timeScale = 1; }
+            IEnumerator Arrive(Func<bool> there) { Time.timeScale = 3f; yield return WaitFor(there, 14); Time.timeScale = 1; }
             // the shutter: the hand comes up, points into the frame and pinches
             IEnumerator Shutter()
             {
@@ -245,54 +249,59 @@ namespace MissionLens
                 }
                 if (caps.Count == before) Debug.LogWarning("[director] the shutter did not take a photo");
             }
-            // what was framed: plan the next observation from the photo's card, and close it
-            IEnumerator FromPhoto(string type)
+            // what was framed: plan the next observation from the photo's card, and close it. The person turns to the card; they do not move.
+            IEnumerator FromPhoto(string type, string still)
             {
-                yield return WaitFor(() => shot.Show && shot.alpha > .9f, 2);
-                // a lean toward the card, as one does to read something held up: the card is then large enough in the film to be followed
-                var was = rig.simHeadTo; var to = shot.go.transform.position - was; to.y = 0; rig.simHeadTo = was + to.normalized * .36f; HeadTo(shot.go.transform.position, 2.8f, 1);
-                yield return PressRay(0, shot, "Next:" + type, .8f, () => shotCap != null && shotCap.next.Count > 0); yield return Pause(.5f);
-                yield return PressRay(0, shot, "Done", .45f, () => shotCap == null); Rest(0); rig.simHeadTo = was;
+                yield return WaitFor(() => shot.Show && shot.alpha > .9f, 2); HeadTo(shot.go.transform.position, 2.8f, 1);
+                yield return PressRay(0, shot, "Next:" + type, .75f, () => shotCap != null && shotCap.next.Count > 0); yield return Pause(.25f);
+                if (still != null) Cue(still); yield return Pause(.25f);
+                yield return PressRay(0, shot, "Done", .4f, () => shotCap == null); Rest(0);
             }
-            pointRaise = .08f;
-            // the film opens a step from the left-hand panel, where its two faces are in reach
-            rig.simHeadTo = Toward(board.go.transform.position, .5f); HeadTo(board.go.transform.position, 3, -3); yield return Pause(1.1f);
+            pointRaise = .08f; shotDist = .58f;   // (the photo's card is held nearer than on the headset, so that the film can be followed)
+            // the film opens a step back from the table: the model on its plinth in the room, seen from eye height
+            var away = stand - T(0, 0, 0); away.y = 0; rig.simHeadTo = stand + away.normalized * .62f + Vector3.up * .04f; HeadTo(T(0, .16f, .12f), 3); yield return Pause(1.3f);
             cues.Clear(); if (outDir != null) { StartCoroutine(CoRecord(outDir, 1920, 1080, 30)); yield return null; }
 
-            // 1. the goal: the briefing opens on the observation plan, which is empty
-            Cue("goal"); yield return Pause(3.5f);
+            // 1. the room, the model, and the observation plan, which is empty
+            Cue("goal"); yield return Pause(.8f); Cue("still:1_plan_room"); yield return Pause(.8f);
+            rig.simHeadTo = Toward(board.go.transform.position, .5f); HeadTo(board.go.transform.position, 2.6f, -3); yield return Pause(1.9f);
             // 2. the two outcrops: the science card of each, and the role it is given
             Cue("roles"); rig.simHeadTo = stand; var tb = FindButton(strip, "task:8"); if (tb != null) HeadTo(ButtonWorld(strip, tb), 2.6f, 4);
             yield return PressRay(0, strip, "task:8", .5f, () => selTask == 8);
-            rig.simHeadTo = Toward(boardR.go.transform.position, .5f); HeadTo(boardR.go.transform.position, 2.4f, -8); yield return Pause(.6f);
-            yield return PressRay(0, boardR, "Add:environmental_record", .6f, () => planRole.ContainsKey("C")); yield return Pause(.3f);
-            yield return PressRay(0, strip, "task:4", .5f, () => selTask == 4); yield return Pause(.6f);
-            yield return PressRay(0, boardR, "Add:timing_context", .6f, () => planRole.ContainsKey("B")); Rest(0); yield return Pause(.5f);
-            // 3. B, in the panorama taken there: the camera; the view takes the selected task's purpose; a wider context image is planned
+            rig.simHeadTo = Toward(boardR.go.transform.position, .5f); HeadTo(boardR.go.transform.position, 2.4f, -8); yield return Pause(.5f);
+            yield return PressRay(0, boardR, "Add:environmental_record", .6f, () => planRole.ContainsKey("C")); yield return Pause(.25f);
+            yield return PressRay(0, strip, "task:4", .5f, () => selTask == 4); yield return Pause(.45f);
+            yield return PressRay(0, boardR, "Add:timing_context", .6f, () => planRole.ContainsKey("B")); Rest(0); yield return Pause(.3f);
+            // 3. the room gives way to B, in the panorama taken there: the camera; the view takes the selected task's purpose; a wider context image is planned
             Cue("frame"); yield return PressRay(0, boardR, "Stand at B", .5f, () => busy || stage != Stage.Table);
             rig.simHeadTo = stand; Rest(0); Rest(1); Head(rig.simYawTo * .3f, -4, 1.6f);
             yield return Arrive(() => stage == Stage.Field && !busy && panoOpacity > .98f); yield return Pause(.3f);
             yield return PressRay(0, hud, "Camera", .6f, () => camOn); Rest(0);
-            LookAz(356, 5); yield return Pause(1.1f);
-            yield return Shutter(); yield return FromPhoto("wider_context_image");
+            LookAz(356, 5); yield return Pause(.9f); Cue("still:2_field_frame");
+            yield return Shutter(); yield return FromPhoto("wider_context_image", "still:3_photo_and_next");
             // 4. C: the purpose is chosen on the viewfinder; a close-up with scale is planned
             Cue("closeup"); var pc = pins.Find(p => p.st.id == "C");
-            if (pc != null) { HeadTo(pc.label.go.transform.position, 2.6f); yield return Pause(.5f); yield return PressRay(0, pc.label, "pin:C", .6f, () => busy || preview == "C"); }
+            if (pc != null) { HeadTo(pc.label.go.transform.position, 2.6f); yield return Pause(.4f); yield return PressRay(0, pc.label, "pin:C", .6f, () => busy || preview == "C"); }
             Rest(0); yield return Arrive(() => stage == Stage.Field && preview == "C" && !busy && panoOpacity > .98f); yield return Pause(.2f);
-            LookAz(338, 1); yield return Pause(.7f);
-            yield return PressRay(0, finder, "CamPurpose:inspect_grain_texture", .6f, () => CamPurpose(out _) == "inspect_grain_texture"); Rest(0); yield return Pause(.4f);
-            yield return Shutter(); yield return FromPhoto("close_up_with_scale");
-            // 5. back at the table: both photos and what was planned from them; their relationship; saved
+            LookAz(338, 1); yield return Pause(.6f);
+            yield return PressRay(0, finder, "CamPurpose:inspect_grain_texture", .6f, () => CamPurpose(out _) == "inspect_grain_texture"); Rest(0); yield return Pause(.3f);
+            yield return Shutter(); yield return FromPhoto("close_up_with_scale", null);
+            // 5. back in the same room: the photo that was taken is open beside the plan; the relationship of the two; saved
             Cue("connect"); yield return PressRay(0, hud, "HudTable", .6f, () => stage == Stage.Table); Rest(0);
-            HeadTo(T(0, .1f, -.05f), 1.8f, 12); yield return Arrive(() => stage == Stage.Table && !busy); yield return Pause(.7f);
-            rig.simHeadTo = Toward(board.go.transform.position, .5f); HeadTo(board.go.transform.position, 2.2f, -4); yield return Pause(1.2f);
-            yield return PressRay(0, board, "Relationship", .6f, () => relOn); yield return Pause(.6f);
+            HeadTo(T(0, .1f, -.05f), 1.8f, 12); yield return Arrive(() => stage == Stage.Table && !busy); yield return Pause(.5f);
+            rig.simHeadTo = Toward(T(0, .6f, .12f), .34f); HeadTo(T(0, .62f, .12f), 2.2f); yield return Pause(1.3f); Cue("still:4_plan_back_in_the_room");
+            rig.simHeadTo = Toward(board.go.transform.position, .5f); HeadTo(board.go.transform.position, 2.4f, -4); yield return Pause(.5f);
+            yield return PressRay(0, board, "Relationship", .6f, () => relOn); yield return Pause(.45f);
             yield return PressRay(0, board, "Save plan", .6f, () => card.Show); Rest(0);
-            // 6. the saved plan, held
-            // (it came up in front of where the person stood; they turn to face it squarely, a little nearer, and read it)
+            // 6. the saved plan, held: whole, then nearer on the two outcrops' rows (the photo, its purpose and the next observation of each)
+            // (it came up in front of where the person stood; they turn to face it squarely)
             Cue("card"); yield return WaitFor(() => card.alpha > .9f, 2); yield return Pause(.3f); var ct = card.go.transform;
-            rig.simHeadTo = ct.position - ct.forward * .7f + Vector3.up * .01f; HeadTo(ct.position, 3.2f); yield return Pause(.5f); HeadTo(ct.position, 3.2f); yield return Pause(5.6f);
-            pointRaise = 0; recording = false; yield return null; yield return null;
+            rig.simHeadTo = ct.position - ct.forward * .72f + Vector3.up * .01f; HeadTo(ct.position, 3.2f); yield return Pause(.5f); HeadTo(ct.position, 3.2f); yield return Pause(1.9f);
+            Cue("still:5_saved_plan");
+            Cue("near");   // (no subtitle from here: nearer, the card fills the picture, and nothing is laid over it)
+            var focus = ct.TransformPoint(new Vector3(-170, 92, 0)); rig.simHeadTo = focus - ct.forward * .4f; HeadTo(focus, 1.5f); yield return Pause(3.6f);
+            Cue("still:6_saved_plan_near");
+            pointRaise = 0; shotDist = .92f; recording = false; yield return null; yield return null;
             if (outDir != null) File.WriteAllLines(Path.Combine(outDir, "cues.txt"), cues);
             if (outDir != null) File.WriteAllText(Path.Combine(outDir, "plan.txt"), planSavedPath + "\n" + PlanState());
             directorStatus = "done " + recFrame + " frames";

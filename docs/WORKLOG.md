@@ -534,3 +534,35 @@
 - **ビルド**: `unity/Builds/MissionLens_plan_2026-11-15_2053.apk`(表示「2026-11-15 20:52 · 9b7f712+」、MD5 e0f29e2f…)。20:26 の APK は残してある(動画を収録した時点のソースに対応。`.patch` と `_newfiles.tgz` も)。実機では未確認。
 - **写し**: `docs/validation/` を、企画側の 20:31 の版(保存した計画の照合 `saved_plan_artifact_20261115.json` を含む)に更新した。
 - **コミット**: していない。
+
+## 2026-11-15 21:20 JST — 公開(リポジトリと Release)、提出までの段取り(Claude Code、観測計画のセッション)
+
+- **ユーザーの判断(21:10 ごろ)**: 提出には UI の作り直しも入れる。公開するソースは別の作業ツリーの提出用ブランチで作る。リポジトリと Release までこのセッションがやる(Demo 欄の動画の置き場所とフォームの入力はユーザー)。
+- **先に公開したもの(保険)**: 作り直しが入る前の、確認済みの 20:53 の状態。別の作業ツリー `../MissionLens_submit`、ブランチ `submission`(`9b7f712` に `unity/Builds/MissionLens_plan_2026-11-15_2053.patch` と `_newfiles.tgz` を当て、`README.md`・`docs/`・動画の収録で保存された計画を足したもの)。コミット `0e0b27d`、`5c9bb69`(Co-Authored-By は付けていない)。`unity/ProjectSettings/ProjectSettings.asset` の差分(Editor が書き換えたもの)は入れていない。
+- **公開先**: https://github.com/Ando-O7/MissionLens (公開、既定のブランチ main。`submission` を main として push)。Release `submission-2026-11-15`: `MissionLens_demo_30s.mp4`、`MissionLens_demo_30s_no_subtitles.mp4`、`MissionLens_Quest3.apk`(20:53 のビルド、MD5 e0f29e2f…)。ログインなしで開けることを確かめた。公開前に、履歴と追跡中のファイルに鍵やトークンが無いことを確かめた。
+- **もとの作業ツリー(`MissionLens/`、ブランチ main)**: コミットしていない。共有の git 設定にリモート `origin` が増えた。
+- **作り直しのセッションへの連絡(21:19)**: 区切り(コンパイルが通り、`tools/unity_check.sh` 77 項目が通る状態)に来たら知らせてもらうよう頼んだ。そのあと、こちらで確認・動画の撮り直し・APK・push・Release の差し替えをする。締めの目安は 22:00 を提案中(ユーザーの確認待ち)。間に合わなければ、公開済みの状態で提出する。
+- **残り(ユーザー)**: 動画を再生できる場所に上げて Demo 欄へ、フォームの入力(`SUBMISSION.md` の 1〜8)、Submit for Judging。
+
+## 2026-11-15 21:30 JST — UI の作り直し、段階 2: ルールをコードに(Claude Code、球と UI の案のセッション)
+
+- **ユーザーの指示(21:00 ごろ)**: 「別のセッション終わったから UI よろしく」。方向は 20:00 に承認済み(`UI_REDESIGN_PROPOSAL.md`)。
+- **始める前**: 作業ツリーの控えを `unity/Builds/pre-ui-redesign_2026-11-15_2101.patch` と `_newfiles.tgz` に取った。
+- **やったこと**: 書体(Barlow + Noto Sans JP、実行時にフォントアセットを作る。合成の太字をやめる)、部品と定数(`MLPanel`)、パネルの形(枠と四隅の飾りをやめ、黒の地と上の線)、角 4 画素・線 2 画素、ボタンの 3 種、出どころの印(■ □ ◇)、色の役割(シアンは選べるものだけ。経路・照準・床の格子などを白や無彩色に)。観測計画の画面も、状態を表していたシアンの文字を白〜灰にした。配置は変えていない。ボタンの key は変えていない。判断は `UI_DECISIONS.md` の 135〜139。
+- **変えたファイル**: `MLText.cs`、`MLPanel.cs`、`MLAppPanels.cs`、`MLAppPlan.cs`、`MLAppFx.cs`、`MLAppTools.cs`、`MLAppTable.cs`、`MLAppMenu.cs`、`MLApp.cs`。追加: `Resources/MLFonts/` に Barlow 4 書体、Noto Sans JP Medium、Barlow のライセンス。
+- **確認**: `tools/unity_check.sh` 77 項目通過、エラー 0(21:15 と 21:26 の 2 回)。画像は `demo/ui_stage2/`。自動確認が保存した計画(2 件)は消し、`latest.txt` を 20:24 の計画に戻した。
+- **別のセッションとの連絡(21:20)**: 観測計画を実装したセッションから、作り直しを提出に載せるための区切りの知らせを求められた。21:30 に区切りを知らせた。そのあとは、相手の確認・収録・ビルドが終わるまで、Editor とスクリプトに触れない。
+- **していないこと**: 段階 3(配置の作り直し)。実機での確認。APK のビルド(別のセッションが行う)。コミット。
+
+## 2026-11-15 22:00 JST — UI の作り直し(段階 2)を載せた版、部屋の往復を見せる動画、公開の差し替え(Claude Code、観測計画のセッション)
+
+- **ユーザーの判断と指示**: 提出に UI の作り直しも入れる(21:10)。指示書の P0-4「Editor収録の追加指示」を反映する: 既存の自動収録で、簡素な部屋の PLAN → NASA パノラマの FIELD → 同じ部屋の PLAN と保存結果、の往復を見せる。最後の計画を読む時間を確保して 30 秒以内。ヘッドセットでの再撮影は不要。
+- **作り直しのセッションからの区切り(21:28)**: 段階 2(様式だけ。配置と key は変えない)がコンパイル・77 項目通過で届いた。その上に、次を足した。
+- **部屋**(`MLAppFx.cs` の `BuildRoomWalls`): スタジオの部屋に、壁 4 面と巾木を足した(幅 5.4 m、奥行き 5.8 m、高さ 2.8 m、壁ごとに少し違う灰色)。**Editor(デスクトップと収録)だけ**で作る。ヘッドセットでは作らない(パススルーにも、ヘッドセットのスタジオの部屋にも影響しない)。描く順は床 2398 → 壁 2399 → 台座 2400(どれも深度を書かないため)。部屋は床・台座と同じく、FIELD へ出ると消え、戻ると現れる。
+- **動画の進行**(`MLAppDirector.cs` の `CoBriefing`): 冒頭は机から一歩引いて、部屋・台座・模型・パネルを目の高さから見る(約 1.6 秒)→ 観測計画(空)→ 役割 → B の FIELD(撮影位置から動かず、向きだけ変える。写真カードへ身を乗り出す動きをやめ、カードを近くに出す: `shotDist` 0.58 m、通常は 0.92 m)→ C → 同じ部屋へ戻り、撮った写真が計画の横に開いているのを見せる → 関係を追加・保存 → 保存した計画を全体で約 2.8 秒、そのあと 2 つの露頭の行に寄って約 2.8 秒(寄ったあとは字幕を出さない)。
+- **編集**(`tools/briefing_edit.py`): 左上の表示を「Hypothetical Marswalk · Historical NASA data · Unity Editor capture · simulated room and input · 1.41× speed, travel shortened」に。保存した計画の保持を 5.6 秒に。進行役が印を付けたコマを `_view_<名前>.png` に出す(部屋の PLAN、FIELD の枠、写真と次の観測、部屋に戻った PLAN、保存した計画、その近景)。
+- **できたもの**: `demo/MissionLens_briefing_30s_en_room.mp4`(39.8 秒の収録を、計画より前 1.408 倍・最後 5.6 秒は等速にして **29.30 秒**。コンテナの実測も 29.30 秒)、`_nosub.mp4`、`_view_*.png` 6 枚、`_times.txt`、`_plan/`(この収録で保存された計画: B は Document outcrop context(タスクから継承)→ Wider context、C は Inspect grain texture(枠の上で選択)→ Close-up with scale、関係は planned。動画の最後のカードと一致)。3 回撮った(1 回目は作り直しだけ・壁なしの `_ui2.mp4`、2 回目で部屋、3 回目で近景の字幕を外した)。以前の版 `demo/MissionLens_briefing_30s_en.mp4`(20:24)は残してある。
+- **確認**: `tools/unity_check.sh` 77 項目通過、コンソールのエラー 0(21:56、作り直し + 部屋の状態)。動画は各場面のコマを並べて見た(壁の見え方、部屋 → FIELD → 部屋の切り替え、字幕がカードに掛からないこと)。通しの再生と音は確かめていない。
+- **ビルド**: `unity/Builds/MissionLens_plan_ui2_2026-11-15_2157.apk`(表示「2026-11-15 21:56 · 9b7f712+」、MD5 3108e8e1…、100 MB)。ソースの控えは同じ名前の `.patch` と `_newfiles.tgz`。**実機では未確認**(実行時に作る書体が Quest で出るかも未確認)。
+- **公開の差し替え**: `../MissionLens_submit`(ブランチ `submission`)にこの状態をコミットして origin/main に push。Release `submission-2026-11-15` の 3 つの添付(動画、字幕なしの動画、APK)を差し替えた。README(動画の作り方、静止画、出どころの印、書体)、`SUBMISSION.md` の 3、`docs/examples/`(最終の収録で保存された計画)、`docs/media/` を更新。企画側の照合(`saved_plan_artifact_20261115.json`)が見たのは 20:24 の収録の計画で、`demo/MissionLens_briefing_30s_en_plan/` に残してある。
+- **もとの作業ツリー(`MissionLens/`、main)**: コミットしていない。

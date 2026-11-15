@@ -15,7 +15,7 @@ Built in Unity for Meta Quest 3 (hands or controllers). The same app runs on a d
 | Sources and credits | [NASA data](#nasa-data) · [Other references](#other-references) |
 | What this does not show | [Limits](#limits) |
 
-![The saved observation plan](docs/media/briefing_6_card.jpg)
+![The saved observation plan](docs/media/film_5_saved_plan.jpg)
 
 ## The briefing task
 
@@ -37,8 +37,10 @@ The briefing turns a science goal into what to look at on the ground and what to
 
 | | | |
 |---|---|---|
-| ![Roles](docs/media/briefing_2_roles.jpg) | ![Framing a view](docs/media/briefing_3_frame.jpg) | ![Planning a close-up](docs/media/briefing_4_closeup.jpg) |
-| Science card and role | A view framed in the panorama | The next observation, from the photo |
+| ![The model in the room](docs/media/film_1_plan_room.jpg) | ![Framing a view](docs/media/film_2_field_frame.jpg) | ![The next observation](docs/media/film_3_photo_and_next.jpg) |
+| PLAN: the model on its plinth, the plan and the evidence | FIELD: a view framed in the panorama | The photo, its purpose and the next observation |
+| ![Back in the room](docs/media/film_4_plan_back_in_the_room.jpg) | ![The saved plan](docs/media/film_5_saved_plan.jpg) | ![The saved plan, nearer](docs/media/film_6_saved_plan_near.jpg) |
+| PLAN again: the photo that was taken is open beside the plan | The saved plan | Each outcrop: photo, purpose, next observation |
 
 The rest of the app, built for the Tokyo venue, is the panel's other face (*Tasks*): a 13-task Marswalk on the timeline, slope and spectral layers on the map, walks between stations with a route check, and regions pointed at in a panorama.
 
@@ -50,7 +52,7 @@ The rest of the app, built for the Tokyo venue, is the panel's other face (*Task
 | **Rehearsal capture** | A view you framed in a past Mastcam-Z panorama. It is cut from the image by direction and field of view, from the place the image was taken. It is not a new observation and nothing is measured from it. |
 | **Planned observation** | Something still to be done on Mars. Its status is always *planned — not yet collected*; framing a view, opening a rover close-up or saving the plan never changes that. |
 
-Every panel also says where its content comes from: **NASA observation** (white), **our calculation** (cyan), **simulated** (amber).
+Every panel also says where its content comes from, with a mark and a word: ■ **NASA observation**, □ **our calculation**, ◇ **simulated or hypothetical**. Cyan is kept for what can be chosen.
 
 The purposes and next observations are your button choices, shown back in the same words. The app adds no finding of its own: no age, no mineral, no grain size is read from a photo. Ages need laboratory analysis and a justified geological relationship; they are not taken from height or from these images.
 
@@ -69,7 +71,7 @@ The purposes and next observations are your button choices, shown back in the sa
 | `losAssumptions` | The conditions of the visibility model the app shows |
 | `photoObservations[]` | Regions pointed at in a panorama: image and direction first, the approximate map point second |
 
-The [example](docs/examples/observation_plan/observation_plan.json) is the plan saved during the recording of the demonstration film. It is a simulated example, and its first field says so.
+The [example](docs/examples/observation_plan/observation_plan.json) is the plan saved during the recording of the demonstration film. It is a simulated example, and its first field says so. (The evidence audit inspected the plan saved by an earlier take of the film, kept in [`demo/MissionLens_briefing_30s_en_plan/`](demo/MissionLens_briefing_30s_en_plan/); the two hold the same kinds of record.)
 
 ## NASA data
 
@@ -137,11 +139,20 @@ The raw inputs are not in git. Each tool downloads what it needs from the public
 
 ## How the demonstration film was made
 
-`tools/record_briefing.sh` records it in the Unity Editor (it is not a headset capture). A script (`MLAppDirector.cs`, `CoBriefing`) moves a simulated head and hands; they point, pinch and press, and the app answers through the same buttons, shutter and save as on the headset. The title and the opening are passed before the recording starts and the plan is emptied; no result is put in by hand. The moves between the table and the stations run faster than in the app, and the part before the saved plan is played at one uniform speed to fit thirty seconds; the film's corner says both, and [`demo/MissionLens_briefing_30s_en_times.txt`](demo/MissionLens_briefing_30s_en_times.txt) gives the factor and the measured length. The plan saved during that recording is in [`demo/MissionLens_briefing_30s_en_plan/`](demo/MissionLens_briefing_30s_en_plan/) (the same files as the example above). The room is the app's studio room, since the Editor has no passthrough.
+`tools/record_briefing.sh` records it in the Unity Editor. It is not a headset capture: the film's corner reads *Unity Editor capture · simulated room and input*.
+
+- **Input.** A script (`MLAppDirector.cs`, `CoBriefing`) moves a simulated head and hands; they point, pinch and press, and the app answers through the same buttons, shutter and save as on the headset. The title and the opening are passed before the recording starts and the plan is emptied; no result is put in by hand.
+- **Room.** On the headset the table stands in your own room (passthrough). The Editor has no real room, so the film uses the app's studio room with plain walls added: a drawn room, there to show the size of the model and the change from PLAN to FIELD and back. In FIELD the person stays where the panorama was taken and only turns.
+- **Time.** The moves between the room and the stations run faster than in the app, and the part before the saved plan is played at one uniform speed (1.41×) to fit thirty seconds; the saved plan at the end runs at its own pace for 5.6 s. [`demo/MissionLens_briefing_30s_en_room_times.txt`](demo/MissionLens_briefing_30s_en_room_times.txt) gives the scenes, the factor and the measured length (29.30 s).
+- **What it saved.** The plan saved during that recording is in [`demo/MissionLens_briefing_30s_en_room_plan/`](demo/MissionLens_briefing_30s_en_room_plan/) (the same files as the example above); the last card in the film shows that plan.
 
 ## Use of AI
 
 The application code, the data tools, the scripted recording and the texts in the app and in this repository were written with AI assistants, directed and reviewed by the developer, who chose the concept, the science question, the data and what to keep: Claude Code (Anthropic) for code and documentation, ChatGPT and Codex (OpenAI) for concept planning, the evidence audit in `docs/validation/` and drafts of the submission text. No image, video or voice was made by a generative model. Every picture of Mars is NASA mission data or a geometric reprojection of it computed by our code; the interface sounds are tones synthesised by the app's own code; the hands in the film are driven by a recording script.
+
+## Third-party resources
+
+Unity 6 (Universal Render Pipeline, OpenXR: Meta, XR Hands, Input System, TextMesh Pro); the fonts Barlow and Barlow Semi Condensed and Noto Sans JP (SIL Open Font License); NumPy, Rasterio, Pillow and OpenCV for the data tools; FFmpeg for the film. The full list with links is in [docs/SUBMISSION.md](docs/SUBMISSION.md), sections 7 and 8.
 
 ## More
 

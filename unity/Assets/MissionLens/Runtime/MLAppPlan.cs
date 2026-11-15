@@ -98,6 +98,8 @@ namespace MissionLens
         MLPanel finder, shot, card, pairTag, refCard; TextMeshProUGUI finderInfo; RawImage finderFlash; string finderShown = "", finderFor = ""; bool shotPlaced;
         Material capMat, pairMat, markLineMat, markLineDim, fanRimMat; LineRenderer pairLine; Mesh fanMesh, fanRim;
 
+        /// <summary>How far in front of the person the photo's card comes up (metres). A recording holds it nearer, so that it can be read in a film without the person moving toward it.</summary>
+        public float shotDist = .92f;
         const int CapW = 960, CapH = 640; const float CapFov = 50, PanoFar = 400, FinderDist = 1f, FinderStrip = 136;   // a capture is 3 : 2 and 50 degrees wide: an outcrop with what stands round it
         static float CapVFov => 2 * Mathf.Atan(Mathf.Tan(CapFov * Mathf.Deg2Rad / 2) * CapH / CapW) * Mathf.Rad2Deg;
         IEnumerable<Station> PlanStations => M.stations.Where(s => s.hasSample);
@@ -454,7 +456,7 @@ namespace MissionLens
             string purpose = CamPurpose(out var from);
             s.Text(purpose.Length > 0 ? (rig.xr ? L("pinch to capture", "ピンチで撮影") : L("click to capture", "クリックで撮影")) : L("choose a purpose to capture", "目的を選ぶと撮影できます"), W - 22, T - 28, Size.Label, Amber, true, 1);
             s.Text(L("PURPOSE", "目的"), 22, 36, Size.Note, purpose.Length > 0 ? Gray : Amber, true);
-            s.Text(from != null ? L("from the task", "タスクから") : purpose.Length > 0 ? L("chosen here", "ここで選択") : L("choose one", "選んでください"), 22, 58, Size.Note * .8f, from != null ? Cyan : Amber);
+            s.Text(from != null ? L("from the task", "タスクから") : purpose.Length > 0 ? L("chosen here", "ここで選択") : L("choose one", "選んでください"), 22, 58, Size.Note * .8f, from != null ? Soft : Amber);
             float x = 150, bw = (W - 150 - 22 - 16) / 3;
             foreach (var id in Purposes) { string pid = id; s.Button(Word(id), x, 10, bw, 54, () => CamPurposePick(pid), purpose == id, px: Size.Note * .8f, key: "CamPurpose:" + id); x += bw + 8; }
         }
@@ -473,7 +475,7 @@ namespace MissionLens
             s.Text($"{st.id} {st.name}", X, 66, Size.Heading, Ink, true);
             string pl = L("Purpose", "目的"); s.Text(pl, X, 112, Size.Label, Gray, true); s.Text(Word(c.purpose), X + s.Measure(pl, Size.Label, true) + 14, 112, Size.Label, Ink, true);
             s.Button(L("Change", "変更"), X + W - 116, 122, 116, 38, () => CapPurposeCycle(n), px: Size.Note, key: "Change purpose");
-            s.Text(c.purposeSource == "inherited_from_selected_task" ? L("taken from the selected task", "選択中のタスクから引き継ぎ") : L("chosen by you", "あなたが選択"), X, 138, Size.Note, c.purposeSource == "inherited_from_selected_task" ? Cyan : Gray);
+            s.Text(c.purposeSource == "inherited_from_selected_task" ? L("taken from the selected task", "選択中のタスクから引き継ぎ") : L("chosen by you", "あなたが選択"), X, 138, Size.Note, c.purposeSource == "inherited_from_selected_task" ? Soft : Gray);
             string nl = L("NEXT OBSERVATION", "次の観測"); s.Text(nl, X, 186, Size.Label, Ink, true); s.Text(L("· adds work not yet done", "· 未実施の作業を追加"), X + s.Measure(nl, Size.Label, true) + 12, 186, Size.Note, Gray);
             float y = 200;
             foreach (var type in NextTypes)
@@ -521,11 +523,11 @@ namespace MissionLens
         void DrawPlanBoard(MLPanel b)
         {
             const float X = 48, W = 990; string goal = L("GOAL", "目的");
-            b.Text(goal, X, 120, Size.Label, Cyan, true); b.Text(GoalName, X + b.Measure(goal, Size.Label, true) + 16, 122, Size.Heading, Ink, true);
+            b.Text(goal, X, 120, Size.Label, Gray, true); b.Text(GoalName, X + b.Measure(goal, Size.Label, true) + 16, 122, Size.Heading, Ink, true);
             b.Text(L("SIMULATED PLAN", "模擬の計画"), X + W, 120, Size.Note, Amber, true, 1);
             float y = b.Wrap(GoalQuestion, X, 156, W, 27, Size.Note, Soft);
             // what to do, in one line: the plan is made of views, each kept with what it is for and what it leaves to be checked
-            b.Text(L("Frame what you need to document. Keep its purpose and what remains to be checked.", "記録が必要なものを構図に収める。目的と、まだ確かめていないことを一緒に残す。"), X, y + 2, Size.Note, Cyan);
+            b.Text(L("Frame what you need to document. Keep its purpose and what remains to be checked.", "記録が必要なものを構図に収める。目的と、まだ確かめていないことを一緒に残す。"), X, y + 2, Size.Note, Soft);
             y = 232;
             foreach (var s in PlanStations) { DrawPlanStation(b, s, X, y, W, 190); y += 198; }
             DrawPlanPair(b, X, y, W, 92); y += 102;
@@ -536,8 +538,8 @@ namespace MissionLens
             if (planSaveError.Length > 0) { line1 = L("NOT SAVED: ", "保存できません: ") + planSaveError; line2 = L("Nothing was written. The plan is kept here.", "何も書き込まれていません。計画は残っています。"); col = Slope20; }
             else if (empty) line1 = L("Nothing in the plan yet.", "計画はまだ空です。");
             else if (planDirty || planSavedUtc.Length == 0) { line1 = L($"Not saved yet · {PlannedCount} planned", $"未保存 · 予定の観測 {PlannedCount} 件"); col = Amber; if (planSavedUtc.Length > 0) line2 = L("changed since ", "変更あり · 前回の保存 ") + UtcShort(planSavedUtc); }
-            else if (planLoaded) { line1 = L("Read back from the saved file", "保存ファイルから読み戻し"); line2 = L("saved ", "保存 ") + UtcShort(planSavedUtc); col = Cyan; }
-            else { line1 = L("Saved · ", "保存済み · ") + UtcShort(planSavedUtc); line2 = planSession; col = Cyan; }
+            else if (planLoaded) { line1 = L("Read back from the saved file", "保存ファイルから読み戻し"); line2 = L("saved ", "保存 ") + UtcShort(planSavedUtc); col = Soft; }
+            else { line1 = L("Saved · ", "保存済み · ") + UtcShort(planSavedUtc); line2 = planSession; col = Soft; }
             if (line1.Length > 36) line1 = line1.Substring(0, 35) + "…";
             b.Text(line1, X + 348, y + 26, Size.Note, col, true); if (line2.Length > 0) b.Text(line2, X + 348, y + 52, Size.Note * .9f, Gray);
             if (planSavedUtc.Length > 0 && !planDirty) b.Button(L("Plan card", "計画カード"), X + W - 272, y + 8, 130, 46, ShowPlanCard, px: Size.Note, key: "Plan card");
@@ -555,7 +557,7 @@ namespace MissionLens
             bool has = planRole.TryGetValue(s.id, out string role), inPlan = InPlan(s.id); var mine = caps.Where(c => c.station == s.id).ToList(); var cap = ShownCap(s.id); string sid = s.id; float rr = x + w - 18;
             b.Box(x, y0, w, h, 16, new Color(1, 1, 1, inPlan ? .055f : .02f), new Color(1, 1, 1, sid == sel && stage == Stage.Table ? .36f : inPlan ? .17f : .09f));
             string name = $"{s.id} {s.name}"; b.Text(name, x + 18, y0 + 44, Size.Heading, inPlan ? Ink : Gray, true);
-            if (inPlan) b.Text(has ? " — " + Word(role) : L(" — role not chosen", " — 役割は未選択"), x + 18 + b.Measure(name, Size.Heading, true), y0 + 44, has ? Size.Heading : Size.Label, has ? Cyan : Amber, true);
+            if (inPlan) b.Text(has ? " — " + Word(role) : L(" — role not chosen", " — 役割は未選択"), x + 18 + b.Measure(name, Size.Heading, true), y0 + 44, has ? Size.Heading : Size.Label, has ? Soft : Amber, true);
             b.Hit("PlanRow:" + sid, x, y0, w, 56, () => { sfx.Play("toggle", .6f); SelectStation(sid); }, 16, true);   // the row's head picks the outcrop: its science card comes up on the right
             if (!inPlan)
             {
@@ -579,7 +581,7 @@ namespace MissionLens
             if (mine.Count > 1) b.Button(L($"photo {mine.IndexOf(cap) + 1} of {mine.Count} ›", $"写真 {mine.IndexOf(cap) + 1} / {mine.Count} ›"), rr - 190, y0 + 62, 190, 34, () => PlanShowNext(sid), px: Size.Note * .9f, key: "NextPhoto:" + sid);
             b.Text(L("Purpose", "目的"), lx, y0 + 90, Size.Note, Gray, true); b.Text(Word(cap.purpose), vx, y0 + 90, Size.Label, Ink, true);
             b.Text(L("Next", "次の観測"), lx, y0 + 122, Size.Note, Gray, true);
-            b.Text(cap.next.Count > 0 ? string.Join(" + ", cap.next.Select(nx => Word(nx.type))) + L(" — planned, not yet collected", " — 予定、未取得") : L("none chosen — photo only", "未選択 — 写真のみ"), vx, y0 + 122, Size.Note, cap.next.Count > 0 ? Cyan : Soft, cap.next.Count > 0);
+            b.Text(cap.next.Count > 0 ? string.Join(" + ", cap.next.Select(nx => Word(nx.type))) + L(" — planned, not yet collected", " — 予定、未取得") : L("none chosen — photo only", "未選択 — 写真のみ"), vx, y0 + 122, Size.Note, cap.next.Count > 0 ? Ink : Soft, cap.next.Count > 0);
             b.Text(L("To verify", "未確認"), lx, y0 + 150, Size.Note, Gray, true);
             b.Text(cap.next.Count > 0 ? string.Join(" · ", cap.next.Select(nx => Word(Unresolved(nx.type)))) : "—", vx, y0 + 150, Size.Note, Soft);
             if (cap.needsReview) b.Text(L("REVIEW LATER · ON HOLD", "あとで確認 · 保留中"), rr, y0 + 150, Size.Note, Amber, true, 1);
@@ -600,7 +602,7 @@ namespace MissionLens
             if (!both) { b.Text(L("With both outcrops in the plan, documenting their relationship can be added.", "両方の露頭が計画に入ると、関係の記録を追加できます。"), x + 18, y0 + 68, Size.Note, Gray); return; }
             if (!relOn) { b.Button(L("Add: document the geological relationship", "追加: 地質学的な関係を記録する"), x + 18, y0 + 44, 540, 42, PlanRelationship, primary: true, px: Size.Note, key: "Relationship"); return; }
             string rl = L("Document the geological relationship", "地質学的な関係を記録する"); b.Text(rl, x + 18, y0 + 62, Size.Note, Ink, true);
-            b.Text(L(" · planned — not yet collected", " · 予定 — 未取得"), x + 18 + b.Measure(rl, Size.Note, true), y0 + 62, Size.Note, Cyan, true);
+            b.Text(L(" · planned — not yet collected", " · 予定 — 未取得"), x + 18 + b.Measure(rl, Size.Note, true), y0 + 62, Size.Note, Ink, true);
             b.Text(L("To verify: ", "未確認: ") + string.Join(" · ", PairUnresolved.Select(Word)) + L(" · not from height alone", " · 標高だけでは決めない"), x + 18, y0 + 84, Size.Note * .9f, Soft);
             b.Button(L("Remove", "外す"), rr - 110, y0 + 44, 110, 38, PlanRelationship, px: Size.Note, key: "Relationship");
         }
@@ -619,7 +621,7 @@ namespace MissionLens
             y = b.Sourced(L("REGIONAL SPECTRAL CONTEXT", "周辺の分光データ"), Ink, L($"MRO CRISM · {M.crismMPerPx:0} m/pixel. Not a ranking of individual outcrops.", $"MRO CRISM · 1 画素 {M.crismMPerPx:0} m。個々の露頭の順位ではありません。"), x, y + 4, w);
             // adding it to the plan: the role is chosen with it
             bool has = planRole.TryGetValue(st.id, out string role); string sid = st.id, al = has ? L("IN THE PLAN AS", "計画での役割") : L("ADD TO THE PLAN AS", "計画に追加:"); float ay = y - 6;
-            b.Text(al, x, ay + 33, Size.Note, has ? Cyan : Ink, true); float ax = x + Mathf.Max(250, b.Measure(al, Size.Note, true) + 16);
+            b.Text(al, x, ay + 33, Size.Note, has ? Gray : Ink, true); float ax = x + Mathf.Max(250, b.Measure(al, Size.Note, true) + 16);
             foreach (var r in Roles) { string rid = r; b.Button(Word(r), ax, ay, 262, 50, () => PlanAdd(sid, rid), has && role == r, primary: !has, px: Size.Note, key: "Add:" + r); ax += 272; }
             if (has) b.Button(L("Remove", "外す"), x + w - 110, ay + 6, 110, 38, () => PlanRemove(sid), px: Size.Note, key: "Remove from plan");
             return ay + 50;
@@ -638,10 +640,10 @@ namespace MissionLens
                              : L($"Mastcam-Z panorama · {st.panoSols} · past NASA data, not a new observation", $"Mastcam-Z パノラマ · {st.panoSols} · 過去の NASA データ。新しい観測ではありません"), tx, y + 56, Size.Note * .85f, c.missing ? Amber : Gray);
             b.Text(L("Purpose", "目的"), tx, y + 94, Size.Note, Gray, true);
             b.Button(Word(c.purpose) + " ›", tx + 100, y + 68, 340, 38, () => CapPurposeCycle(n), px: Size.Note, key: "PurposeCycle");
-            b.Text(c.purposeSource == "inherited_from_selected_task" ? L("from the task", "タスクから") : L("chosen", "選択"), tx + 452, y + 94, Size.Note * .85f, c.purposeSource == "inherited_from_selected_task" ? Cyan : Gray);
+            b.Text(c.purposeSource == "inherited_from_selected_task" ? L("from the task", "タスクから") : L("chosen", "選択"), tx + 452, y + 94, Size.Note * .85f, c.purposeSource == "inherited_from_selected_task" ? Soft : Gray);
             b.Text(L("Next", "次の観測"), tx, y + 136, Size.Note, Gray, true); float bx = tx + 100, bw = (tw - 100 - 16) / 3;
             foreach (var type in NextTypes) { string t = type; b.Button(Word(type), bx, y + 110, bw, 38, () => CapNextToggle(n, t), c.next.Any(v => v.type == type), px: Size.Note * .75f, key: "Detail:Next:" + type); bx += bw + 8; }
-            b.Text(c.next.Count > 0 ? L("Planned — not yet collected", "予定 — 未取得") : L("Photo only — no next observation chosen", "写真のみ — 次の観測は未選択"), tx, y + 172, Size.Note, c.next.Count > 0 ? Cyan : Soft, true);
+            b.Text(c.next.Count > 0 ? L("Planned — not yet collected", "予定 — 未取得") : L("Photo only — no next observation chosen", "写真のみ — 次の観測は未選択"), tx, y + 172, Size.Note, c.next.Count > 0 ? Ink : Soft, true);
             if (c.next.Count > 0) b.Text(L("To verify: ", "未確認: ") + string.Join(" · ", c.next.Select(v => Word(Unresolved(v.type)))), tx, y + 194, Size.Note * .85f, Soft);
             float by = y + h - 42;
             b.Button(c.needsReview ? L("On hold · review later", "保留中 · あとで確認") : L("Review later", "あとで確認"), tx, by, 230, 36, () => CapReview(n), c.needsReview, px: Size.Note * .9f, key: "Detail:Review");
@@ -659,7 +661,7 @@ namespace MissionLens
                 var s = two[i]; var c = ShownCap(s.id); float ix = i == 0 ? x : x + w - iw;
                 if (c != null) { int n = c.n; b.Picture(c.tex, ix, y, iw, h, new Rect(0, 0, 1, 1)); b.Hit("cap:" + n, ix, y, iw, h, () => SelectCapture(n), 8); }
                 else { b.Box(ix, y, iw, h, 8, new Color(.07f, .08f, .1f, 1), new Color(1, 1, 1, .14f)); b.Text(L("no view framed", "構図なし"), ix + iw / 2, y + h / 2 + 7, Size.Note, Dim, false, 0); }
-                b.Tag($"{s.id} {s.name}", ix + 12, y + 12, Ink);
+                b.Tag($"{s.id} {s.name}", ix + 12, y + 12, Ink, false);
             }
             b.Text(L("OBSERVATION PAIR", "観測の組"), mx + mw / 2, ty, Size.Note, Amber, true, 0); ty += 34;
             foreach (var s in two)
@@ -668,7 +670,7 @@ namespace MissionLens
                 b.Text(s.id + " · " + (has ? Word(role) : L("role not chosen", "役割は未選択")), mx, ty, Size.Note * .85f, has ? Ink : Amber, true); ty += 24;
                 ty = b.Wrap(c != null ? Word(c.purpose) : L("no photo yet", "写真なし"), mx, ty, mw, 22, Size.Note * .8f, Soft) + 12;
             }
-            b.Wrap(relOn ? L("Relationship: planned — not yet collected", "関係の記録: 予定 — 未取得") : L("Relationship: not in the plan", "関係の記録: 計画に未追加"), mx, ty + 4, mw, 22, Size.Note * .8f, relOn ? Cyan : Gray, true);
+            b.Wrap(relOn ? L("Relationship: planned — not yet collected", "関係の記録: 予定 — 未取得") : L("Relationship: not in the plan", "関係の記録: 計画に未追加"), mx, ty + 4, mw, 22, Size.Note * .8f, relOn ? Ink : Gray, true);
         }
         // Under them: what the published study says of taking the two together, and what the plan holds for it.
         void DrawPairNotes(MLPanel b, float x, float y, float w)
@@ -689,7 +691,7 @@ namespace MissionLens
             var s = card; s.Clear(); const float X = 80; float W = s.w - 2 * X, y = 190;
             s.Frame(new Color(10 / 255f, 12 / 255f, 17 / 255f, .97f), Cyan);
             bool saved = planSavedUtc.Length > 0 && !planDirty;
-            s.Text(saved ? L("OBSERVATION PLAN · SAVED", "観測計画 · 保存済み") : L("OBSERVATION PLAN · NOT SAVED", "観測計画 · 未保存"), X, 74, Size.Label, saved ? Cyan : Amber, true);
+            s.Text(saved ? L("OBSERVATION PLAN · SAVED", "観測計画 · 保存済み") : L("OBSERVATION PLAN · NOT SAVED", "観測計画 · 未保存"), X, 74, Size.Label, saved ? Ink : Amber, true);
             s.Text(L("SIMULATED PLAN · HISTORICAL NASA DATA", "模擬の計画 · 過去の NASA データ"), X + W, 74, Size.Label, Amber, true, 1);
             s.Text(L("Goal: ", "目的: ") + GoalName, X, 142, Size.Title, Ink, true);
             s.Text(L("Where will you look, why, and what remains unresolved?", "どこを、何のために見て、何がまだ分かっていないか。"), X + W, 140, Size.Label, Soft, false, 1);
@@ -701,13 +703,13 @@ namespace MissionLens
                 float lx = X + tw + 28; string name = $"{st.id} {st.name}";
                 if (!InPlan(st.id)) { s.Text(name, lx, y + 44, Size.Heading, Gray, true); s.Text(L("Not in the plan", "計画に入っていません"), lx, y + 88, Size.Body, Gray); y += 152; continue; }
                 s.Text(name, lx, y + 38, Size.Heading, Ink, true);
-                s.Text(" — " + (has ? Word(role) : L("role not chosen", "役割は未選択")), lx + s.Measure(name, Size.Heading, true), y + 38, Size.Heading, has ? Cyan : Amber, true);
+                s.Text(" — " + (has ? Word(role) : L("role not chosen", "役割は未選択")), lx + s.Measure(name, Size.Heading, true), y + 38, Size.Heading, has ? Soft : Amber, true);
                 if (cap == null) s.Text(L("No photo framed yet", "写真はまだありません"), lx, y + 80, Size.Body, Soft);
                 else
                 {
                     var all = mine.SelectMany(c => c.next.Select(nx => nx.type)).Distinct().ToArray(); int hold = mine.Count(c => c.needsReview);
                     s.Text(L("Purpose: ", "目的: ") + Word(cap.purpose) + (mine.Count > 1 ? L($"  ·  {mine.Count} photos", $"  ·  写真 {mine.Count} 枚") : ""), lx, y + 80, Size.Body, Ink);
-                    s.Text(all.Length > 0 ? L("Next: ", "次の観測: ") + string.Join(" + ", all.Select(Word)) + L(" — planned, not yet collected", " — 予定、未取得") : L("Photo only — no next observation chosen", "写真のみ — 次の観測は未選択"), lx, y + 118, Size.Body, all.Length > 0 ? Cyan : Soft, all.Length > 0);
+                    s.Text(all.Length > 0 ? L("Next: ", "次の観測: ") + string.Join(" + ", all.Select(Word)) + L(" — planned, not yet collected", " — 予定、未取得") : L("Photo only — no next observation chosen", "写真のみ — 次の観測は未選択"), lx, y + 118, Size.Body, all.Length > 0 ? Ink : Soft, all.Length > 0);
                     s.Text(L($"looking {MLData.Deg3(cap.az)}°", $"方位 {MLData.Deg3(cap.az)}°"), X + W, y + 80, Size.Label, Gray, false, 1);
                     if (hold > 0) s.Text(L("review later", "あとで確認"), X + W, y + 38, Size.Label, Amber, true, 1);
                 }
@@ -715,14 +717,14 @@ namespace MissionLens
             }
             string together = L("Together: ", "合わせて: ");
             s.Text(together, X, y + 36, Size.Heading, Ink, true);
-            s.Text(relOn ? L("Document the geological relationship", "地質学的な関係を記録する") : L("not planned", "予定なし"), X + s.Measure(together, Size.Heading, true) + 12, y + 36, Size.Heading, relOn ? Cyan : Gray, true);
+            s.Text(relOn ? L("Document the geological relationship", "地質学的な関係を記録する") : L("not planned", "予定なし"), X + s.Measure(together, Size.Heading, true) + 12, y + 36, Size.Heading, relOn ? Ink : Gray, true);
             if (relOn) s.Text(L("Observation pair · planned, not yet collected", "観測の組 · 予定、未取得"), X, y + 72, Size.Label, Soft);
             y += 124;
             var ev = viewedEvidence.Select(EvidenceName).Distinct().ToArray();
             var open = caps.SelectMany(c => c.next.Select(nx => Unresolved(nx.type))).Concat(relOn ? PairUnresolved.Take(1) : new string[0]).Distinct().Select(Word).ToArray();
             foreach (var (label, text, col) in new[] {
                 (L("Existing evidence", "既存の根拠"), ev.Length > 0 ? string.Join(" · ", ev) : L("none opened", "未確認"), Ink),
-                (L("Planned observations", "予定の観測"), L($"{PlannedCount} · not yet collected", $"{PlannedCount} 件 · 未取得"), Cyan),
+                (L("Planned observations", "予定の観測"), L($"{PlannedCount} · not yet collected", $"{PlannedCount} 件 · 未取得"), Ink),
                 (L("Open questions", "未確認の事項"), (open.Length > 0 ? string.Join(" · ", open) + " · " : "") + L("field context and laboratory analysis still required", "現地での確認と室内分析が必要"), Amber) })
             { s.Text(label, X, y, Size.Label, Gray, true); y = s.Wrap(text, X + 310, y, W - 310, 34, Size.Label, col, true) + 12; }
             s.Text(saved ? L($"Saved {UtcShort(planSavedUtc)} · {planSession}/{MLPlanStore.FileName}", $"保存 {UtcShort(planSavedUtc)} · {planSession}/{MLPlanStore.FileName}") : L("Not saved", "未保存"), X, s.h - 44, Size.Note, Gray);
@@ -749,7 +751,7 @@ namespace MissionLens
             p.Box(10, 14, 76, 68, 12, on ? Amber : new Color(8 / 255f, 10 / 255f, 14 / 255f, .88f), Amber);
             p.Box(22, 30, 30, 22, 5, Color.clear, ink); p.Box(30, 35, 14, 12, 6, ink); p.Box(27, 25, 12, 7, 2, ink);   // a small camera
             p.Text(n.ToString(), 67, 53, Size.Label, ink, true, 0);
-            if (c.next.Count > 0) p.Box(72, 6, 20, 20, 10, Cyan); if (c.needsReview) p.Box(4, 6, 20, 20, 10, Color.clear, Color.white);
+            if (c.next.Count > 0) p.Box(72, 6, 20, 20, 10, Ink); if (c.needsReview) p.Box(4, 6, 20, 20, 10, Color.clear, Color.white);
             p.Hit("cap:" + n, 0, 0, 96, 104, () => SelectCapture(n), 12);
         }
         void DrawPairTag()
@@ -803,7 +805,7 @@ namespace MissionLens
             if (finderFlash != null) { float k = Mathf.Clamp01(1 - (Time.time - flashAt) / .28f); finderFlash.color = new Color(1, 1, 1, k * k * .85f); }
             // the photo card comes up where the person is looking, and stays there while it is answered
             shot.Show = shotCap != null && stage == Stage.Field;
-            if (shot.Show && rig.xr && !shotPlaced) { shotPlaced = true; PlaceInFront(shot, .92f, -.1f); }
+            if (shot.Show && rig.xr && !shotPlaced) { shotPlaced = true; PlaceInFront(shot, shotDist, -.1f); }
             if (refCard.Show && stage != Stage.Field && stage != Stage.Table) refCard.Show = false;
 
             // on the table: each capture's sector and tag, the line that pairs the two outcrops, and for each region

@@ -11,6 +11,7 @@ plan comes up). Written out:
   <out>.mp4                 the film, with one short subtitle per scene and a line that says how it was made
   <out>_nosub.mp4           the same without the subtitles (the line that says how it was made stays)
   <out>_still_<scene>.png   one frame from the middle of each scene, as recorded (nothing added)
+  <out>_view_<name>.png     the frames the director marked ("still:<name>" in cues.txt): the room, FIELD, the saved plan
   <out>_times.txt           when each scene begins in the film, the speed, and the measured length
 
 The demonstration must be thirty seconds or less. The take is longer than that, so the part before the saved plan
@@ -29,7 +30,7 @@ def opt(name, default):
 argv = [a for i, a in enumerate(argv) if not (i > 0 and sys.argv[sys.argv.index(a) - 1] in ('--length', '--hold'))]
 frames, lang, out = argv[0], argv[1], argv[2]
 ff = argv[3] if len(argv) > 3 else os.environ.get('FFMPEG', 'ffmpeg')
-length, hold_max = opt('length', 29.3), opt('hold', 5.2)
+length, hold_max = opt('length', 29.3), opt('hold', 5.6)
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 font = os.path.join(root, 'unity/Assets/MissionLens/Resources/MLFonts/NotoSansJP-Regular.otf')   # the app's own face
 
@@ -53,14 +54,15 @@ SUBS = {
 }[lang]
 NAME = 'MISSION LENS  ·  Plan the Science Before the Marswalk'   # the project's name and its line, in the top right corner throughout
 NOTE = {
-    'en': 'Hypothetical Marswalk · Historical NASA data · Unity Editor capture, scripted hands',
-    'ja': '仮想の Marswalk · 過去の NASA データ · Unity Editor で収録、手の動きはスクリプト',
+    'en': 'Hypothetical Marswalk · Historical NASA data · Unity Editor capture · simulated room and input',
+    'ja': '仮想の Marswalk · 過去の NASA データ · Unity Editor で収録 · 部屋と入力は模擬',
 }[lang]
 
 rate, channels, fps = open(os.path.join(frames, 'audio.txt')).read().split()
 fps = int(fps); n = len([f for f in os.listdir(frames) if f.startswith('f_') and f.endswith('.jpg')]); end = n / fps
 cues = [l.split(None, 1) for l in open(os.path.join(frames, 'cues.txt'), encoding='utf-8').read().splitlines() if l.strip()]
-scenes = [(int(f), name) for f, name in cues]
+scenes = [(int(f), name) for f, name in cues if not name.startswith('still:')]
+marked = [(int(f), name[6:]) for f, name in cues if name.startswith('still:')]   # frames the director marked to be kept as stills
 card = next((f for f, name in scenes if name == 'card'), None)
 if card is None: sys.exit('no "card" cue: the saved plan did not come up in this take')
 tcard = card / fps; hold = min(hold_max, end - tcard)
@@ -110,6 +112,8 @@ encode(base + '.mp4', True); encode(base + '_nosub.mp4', False)
 for i, (f, name) in enumerate(scenes):
     mid = (f + (scenes[i + 1][0] if i + 1 < len(scenes) else n)) // 2 if name != 'card' else min(n - 1, f + fps * 2)
     run([ff, '-y', '-loglevel', 'error', '-i', os.path.join(frames, 'f_%05d.jpg' % mid), base + '_still_%d_%s.png' % (i + 1, name)])
+for f, name in marked:
+    run([ff, '-y', '-loglevel', 'error', '-i', os.path.join(frames, 'f_%05d.jpg' % max(0, min(n - 1, f - 1))), base + '_view_%s.png' % name])
 got = measured(base + '.mp4')
 with open(base + '_times.txt', 'w', encoding='utf-8') as t:
     for f, name in scenes: t.write('%6.2f s  %-8s %s\n' % (film(f), name, SUBS.get(name, '')))

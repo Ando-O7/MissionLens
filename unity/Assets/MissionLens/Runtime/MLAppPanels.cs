@@ -107,9 +107,12 @@ namespace MissionLens
         void DrawMarkLabel(Mark m)
         {
             var p = m.label; p.Clear(); bool on = m.n == selMark; int n = m.n;
-            p.Stroke(48, 84, 48, 146, 5, Amber); p.Box(39, 138, 18, 18, 9, Amber);
-            p.Box(14, 14, 68, 68, 12, on ? Amber : new Color(8 / 255f, 10 / 255f, 14 / 255f, .88f), Amber);
-            p.Text(n.ToString("00"), 48, 60, Size.Heading, on ? new Color(.1f, .06f, 0, 1) : Amber, true, 0);
+            var c = on ? Cyan : Ink;   // white: a mark on the map is not warm, where warm colours mean slope. Cyan when it is the one chosen.
+            for (float sy = 92; sy < 140; sy += 14) p.Stroke(48, sy, 48, sy + 6, 4, c);   // a broken stem: not real
+            p.Box(42, 140, 12, 12, 6, c);
+            p.Box(12, 12, 72, 72, 36, new Color(0, 0, 0, .62f));
+            foreach (var (ax, ay, bx, by) in new[] { (48f, 8f, 88f, 48f), (88f, 48f, 48f, 88f), (48f, 88f, 8f, 48f), (8f, 48f, 48f, 8f) }) p.Stroke(ax, ay, bx, by, 4, c);   // a hollow diamond: not real
+            p.Text(n.ToString("00"), 48, 60, Size.Heading, c, true, 0);
             p.Hit("mark:" + n, 0, 0, 96, 104, () => SelectMark(n), 12);
         }
 
@@ -233,7 +236,7 @@ namespace MissionLens
                 else if (travelling != null) sub = "";   // on the way: the distance left is on the head-up strip
                 else if (s.id != At) sub = $"{BearingFromHere(s.id).d:0} m" + (stage == Stage.Field && St(At).hidden.Contains(s.id) ? L(" · target behind terrain (model)", " · 目標は地形の陰(モデル)") : "");
                 bool full = table ? s.id == sel : isNext || preview != null || (Finished && s.id != here);
-                var col = table && s.id == sel ? Cyan : isNext && !table ? Amber : Color.white;
+                var col = table && s.id == sel ? Cyan : Color.white;   // cyan: the station that is chosen
                 p.k = table && !full ? .72f : 1; p.text = full ? s.id + " " + s.name : s.id; p.sub = full ? sub : sub.Split(new[] { " · " }, System.StringSplitOptions.None)[0]; p.col = col;
                 DrawPin(p);
             }
@@ -243,7 +246,7 @@ namespace MissionLens
                 bool next = table ? o.index == selLeg : fwd || back;
                 // Over the real image only the leg about to be walked is drawn, and not at the person's feet.
                 o.go.SetActive(table || next || stage != Stage.Field); o.back = back;
-                var c = next || !table ? Cyan : Color.white; c.a = table ? (next ? .98f : .42f) : next ? (stage == Stage.Field ? .5f : .7f) : .2f;
+                var c = Color.white; c.a = table ? (next ? .98f : .42f) : next ? (stage == Stage.Field ? .5f : .7f) : .2f;
                 o.mat.SetColor("_Color", c); o.mat.SetFloat("_Flow", next ? 1 : 0); o.mat.SetFloat("_Tint", next ? 1 : 0);
                 o.mat.SetVector("_Near", table ? Vector4.zero : new Vector4(3, 14, 0, 0));
             }
@@ -301,7 +304,7 @@ namespace MissionLens
             var s = title; s.Clear(); const float X = 90; float W = s.w - 2 * X;
             s.Frame(Back, Cyan);
             s.Text("MISSION LENS", X, 156, 108, Ink, true);   // the name, once: the one size outside the scale
-            s.Text(L("From science objectives to Marswalk execution", "科学目標から、火星を歩く 1 回の活動へ"), X, 222, Size.Title, Cyan, true);
+            s.Text(L("From science objectives to Marswalk execution", "科学目標から、火星を歩く 1 回の活動へ"), X, 222, Size.Title, Soft);
             float y = s.Wrap(L("One hypothetical crewed Marswalk at the front of Jezero Crater's fan.", "ジェゼロ・クレーターの扇状地前縁を歩く、仮想の有人 Marswalk 1 回分。"), X, 300, W, 36, Size.Body, Ink);
             y += 58;
             foreach (var (tag, col, text) in new[] {
@@ -309,7 +312,7 @@ namespace MissionLens
                 (L("OUR CALCULATION", "こちらの計算"), Cyan, L("Route · slopes · predicted occlusion of station targets · walking times · dataset alignment", "ルート · 傾斜 · 地点の目標が地形に隠れるかの予測 · 歩行時間 · データの位置合わせ")),
                 (L("SIMULATED", "模擬"), Amber, L("The Marswalk · its tasks and timeline · your photos, records and observation plan", "Marswalk · 作業と時間割 · あなたの撮影・記録・観測計画")) })
             {
-                s.Box(X, y - 31, 300, 46, 23, new Color(1, 1, 1, .07f), new Color(col.r, col.g, col.b, .7f)); s.Text(tag, X + 150, y, Size.Label, col, true, 0);
+                s.SourceLabel(OriginOf(col), tag, X, y, Size.Label);
                 y = s.Wrap(text, X + 332, y, W - 332, 31, Size.Label, Soft) + 43;
             }
             s.Button(L("Begin briefing", "ブリーフィングを始める"), X, 676, 440, 92, Begin, primary: true, px: Size.Heading, key: "Begin briefing");   // the one thing to do here: a step larger than other main buttons
@@ -328,7 +331,7 @@ namespace MissionLens
             var b = board; b.Clear(); var st = St(sel); const float X1 = 48, W1 = 990, X2 = 30, W2 = 1040; float y;
             b.Frame(Back, Finished ? Amber : Cyan);
             string plan = Finished ? L("PLAN · REVIEW", "PLAN · 振り返り") : "PLAN";
-            b.Text(plan, X1, 62, Size.Label, Cyan, true);
+            b.Text(plan, X1, 62, Size.Label, Gray, true);
             // the board has two faces: the task that is looked at, and the observation plan the briefing is for (MLAppPlan.cs)
             if (Finished) b.Text(M.title, X1 + b.Measure(plan, Size.Label, true) + 18, 62, Size.Label, Gray, true); else DrawPlanTabs(b, X1 + b.Measure(plan, Size.Label, true) + 18);
             b.Text(Finished ? L("SIMULATED RUN", "模擬の実行") : planTab ? L("EARTH-BASED BRIEFING", "地球での事前ブリーフィング") : L("HYPOTHETICAL MARSWALK", "仮想の Marswalk"), X1 + W1, 62, Size.Label, Amber, true, 1);
@@ -342,7 +345,7 @@ namespace MissionLens
                 // 1. the task that is looked at, and whether it is only looked at or is where the Marswalk is
                 y += 22;
                 b.Tag(current ? (taskIndex == 0 ? L("FIRST TASK OF THE MARSWALK", "Marswalk の最初の作業") : L("THE MARSWALK IS AT THIS TASK", "Marswalk はこの作業"))
-                    : selTask < taskIndex ? L("LOOKING AT THE PLAN · A TASK ALREADY DONE", "計画を確認中 · 実施済みの作業") : L("LOOKING AT THE PLAN · THE MARSWALK IS NOT HERE YET", "計画を確認中 · Marswalk はまだここではありません"), X1, y - 23, current ? Amber : Cyan);
+                    : selTask < taskIndex ? L("LOOKING AT THE PLAN · A TASK ALREADY DONE", "計画を確認中 · 実施済みの作業") : L("LOOKING AT THE PLAN · THE MARSWALK IS NOT HERE YET", "計画を確認中 · Marswalk はまだここではありません"), X1, y - 23, current ? Ink : Soft, false);
                 b.Text(L($"task {selTask + 1} of {M.tasks.Length}", $"作業 {selTask + 1} / {M.tasks.Length}"), X1 + W1, y, Size.Note, Gray, false, 1);
                 y += 62; string subject = $"{Ts.station} {St(Ts.station).name} · {T(Ts.phase)}";
                 b.Text(subject, X1, y, b.Measure(subject, Size.Title, true) > W1 ? Size.Heading : Size.Title, Ink, true);
@@ -354,7 +357,7 @@ namespace MissionLens
                 if (leg != null)
                 {
                     string head = L("WHAT TO CHECK ON THE WAY", "確かめること");
-                    b.Text(head, X1, y, Size.Label, Gray, true); b.Text(L("· OUR CALCULATION", "· こちらの計算"), X1 + b.Measure(head, Size.Label, true) + 12, y, Size.Label, Cyan, true);
+                    b.Text(head, X1, y, Size.Label, Gray, true); b.Text(L("· OUR CALCULATION", "· こちらの計算"), X1 + b.Measure(head, Size.Label, true) + 12, y, Size.Label, Soft, true);
                     float cx = X1;
                     foreach (var (value, what) in new[] {
                         ($"{leg.distM:0} m", L($"from {leg.from}", $"{leg.from} からの距離")), ($"{leg.ascentM:0} m", L("climb", "登り")), ($"{leg.slopeMaxDeg:0}°", L("steepest slope", "最大傾斜")),
@@ -478,7 +481,7 @@ namespace MissionLens
             s.Frame(Back, Cyan);
             s.Text($"{Ts.station} {St(Ts.station).name} · {T(Ts.phase)}", X0, 58, Size.Heading, Ink, true);
             string state = Ts.index == taskIndex ? L(" · current task", " · 現在の作業") : Ts.index < taskIndex ? L(" · done", " · 完了") : "";
-            s.Text(L($"{Ts.plannedMin} min", $"{Ts.plannedMin} 分") + $" · {MLData.Hm(Ts.startMin)}–{MLData.Hm(Ts.endMin)}{state}", X0 + W - 150, 56, Size.Label, Ts.index == taskIndex ? Amber : Gray, false, 1);
+            s.Text(L($"{Ts.plannedMin} min", $"{Ts.plannedMin} 分") + $" · {MLData.Hm(Ts.startMin)}–{MLData.Hm(Ts.endMin)}{state}", X0 + W - 150, 56, Size.Label, Ts.index == taskIndex ? Ink : Gray, false, 1);
             // step through the tasks in order, for hands that find the short segments hard to hit
             int ti = selTask;
             s.Button("‹", X0 + W - 128, 20, 58, 50, () => SelectTask(ti - 1), dim: ti == 0, px: Size.Body, key: "PrevTask");
@@ -493,7 +496,7 @@ namespace MissionLens
             foreach (var t in M.tasks)
             {
                 float x = X0 + t.startMin * k, w = t.plannedMin * k - 4; bool on = t.index == selTask; int i = t.index;
-                s.Box(x, 110, w, 70, 8, on ? Cyan : t.station == sel ? new Color(95 / 255f, 212 / 255f, 1, .32f) : new Color(1, 1, 1, t.index < taskIndex ? .27f : .12f), t.index == taskIndex && !Finished ? Amber : (Color?)null);
+                s.Box(x, 110, w, 70, 8, on ? Cyan : new Color(1, 1, 1, t.station == sel ? .22f : t.index < taskIndex ? .27f : .12f), t.index == taskIndex && !Finished ? Ink : (Color?)null);
                 // station, and under it what kind of task, where the segment is wide enough to hold the word
                 // (its last word alone, "search" for "candidate search", where the whole would not fit)
                 string kind = ShortPhase(t); if (s.Measure(kind, Size.Note) > w - 8 && kind.Contains(" ")) kind = kind.Substring(kind.LastIndexOf(' ') + 1);
@@ -504,8 +507,8 @@ namespace MissionLens
             }
             for (int m = 0; m < M.plannedTotalMin; m += 60) s.Text(MLData.Hm(m), X0 + m * k, 212, Size.Note, Gray);
             s.Text(MLData.Hm(M.plannedTotalMin), X0 + W, 212, Size.Note, Gray, false, 1);
-            s.Text(L("Timeline: BASALT-2 planned EVA (Beaton et al. 2019, Table 2) · walking times are ours · amber frame: current task",
-                     "時間割: BASALT-2 の計画 EVA に基づく(Beaton ほか 2019、表 2)· 歩行時間はこちらの仮定 · 橙の枠 = 現在の作業"), X0, 250, Size.Note, Gray);
+            s.Text(L("Timeline: BASALT-2 planned EVA (Beaton et al. 2019, Table 2) · walking times are ours · outlined: where the Marswalk is",
+                     "時間割: BASALT-2 の計画 EVA に基づく(Beaton ほか 2019、表 2)· 歩行時間はこちらの仮定 · 枠つき = Marswalk の現在位置"), X0, 250, Size.Note, Gray);
             bool armed = Time.time < restartArmedUntil; float rw = armed ? 290 : 130;
             if (rig.xr) s.Button(L("Menu", "メニュー"), s.w - 30 - rw - 12 - 130, 222, 130, 40, ToggleMenuPin, menuPinned || menuIntro, px: Size.Note, key: "Menu");
             s.Button(armed ? L("Press again to restart", "もう一度押すと最初から") : L("Restart", "やり直す"), s.w - 30 - rw, 222, rw, 40, () => { if (Time.time < restartArmedUntil) Restart(); else { restartArmedUntil = Time.time + 3; Refresh(); } }, armed, px: Size.Note, key: "Restart");
@@ -517,11 +520,11 @@ namespace MissionLens
         void DrawWrist()
         {
             var s = wrist; s.Clear(); const float PW = 600, PH = 860, IW = PW - 68; var Tk = Task; float y = 56, yb = PH - 196;
-            s.Frame(new Color(12 / 255f, 15 / 255f, 20 / 255f, .95f), preview != null || stage != Stage.Field ? Cyan : Amber);
+            s.Frame(new Color(9 / 255f, 9 / 255f, 10 / 255f, .95f), Cyan);
             if (stage == Stage.Giant || stage == Stage.Walk)
             {
                 var n = Nearest(); string nid = n.id;
-                s.Text(L("TERRAIN MODEL", "地形モデル"), 34, y, Size.Label, Ink, true); s.Text(stage == Stage.Giant ? L("PLAN · OVERLOOK", "PLAN · 見渡す") : L("TRUE SCALE", "実寸"), PW - 34, y, Size.Note, Cyan, true, 1);
+                s.Text(L("TERRAIN MODEL", "地形モデル"), 34, y, Size.Label, Ink, true); s.Text(stage == Stage.Giant ? L("PLAN · OVERLOOK", "PLAN · 見渡す") : L("TRUE SCALE", "実寸"), PW - 34, y, Size.Note, Gray, true, 1);
                 y += 62; s.Text(stage == Stage.Giant ? L("Overlook · 1 : 25", "地形を見渡す · 1 : 25") : L("Terrain model · true scale", "地形モデル · 実寸"), 34, y, Size.Heading, Ink, true); y += 46;
                 // orbital data only; what of the picture is ours
                 y = s.Sourced(L("NASA OBSERVATION", "NASA の観測"), Ink, L("HiRISE terrain model and image, from orbit", "HiRISE の地形モデルと画像(軌道から)"), 34, y, IW);
@@ -533,7 +536,7 @@ namespace MissionLens
             {
                 var st = St(At); int mine = marks.Count(m => m.station == At); bool rec = CanMark;
                 s.Text($"{st.id} {st.name}", 34, y, Size.Label, Ink, true);
-                s.Text(preview != null ? L("PLAN · LOOKING AHEAD", "PLAN · 下見") : L($"FIELD · TASK {Mathf.Min(taskIndex + 1, M.tasks.Length)}/{M.tasks.Length}", $"FIELD · 作業 {Mathf.Min(taskIndex + 1, M.tasks.Length)}/{M.tasks.Length}"), PW - 34, y, Size.Note, Cyan, true, 1);
+                s.Text(preview != null ? L("PLAN · LOOKING AHEAD", "PLAN · 下見") : L($"FIELD · TASK {Mathf.Min(taskIndex + 1, M.tasks.Length)}/{M.tasks.Length}", $"FIELD · 作業 {Mathf.Min(taskIndex + 1, M.tasks.Length)}/{M.tasks.Length}"), PW - 34, y, Size.Note, Gray, true, 1);
                 y += 58;
                 if (preview != null)
                 {   // looking ahead from the briefing: what is planned here, and nothing to do yet
@@ -544,11 +547,11 @@ namespace MissionLens
                         s.Text(L(t.plannedMin + " min", t.plannedMin + " 分"), PW - 34, y, Size.Note, Gray, false, 1); y += 34;
                     }
                     y = s.Wrap(st.hasSample ? L($"Looking ahead from the briefing. The Marswalk is at {here} {St(here).name}. Views framed here with the camera go to the observation plan.", $"ブリーフィングからの下見です。Marswalk は {here} {St(here).name} にいます。ここでカメラで決めた構図は、観測計画に入ります。")
-                                            : L($"Looking ahead from the briefing. The Marswalk is at {here} {St(here).name}; nothing is recorded here yet.", $"ブリーフィングからの下見です。Marswalk は {here} {St(here).name} にいます。ここではまだ何も記録されません。"), 34, y + 20, IW, 27, Size.Note, Amber);
+                                            : L($"Looking ahead from the briefing. The Marswalk is at {here} {St(here).name}; nothing is recorded here yet.", $"ブリーフィングからの下見です。Marswalk は {here} {St(here).name} にいます。ここではまだ何も記録されません。"), 34, y + 20, IW, 27, Size.Note, Soft);
                 }
                 else if (Finished)
                 {
-                    s.Text(L("All tasks complete", "全作業が完了"), 34, y, Size.Heading, Cyan, true);
+                    s.Text(L("All tasks complete", "全作業が完了"), 34, y, Size.Heading, Ink, true);
                     y = s.Wrap(L("Go back to the table to review what was recorded.", "机へ戻って、記録を振り返れます。"), 34, y + 42, IW, 31, Size.Label, Soft);
                 }
                 else if (Tk.station == here && Tk.leg < 0)
@@ -571,7 +574,7 @@ namespace MissionLens
                     var b = BearingFromHere(Tk.station); bool seen = st.sees.Contains(Tk.station);
                     s.Text(L("NEXT", "次"), 34, y, Size.Label, Gray, true); y += 46;
                     y = s.Wrap($"{T(Tk.phase)} · {St(Tk.station).name}", 34, y, IW, 40, Size.Heading, Ink, true);
-                    y = s.Wrap(L($"{b.d:0} m straight · bearing {MLData.Deg3(b.az)}° · station target predicted {(seen ? "clear of terrain" : "behind terrain")} (model)", $"直線 {b.d:0} m · 方位 {MLData.Deg3(b.az)}° · 目標点は{(seen ? "地形に隠れない" : "地形の陰")}と予測(モデル)"), 34, y, IW, 36, Size.Body, seen ? Ink : Amber);
+                    y = s.Wrap(L($"{b.d:0} m straight · bearing {MLData.Deg3(b.az)}° · station target predicted {(seen ? "clear of terrain" : "behind terrain")} (model)", $"直線 {b.d:0} m · 方位 {MLData.Deg3(b.az)}° · 目標点は{(seen ? "地形に隠れない" : "地形の陰")}と予測(モデル)"), 34, y, IW, 36, Size.Body, seen ? Ink : Soft);
                     var leg = M.legs.FirstOrDefault(l => (l.from == here && l.to == Tk.station) || (l.to == here && l.from == Tk.station));
                     if (leg != null) y = s.Sourced(L("OUR CALCULATION", "こちらの計算"), Cyan, L($"planned route {leg.distM:0} m, steepest {leg.slopeMaxDeg:0}°, about {Mathf.RoundToInt(leg.estWalkMin)} min at {M.walkSpeed} m/s (assumed)",
                                                                                                 $"計画ルート {leg.distM:0} m、最大傾斜 {leg.slopeMaxDeg:0}°、約 {Mathf.RoundToInt(leg.estWalkMin)} 分({M.walkSpeed} m/s は仮定)"), 34, y + 2, IW);
@@ -637,7 +640,7 @@ namespace MissionLens
                 }
                 else
                 {
-                    var b = BearingFromHere(Tk.station); bool seen = st.sees.Contains(Tk.station); main = L("Next: ", "次: ") + $"{Tk.station} {St(Tk.station).name}"; col = Amber;
+                    var b = BearingFromHere(Tk.station); bool seen = st.sees.Contains(Tk.station); main = L("Next: ", "次: ") + $"{Tk.station} {St(Tk.station).name}"; col = Ink;
                     sub = L($"{Tk.phase} · {b.d:0} m · bearing {MLData.Deg3(b.az)}° · target {(seen ? "clear" : "behind terrain")} (model)", $"{T(Tk.phase)} · {b.d:0} m · 方位 {MLData.Deg3(b.az)}° · 目標は{(seen ? "隠れない" : "地形の陰")}(モデル)");
                 }
             }
@@ -669,12 +672,12 @@ namespace MissionLens
             float R = W - (cam ? 440 : 304), bx = W - (cam ? 416 : 280);
             s.Box(0, 0, W, s.h, 26, new Color(10 / 255f, 12 / 255f, 16 / 255f, .88f));
             if (!rig.xr) s.Hit("hud", 0, 0, W, s.h, ToggleWrist, 26, true);
-            s.Text(top, 40, 48, Size.Label, stage == Stage.Field && preview != null ? Cyan : Gray, true);
+            s.Text(top, 40, 48, Size.Label, Gray, true);
             hudClock = s.Text(HudClock(Pet), R - 124, 48, Size.Note, Gray, false, 1);
             hudHeading = s.Text($"HDG {MLData.Deg3(HeadingNow)}°", R, 48, Size.Note, Gray, false, 1);
-            s.Text(main, 40, 104, Size.Heading, col, true); hudSub = s.Text(sub, 40, 146, Size.Label, flashMsg.Length > 0 ? Amber : Soft);
+            s.Text(main, 40, 104, Size.Heading, col, true); hudSub = s.Text(sub, 40, 146, Size.Label, flashMsg.Length > 0 ? Ink : Soft);
             hudSide = TurnSide();   // which way to turn when the next station is outside the view
-            if (hudSide != 0) s.Text(hudSide < 0 ? $"« {target}" : $"{target} »", R, 104, Size.Heading, Amber, true, 1);
+            if (hudSide != 0) s.Text(hudSide < 0 ? $"« {target}" : $"{target} »", R, 104, Size.Heading, Ink, true, 1);
             s.Box(bx - 12, 18, 1.5f, s.h - 36, 1, new Color(1, 1, 1, .14f));
             if (cam) s.Button(camOn ? L("Camera on", "カメラ中") : L("Camera", "カメラ"), bx + 264, 20, 124, 128, ToggleCamera, camOn, px: Size.Note, key: "Camera");
             string act = null; System.Action fn = null; bool on = false;

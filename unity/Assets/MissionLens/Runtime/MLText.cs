@@ -30,29 +30,42 @@ namespace MissionLens
               "Last stop before the climb. The outcrops to be sampled sit higher up; the terrain model predicts that their station targets are behind terrain from here. This is where the slope ahead is surveyed and the way up through the gap is confirmed." },
         };
 
-        static TMP_FontAsset font;
         /// <summary>
-        /// The font all surfaces use: the default Latin font with Noto Sans JP behind it for Japanese. A copy made
-        /// at run time, so the project's own font asset is not altered; Japanese glyphs are added to an atlas as
-        /// they are first needed.
+        /// The type: Barlow for Latin letters and figures, Noto Sans JP for Japanese, each in real weights (no weight
+        /// is synthesised: a faked bold is one of the things that makes a surface look generic). Regular is read;
+        /// Medium leads (headings, buttons); Light is for large figures; Label is a narrower Medium, for small
+        /// labels set in capitals with space between the letters.
         /// </summary>
-        public static TMP_FontAsset Font
+        public enum Face { Regular, Medium, Light, Label }
+        static readonly TMP_FontAsset[] faces = new TMP_FontAsset[4];
+        static readonly string[] latinFile = { "Barlow-Regular", "Barlow-Medium", "Barlow-Light", "BarlowSemiCondensed-Medium" };
+        static TMP_FontAsset jpRegular, jpMedium; static bool jpLoaded;
+        /// <summary>
+        /// Font assets made at run time from the font files in Resources/MLFonts; glyphs are added to an atlas as
+        /// they are first needed. Without the Latin files, the default font stands in (as it was before).
+        /// </summary>
+        public static TMP_FontAsset Get(Face f)
         {
-            get
-            {
-                if (font != null) return font;
-                var latin = TMP_Settings.defaultFontAsset; font = Object.Instantiate(latin); font.name = "Mission Lens text";
-                font.fallbackFontAssetTable = new List<TMP_FontAsset>();
-                var jp = Resources.Load<Font>("MLFonts/NotoSansJP-Regular");
-                if (jp != null)
-                {
-                    var asset = TMP_FontAsset.CreateFontAsset(jp, 64, 6, GlyphRenderMode.SDFAA, 2048, 2048, AtlasPopulationMode.Dynamic, true);
-                    if (asset != null) { asset.name = "Noto Sans JP (dynamic)"; font.fallbackFontAssetTable.Add(asset); }
-                }
-                if (latin.fallbackFontAssetTable != null) font.fallbackFontAssetTable.AddRange(latin.fallbackFontAssetTable);
-                return font;
-            }
+            int i = (int)f; if (faces[i] != null) return faces[i];
+            if (!jpLoaded) { jpLoaded = true; jpRegular = Dynamic("NotoSansJP-Regular", 2048); jpMedium = Dynamic("NotoSansJP-Medium", 2048) ?? jpRegular; }
+            var a = Dynamic(latinFile[i], 1024) ?? Object.Instantiate(TMP_Settings.defaultFontAsset);
+            a.name = "Mission Lens " + f; a.fallbackFontAssetTable = new List<TMP_FontAsset>();
+            var jp = f == Face.Regular || f == Face.Light ? jpRegular : jpMedium; if (jp != null) a.fallbackFontAssetTable.Add(jp);
+            var basic = TMP_Settings.defaultFontAsset;
+            if (basic != null) { a.fallbackFontAssetTable.Add(basic); if (basic.fallbackFontAssetTable != null) a.fallbackFontAssetTable.AddRange(basic.fallbackFontAssetTable); }
+            return faces[i] = a;
         }
+        static TMP_FontAsset Dynamic(string file, int atlas)
+        {
+            var font = Resources.Load<Font>("MLFonts/" + file); if (font == null) return null;
+            var a = TMP_FontAsset.CreateFontAsset(font, 64, 6, GlyphRenderMode.SDFAA, atlas, atlas, AtlasPopulationMode.Dynamic, true);
+            if (a != null) a.name = file + " (dynamic)";
+            return a;
+        }
+        /// <summary>The face that is read (Regular).</summary>
+        public static TMP_FontAsset Font => Get(Face.Regular);
+        /// <summary>Whether a text is set in one of the leading faces (what used to be "bold").</summary>
+        public static bool Leads(TMP_FontAsset a) => a != null && (a == faces[(int)Face.Medium] || a == faces[(int)Face.Label]);
 
         public static bool HasCjk(string s) { foreach (char c in s) if (c >= 0x2E80) return true; return false; }
         /// <summary>Characters a line should not begin with (Japanese punctuation and closing brackets).</summary>

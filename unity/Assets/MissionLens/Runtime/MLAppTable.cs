@@ -187,7 +187,7 @@ namespace MissionLens
             s.Text(ratio, bx + 470, 55, Size.Body, Ink, true);
             // where the map comes from; the shorter form where the long one would run off the strip
             float sx = bx + 470 + s.Measure(ratio, Size.Body, true) + 40; string contours = L($"contours every {ContourStep:0} m", $"等高線 {ContourStep:0} m ごと"), source = L("HiRISE image + terrain model (2 m grid) · ", "HiRISE の画像 + 地形モデル(2 m 格子)· ") + contours;
-            s.Text(s.Measure(source, Size.Label) <= s.w - 24 - sx ? source : "HiRISE · " + contours, sx, 54, Size.Label, Gray);
+            s.Text(s.Measure(source, Size.Label) <= 1380 - sx ? source : "HiRISE · " + contours, sx, 54, Size.Label, Gray);   // 1380: the timer lies over the strip's right end
         }
 
         // ---------- where on Mars the model is ----------

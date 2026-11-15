@@ -320,7 +320,7 @@ namespace MissionLens
             if (Finished) sfx.Play("ready", .7f);
             else if (brought.Count > 0)
             {   // what was recorded out there is on the map now: say so, and let each mark show itself
-                foreach (var m in brought) { m.born = Time.time; Ripple(world.TransformPoint(m.local), MLPanel.Amber, .09f); }
+                foreach (var m in brought) { m.born = Time.time; Ripple(world.TransformPoint(m.local), MLPanel.Ink, .09f); }
                 sfx.Play("mark", .7f);
                 ShowBanner(L("SIMULATED RECORD · NEEDS LOCAL VERIFICATION", "模擬の記録 · 現地での確認が必要"),
                     L($"{brought.Count} observation region{(brought.Count > 1 ? "s" : "")} on the map", $"観測領域 {brought.Count} 件を地図に記録"),
@@ -440,7 +440,7 @@ namespace MissionLens
             here = to; sel = to; stage = Stage.Field; panoTarget = 1; travelling = null;
             if (!Finished && Task.leg >= 0 && Task.station == to) { taskIndex++; done.Clear(); }   // an Approach task ends on arrival
             busy = moving = false; Refresh(); Arrived(to);
-            var feet = rig.Head.position; feet.y = rig.transform.position.y + .03f; Ripple(feet, MLPanel.Amber, 9f);   // a ring spreading over the ground from where you have come to stand
+            var feet = rig.Head.position; feet.y = rig.transform.position.y + .03f; Ripple(feet, MLPanel.Ink, 9f);   // a ring spreading over the ground from where you have come to stand
         }
 
         public void Rescale(float S) { if (!busy) StartCoroutine(CoRescale(S)); }
@@ -568,7 +568,7 @@ namespace MissionLens
             if (PanoAim(new Ray(world.TransformPoint(local) - dirW * dist * world.localScale.x, dirW), out float paz, out float pel)) { m.az = paz; m.el = pel; }
             m.label = MakeMarkLabel(m.n); marks.Add(m); DrawMarkLabel(m);
             if (Task.recordCheck >= 0) done.Add(Task.recordCheck);
-            sfx.Play("mark"); Ripple(world.TransformPoint(m.local), MLPanel.Amber, Mathf.Clamp(dist * .16f, .3f, 12f));
+            sfx.Play("mark"); Ripple(world.TransformPoint(m.local), MLPanel.Ink, Mathf.Clamp(dist * .16f, .3f, 12f));
             Log($"observation region {m.n} recorded at {here}: image direction az {m.az:0.0} el {m.el:0.0}; terrain intersection {dist:0} m (approximate)");
             Refresh(); Flash(L($"Observation region {m.n:00} · needs local verification · image direction {MLData.Deg3(m.az)}°", $"観測領域 {m.n:00} · 現地での確認が必要 · 画像の方向 {MLData.Deg3(m.az)}°"), 4.5f);
         }

@@ -1,0 +1,10 @@
+  0.02 s  goal     Before the Marswalk: turn science goals into observations.
+  2.53 s  roles    Two outcrops. Complementary scientific evidence.
+  6.82 s  frame    Frame the view. Keep its scientific purpose.
+ 12.93 s  closeup  Choose the next observation: a close-up with scale.
+ 18.78 s  connect  Connect both sites and document their geological relationship.
+ 23.70 s  card     A shared briefing: where to look, why, and what remains unresolved.
+ 26.47 s  near     
+ 29.30 s  end
+take: 1194 frames at 30 fps (39.8 s), 1920x1080. Before the saved plan: played at 1.408x. The saved plan: 5.6 s at its own pace.
+measured length of the film: 29.30 s (within 30 s)

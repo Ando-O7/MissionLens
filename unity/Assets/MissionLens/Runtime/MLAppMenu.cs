@@ -65,7 +65,7 @@ namespace MissionLens
             s.Button(followTasks ? L("Follow tasks: on", "作業に追従: 入") : L("Follow tasks: off", "作業に追従: 切"), X, y, col, bh, ToggleFollow, followTasks, key: "Follow tasks");
             // beside it, how the map itself is handled (and, the first time, how the menu is taken onto the hand)
             if (rig.xr && menuIntro)
-                s.Wrap(L("Turn the back of your left hand toward you and open your thumb wide: this menu comes to your hand. Close the thumb and it folds away.", "左手の甲を自分に向けて親指を大きく開くと、このメニューが手に付きます。親指を閉じると消えます。"), x1, y + 22, col, 27, Size.Note, Amber);
+                s.Wrap(L("Turn the back of your left hand toward you and open your thumb wide: this menu comes to your hand. Close the thumb and it folds away.", "左手の甲を自分に向けて親指を大きく開くと、このメニューが手に付きます。親指を閉じると消えます。"), x1, y + 22, col, 27, Size.Note, Soft);
             else
                 s.Wrap(rig.xr ? L("Pinch at the model and move to slide the map. Both hands: pull apart to stretch, turn to turn.", "模型のところでピンチして動かすと地図が滑ります。両手で広げると拡大、回すと回転。")
                               : L("Drag the model to slide it, wheel to zoom, Q / E to turn. M hides this menu.", "模型をドラッグで移動、ホイールで拡大縮小、Q / E で回転。M でこのメニューを隠します。"), x1, y + 22, col, 27, Size.Note, Gray);
