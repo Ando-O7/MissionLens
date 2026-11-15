@@ -32,6 +32,10 @@ At **Wildcat Ridge**, the user wants to inspect grain texture. The panorama leav
 
 A briefing may make an existing plan more specific; changing the plan is not required. [Controls and detailed walkthrough](docs/USER_GUIDE.md).
 
+## Why XR, and what comes next
+
+Mission Lens uses XR to connect map-based planning with the physical actions of looking around, pointing, and framing a view. The aim is embodied preparation: rehearsing where to look and what to document before an excursion. Future evaluations will compare spatial understanding and recall with a desktop interface using the same data. Longer term, we aim to bring the same links between location, view and scientific purpose into helmet-mounted AR support, carrying briefing context into fieldwork.
+
 ## Why these two outcrops?
 
 The science question is: **what should we observe to connect an ancient water environment with evidence that could constrain its timing?**

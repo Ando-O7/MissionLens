@@ -104,6 +104,10 @@ Back in PLAN, the plan has one row per outcrop, with its photograph, purpose, pl
 
 The briefing can make an existing plan more specific without changing its observation types. The intended result is a record that connects the chosen views, locations, purposes and unresolved questions for review by the user and another person. A change of plan is not required for completion.
 
+**Why XR, and what comes next**
+
+Mission Lens uses XR to connect map-based planning with the physical actions of looking around, pointing, and framing a view. The aim is embodied preparation: rehearsing where to look and what to document before an excursion. Future evaluations will compare spatial understanding and recall with a desktop interface using the same data. Longer term, we aim to bring the same links between location, view and scientific purpose into helmet-mounted AR support, carrying briefing context into fieldwork.
+
 **Why these data belong together**
 
 Orbital terrain (MRO HiRISE) establishes spatial relationships and modeled visibility. Regional CRISM browse imagery supplies spectral context, without ranking individual rocks. Rover observations and sample records explain why the outcrops matter. Ground panoramas support context framing, while separately acquired close-ups show the finer scale needed to inspect texture. Each source answers a different part of the planning question, and every element on screen is labelled as a NASA observation, our calculation, or simulated.
@@ -124,7 +128,7 @@ Unity 6 (6000.3.6f1) with C#, the Universal Render Pipeline, OpenXR (Unity OpenX
 
 **How the demonstration was recorded**
 
-The 30-second video was recorded in the Unity Editor with scripted head and hand input that goes through the app's normal buttons, shutter and save; it is not a headset capture. The moves between the table and the stations run faster than in the app, and the part before the saved plan is played at one uniform speed, shown in the corner of the video.
+The 29.23-second video follows one planned observation at Wildcat Ridge, using an edited Unity Editor recording with scripted head and hand input through the app's normal buttons, shutter and save. The science-card and return-to-table sections play at 1.5×; the framing moment plays at 0.5×. Moves between the table and stations were also shortened during recording. The closing card is an excerpt generated from the plan and photograph saved during that recording.
 
 ## 6. Use of Super Intelligence(必須)**[仮: 2026-11-15 18:40]**
 
